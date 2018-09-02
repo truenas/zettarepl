@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://freenas.org/zettarepl/schema.json",
+  "type": "object",
+  "properties": {
+    "periodicSnapshotTasks": {
+      "type": "array",
+      "items": {
+        "$ref": "http://freenas.org/zettarepl/periodic-snapshot-task.schema.json"
+      }
+    },
+    "replicationTasks": {
+      "type": "array",
+      "items": {
+        "$ref": "http://freenas.org/zettarepl/replication-task.schema.json"
+      }
+    }
+  }
+}
