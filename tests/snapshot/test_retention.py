@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 
 from mock import Mock
 
-from zettarepl.snapshot import Snapshot
 from zettarepl.snapshot.retention import *
+from zettarepl.snapshot.snapshot import Snapshot
 
 
 def test__calculate_periodic_snapshot_tasks_retention__1():

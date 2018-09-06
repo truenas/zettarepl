@@ -4,7 +4,7 @@ import logging
 from zettarepl.transport.shell.interface import Shell
 from zettarepl.utils.itertools import sortedgroupby
 
-from . import Snapshot
+from .snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
 

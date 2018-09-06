@@ -3,13 +3,13 @@ from datetime import datetime
 
 from mock import ANY, call, Mock, patch
 
-from zettarepl.replication import Replication
-from zettarepl.replication.task import ReplicationTask
-from zettarepl.snapshot import Snapshot
+from zettarepl.replication.replication import Replication
+from zettarepl.replication.task.task import ReplicationTask
+from zettarepl.snapshot.snapshot import Snapshot
 
 
 def test__run_periodic_snapshot_tasks__alphabetical():
-    with patch("zettarepl.replication.create_snapshot") as create_snapshot:
+    with patch("zettarepl.replication.replication.create_snapshot") as create_snapshot:
         replication = Replication(Mock(), Mock())
         replication._run_periodic_snapshot_tasks(
             datetime(2018, 9, 1, 15, 11),
@@ -27,7 +27,7 @@ def test__run_periodic_snapshot_tasks__alphabetical():
 
 
 def test__run_periodic_snapshot_tasks__recursive():
-    with patch("zettarepl.replication.create_snapshot") as create_snapshot:
+    with patch("zettarepl.replication.replication.create_snapshot") as create_snapshot:
         replication = Replication(Mock(), Mock())
         replication._run_periodic_snapshot_tasks(
             datetime(2018, 9, 1, 15, 11),

@@ -2,7 +2,7 @@
 import logging
 import os
 
-from . import PeriodicSnapshotTask
+from .task import PeriodicSnapshotTask
 
 logger = logging.getLogger(__name__)
 

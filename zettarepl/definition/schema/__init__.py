@@ -1,10 +1,10 @@
 # -*- coding=utf-8 -*-
-import json
 import logging
 import os
 
 import jsonschema
 import jsonschema.validators
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +20,15 @@ class LocalResolver(jsonschema.RefResolver):
     def resolve_remote(self, uri):
         head, tail = os.path.split(uri)
         if head == self.base_uri_head:
-            with open(os.path.join(os.path.dirname(__file__)), tail) as f:
-                return json.load(f)
+            with open(os.path.join(os.path.dirname(__file__), os.path.splitext(tail)[0] + ".yaml")) as f:
+                return yaml.load(f)
 
         return super().resolve_remote(uri)
 
 
 def create_validator(filename):
     with open(os.path.join(os.path.dirname(__file__), filename)) as f:
-        schema = json.load(f)
+        schema = yaml.load(f)
 
     validator_cls = jsonschema.validators.validator_for(schema)
     validator_cls.check_schema(schema)
@@ -37,7 +37,7 @@ def create_validator(filename):
     return validator
 
 
-periodic_snapshot_task_validator = create_validator("periodic-snapshot-task.schema.json")
-replication_task_validator = create_validator("replication-task.schema.json")
-schedule_validator = create_validator("schedule.schema.json")
-schema_validator = create_validator("schema.json")
+periodic_snapshot_task_validator = create_validator("periodic-snapshot-task.schema.yaml")
+replication_task_validator = create_validator("replication-task.schema.yaml")
+schedule_validator = create_validator("schedule.schema.yaml")
+schema_validator = create_validator("schema.yaml")

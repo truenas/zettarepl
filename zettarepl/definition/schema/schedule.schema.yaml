@@ -1,0 +1,20 @@
+$id: http://freenas.org/zettarepl/schedule.schema.json
+$schema: http://json-schema.org/draft-07/schema#
+type: object
+required:
+- minute
+- hour
+- day-of-month
+- month
+- day-of-week
+properties:
+  minute:
+    type: string
+  hour:
+    type: string
+  day-of-month:
+    type: string
+  month:
+    type: string
+  day-of-week:
+    type: string

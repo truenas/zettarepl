@@ -4,7 +4,7 @@ import logging
 
 from croniter import croniter
 
-from zettarepl.schema import schedule_validator
+from zettarepl.definition.schema import schedule_validator
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class CronSchedule:
     def from_data(cls, data):
         schedule_validator.validate(data)
 
-        return cls(data["minute"], data["hour"], data["dayOfMonth"], data["month"], data["dayOfWeek"])
+        return cls(data["minute"], data["hour"], data["day-of-month"], data["month"], data["day-of-week"])
 
     def should_run(self, d: datetime):
         idealized = d.replace(second=0, microsecond=0, tzinfo=None)

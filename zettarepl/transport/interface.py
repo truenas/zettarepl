@@ -9,6 +9,10 @@ __all__ = ["Transport"]
 
 
 class Transport:
+    @classmethod
+    def from_data(cls, data):
+        raise NotImplementedError
+
     def __hash__(self):
         raise NotImplementedError
 

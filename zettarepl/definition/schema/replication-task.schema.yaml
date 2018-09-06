@@ -1,0 +1,121 @@
+$id: http://freenas.org/zettarepl/replication-task.schema.json
+$schema: http://json-schema.org/draft-07/schema#
+type: object
+required:
+- id
+- direction
+- transport
+- source-dataset
+- target-dataset
+- recursive
+- auto
+- retention-policy
+properties:
+  id: {}
+  direction:
+    enum:
+    - push
+    - pull
+    type: string
+  transport:
+    anyOf:
+    - $ref: "#/definitions/ssh-transport"
+    - $ref: "#/definitions/ssh-netcat-transport"
+    - $ref: "#/definitions/local-transport"
+  source-dataset:
+    type: string
+  target-dataset:
+    type: string
+  recursive:
+    type: boolean
+  exclude:
+    type: array
+    items:
+      type: string
+  periodic-snapshot-tasks:
+    type: array
+    items: {}
+  also-include-naming-schema:
+    type: array
+    items:
+      type: string
+  auto:
+    type: boolean
+  schedule:
+    $ref: http://freenas.org/zettarepl/schedule.schema.json
+  restrict-schedule:
+    $ref: http://freenas.org/zettarepl/schedule.schema.json
+  only-matching-schedule:
+    type: boolean
+  retention-policy:
+    type: string
+    enum:
+    - source
+    - custom
+    - none
+  allow-from-scratch:
+    type: boolean
+  lifetime:
+    type: string
+
+definitions:
+  base-ssh-transport:
+    type: object
+    required:
+      - hostname
+      - username
+      - private-key
+    properties:
+      hostname:
+        type: string
+      port:
+        type: integer
+      username:
+        type: string
+      private-key:
+        type: string
+  ssh-transport:
+    allOf:
+    - $ref: "#/definitions/base-ssh-transport"
+    - required:
+        - type
+    - properties:
+        type:
+          type: string
+          enum:
+          - ssh
+        cipher:
+          type: string
+          enum:
+          - standard
+          - fast
+          - disabled
+  ssh-netcat-transport:
+    allOf:
+    - $ref: "#/definitions/base-ssh-transport"
+    - required:
+      - type
+      - active-side
+    - properties:
+        type:
+          type: string
+          enum:
+          - ssh+netcat
+        active-side:
+          type: string
+          enum:
+          - local
+          - remote
+        active-side-max-port:
+          type: integer
+        active-side-min-port:
+          type: integer
+  local-transport:
+    type: object
+    required:
+      - type
+    properties:
+      type:
+        type: string
+        enum:
+        - local

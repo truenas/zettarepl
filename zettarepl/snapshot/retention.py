@@ -5,9 +5,9 @@ import logging
 
 from zettarepl.utils.datetime import idealized_datetime
 
-from . import Snapshot
 from .name import parse_snapshots_names
-from .task import PeriodicSnapshotTask
+from .snapshot import Snapshot
+from .task.task import PeriodicSnapshotTask
 
 logger = logging.getLogger(__name__)
 

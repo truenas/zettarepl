@@ -14,6 +14,10 @@ __all__ = ["LocalTransport"]
 
 
 class LocalTransport(Transport):
+    @classmethod
+    def from_data(cls, data):
+        return LocalTransport()
+
     def __hash__(self):
         return 1
 

@@ -1,8 +1,8 @@
 # -*- coding=utf-8 -*-
 from mock import call, Mock
 
-from zettarepl.snapshot import Snapshot
 from zettarepl.snapshot.destroy import destroy_snapshots
+from zettarepl.snapshot.snapshot import Snapshot
 
 
 def test__destroy_snapshots__works():

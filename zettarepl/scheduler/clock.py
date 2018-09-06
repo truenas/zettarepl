@@ -9,10 +9,20 @@ __all__ = ["Clock"]
 
 
 class Clock:
-    def __init__(self):
+    def __init__(self, once=False):
+        self.once = once
+
+        self.ticked = False
         self.now = datetime.utcnow()
 
     def tick(self):
+        if self.once:
+            if self.ticked:
+                return None
+            else:
+                self.ticked = True
+                return self.now
+
         while True:
             now = self._tick()
             if now is not None:

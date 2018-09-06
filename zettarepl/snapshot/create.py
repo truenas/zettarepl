@@ -3,7 +3,7 @@ import logging
 
 from zettarepl.transport.shell.interface import *
 
-from . import Snapshot
+from .snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, recursive
     if recursive:
         args.extend(["-r"])
 
-    args.extend(snapshot)
+    args.append(str(snapshot))
 
     try:
         shell.exec(args)
