@@ -24,7 +24,7 @@ class LocalTransport(Transport):
     def create_shell(self):
         return LocalShell()
 
-    def push_snapshot(self, shell: Shell, source_dataset: str, target_dataset: str, snapshot: str,
+    def push_snapshot(self, shell: Shell, source_dataset: str, target_dataset: str, snapshot: str, recursive: bool,
                       incremental_base: str, receive_resume_token: str):
-        shell.exec(pipe(zfs_send(source_dataset, snapshot, incremental_base, receive_resume_token),
+        shell.exec(pipe(zfs_send(source_dataset, snapshot, recursive, incremental_base, receive_resume_token),
                         zfs_recv(target_dataset)))

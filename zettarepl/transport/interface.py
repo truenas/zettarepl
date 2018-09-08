@@ -19,6 +19,6 @@ class Transport:
     def create_shell(self) -> Shell:
         raise NotImplementedError
 
-    def push_snapshot(self, shell: Shell, source_dataset: str, target_dataset: str, snapshot: str,
+    def push_snapshot(self, shell: Shell, source_dataset: str, target_dataset: str, snapshot: str, recursive: bool,
                       incremental_base: str, receive_resume_token: str):
         raise NotImplementedError

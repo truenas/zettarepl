@@ -53,7 +53,7 @@ def run_push_replication_tasks(transport: Transport, replication_tasks: [Replica
 
         for snapshot in snapshots:
             transport.push_snapshot(shell, replication_task.source_dataset, replication_task.target_dataset,
-                                    snapshot, incremental_base, receive_resume_token)
+                                    snapshot, replication_task.recursive, incremental_base, receive_resume_token)
             incremental_base = snapshot
             receive_resume_token = None
 
