@@ -109,10 +109,14 @@ definitions:
           enum:
           - local
           - remote
-        active-side-max-port:
-          type: integer
+        active-side-listen-address:
+          type: string
         active-side-min-port:
           type: integer
+        active-side-max-port:
+          type: integer
+        passive-side-connect-address:
+          type: string
   local-transport:
     type: object
     required:

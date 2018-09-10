@@ -7,7 +7,7 @@ __all__ = ["Shell", "ExecException", "Transport"]
 
 
 class Shell:
-    def exec(self, args, encoding="utf8"):
+    def exec(self, args, encoding="utf8", stdout=None):
         raise NotImplementedError
 
     def put_file(self, f, dst_path):

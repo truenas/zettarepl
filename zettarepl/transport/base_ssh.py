@@ -1,8 +1,10 @@
 # -*- coding=utf-8 -*-
 import logging
 import io
+import os
 import re
 import shlex
+import threading
 
 import paramiko
 
@@ -73,11 +75,15 @@ class SshTransportShell(Shell):
 
         return self._client
 
-    def exec(self, args, encoding="utf8"):
+    def exec(self, args, encoding="utf8", stdout=None):
+        stdout_pipe = stdout
+
         client = self._get_client()
 
         self.logger.debug("Running %r", args)
         stdin, stdout, stderr = client.exec_command(" ".join([shlex.quote(arg) for arg in args]) + " 2>&1", timeout=10)
+        if stdout_pipe is not None:
+            threading.Thread(daemon=True, target=self._copy, args=(stdout, stdout_pipe)).start()
         self.logger.debug("Waiting for exit status")
         exitcode = stdout.channel.recv_exit_status()
         stdout = stdout.read().decode(encoding)
@@ -94,3 +100,8 @@ class SshTransportShell(Shell):
         sftp = client.open_sftp()
         sftp.putfo(f, dst_path)
         sftp.close()
+
+    def _copy(self, file_like, descriptor):
+        with os.fdopen(descriptor, "w") as f:
+            for line in file_like.readlines():
+                f.write(line)
