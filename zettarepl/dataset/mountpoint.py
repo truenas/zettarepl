@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections import OrderedDict
 import logging
 import os
 
@@ -18,7 +19,7 @@ def dataset_mountpoints(shell: Shell, name: str, recursive: bool, exclude: [str]
         args.append("-r")
     args.extend(["-o", "name,mountpoint", name])
 
-    mountpoints = {}
+    mountpoints = OrderedDict()
     for line in shell.exec(args).strip().split("\n"):
         dataset, mountpoint = line.split("\t", 1)
 

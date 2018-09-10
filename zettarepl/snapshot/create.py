@@ -2,6 +2,7 @@
 import logging
 
 from zettarepl.transport.interface import *
+from zettarepl.transport.utils import put_file
 
 from .snapshot import Snapshot
 
@@ -14,15 +15,22 @@ class CreateSnapshotError(Exception):
     pass
 
 
-def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, recursive_exclude: [str]):
+def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: [str]):
     logger.info("On %r creating %s snapshot %r", shell, "recursive" if recursive else "non-recursive", snapshot)
 
-    args = ["zfs", "snapshot"]
+    if exclude:
+        program = put_file("zcp/recursive_snapshot_exclude.lua", shell)
 
-    if recursive:
-        args.extend(["-r"])
+        pool_name = snapshot.dataset.split("/")[0]
 
-    args.append(str(snapshot))
+        args = ["zfs", "program", pool_name, program, snapshot.dataset, snapshot.name] + exclude
+    else:
+        args = ["zfs", "snapshot"]
+
+        if recursive:
+            args.extend(["-r"])
+
+        args.append(str(snapshot))
 
     try:
         shell.exec(args)

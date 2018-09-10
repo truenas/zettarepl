@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import logging
+import shutil
 import subprocess
 
 from zettarepl.utils.shlex import pipe
@@ -40,3 +41,7 @@ class LocalShell(Shell):
 
         logger.debug("Success: %r", result.stdout)
         return result.stdout
+
+    def put_file(self, f, dst_path):
+        with open(dst_path, "wb") as f2:
+            shutil.copyfileobj(f, f2)

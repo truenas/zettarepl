@@ -10,6 +10,7 @@ required:
 - recursive
 - auto
 - retention-policy
+additionalProperties: false
 properties:
   id: {}
   direction:
@@ -81,7 +82,7 @@ definitions:
     - $ref: "#/definitions/base-ssh-transport"
     - required:
         - type
-    - properties:
+      properties:
         type:
           type: string
           enum:
@@ -98,7 +99,7 @@ definitions:
     - required:
       - type
       - active-side
-    - properties:
+      properties:
         type:
           type: string
           enum:

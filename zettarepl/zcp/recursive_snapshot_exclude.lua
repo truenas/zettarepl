@@ -10,7 +10,9 @@ for i = 3, #args["argv"] do
     exclude[i - 2] = args["argv"][i]
 end
 
-zfs.sync.snapshot(dataset .. "@" .. snapshot_name)
+if (zfs.sync.snapshot(dataset .. "@" .. snapshot_name) ~= 0) then
+    return -1
+end
 
 iterator = zfs.list.children(dataset)
 while true do
@@ -27,6 +29,8 @@ while true do
         end
     end
     if include then
-        zfs.sync.snapshot(child .. "@" .. snapshot_name)
+        if (zfs.sync.snapshot(child .. "@" .. snapshot_name) ~= 0) then
+            return -1
+        end
     end
 end

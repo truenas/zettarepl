@@ -10,6 +10,9 @@ class Shell:
     def exec(self, args, encoding="utf8"):
         raise NotImplementedError
 
+    def put_file(self, f, dst_path):
+        raise NotImplementedError
+
 
 class ExecException(Exception):
     pass

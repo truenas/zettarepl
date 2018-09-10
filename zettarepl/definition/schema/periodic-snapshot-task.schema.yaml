@@ -8,6 +8,7 @@ required:
 - lifetime
 - naming-schema
 - schedule
+additionalProperties: false
 properties:
   id: {}
   dataset:

@@ -67,7 +67,7 @@ class Replication:
                 continue
 
             try:
-                create_snapshot(self.local_shell, snapshot, task.recursive, task.recursive_exclude)
+                create_snapshot(self.local_shell, snapshot, task.recursive, task.exclude)
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
             else:

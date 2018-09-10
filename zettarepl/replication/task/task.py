@@ -63,6 +63,13 @@ class ReplicationTask:
             else:
                 raise ValueError(f"Periodic snapshot task {task.id!r} does not exist")
 
+        for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
+            for exclude in periodic_snapshot_task.exclude:
+                if exclude not in data["exclude"]:
+                    raise ValueError(
+                        f"Replication tasks should exclude everything their periodic snapshot tasks exclude "
+                        f"(task {data['id']!r} does not exclude {exclude!r} from periodic snapshot task {task.id!r})")
+
         data["direction"] = ReplicationDirection(data["direction"])
 
         schedule, restrict_schedule = cls._parse_schedules(data)

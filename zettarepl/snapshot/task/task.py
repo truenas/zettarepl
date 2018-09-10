@@ -15,12 +15,12 @@ __all__ = ["PeriodicSnapshotTask"]
 
 
 class PeriodicSnapshotTask:
-    def __init__(self, id, dataset: str, recursive: bool, recursive_exclude: [str], lifetime: timedelta,
+    def __init__(self, id, dataset: str, recursive: bool, exclude: [str], lifetime: timedelta,
                  naming_schema: str, schedule: CronSchedule):
         self.id = id
         self.dataset = dataset
         self.recursive = recursive
-        self.recursive_exclude = recursive_exclude
+        self.exclude = exclude
         self.lifetime = lifetime
         self.naming_schema = naming_schema
         self.schedule = schedule

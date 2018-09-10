@@ -4,6 +4,8 @@ periodic-snapshot-tasks:
   - id: src
     dataset: data/src
     recursive: true
+    exclude:
+      - data/src/garbage
     lifetime: P365D
     naming-schema: snap-%Y-%m-%d-%H-%M
     schedule:
@@ -52,7 +54,10 @@ replication-tasks:
     source-dataset: data/src
     target-dataset: data/dst
     recursive: true
+    exclude:
+      - data/src/garbage
     periodic-snapshot-tasks:
       - src
     auto: true
+    allow-from-scratch: true
     retention-policy: source

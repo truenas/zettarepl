@@ -48,7 +48,7 @@ class SshTransportShell(Shell):
 
         self._client = None
 
-    def exec(self, args, encoding="utf8"):
+    def _get_client(self):
         if self._client is None:
             self.logger.debug("Connecting...")
             hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([self.hostname, self.host_key]))
@@ -71,9 +71,13 @@ class SshTransportShell(Shell):
                 auth_timeout=10,
             )
 
+        return self._client
+
+    def exec(self, args, encoding="utf8"):
+        client = self._get_client()
+
         self.logger.debug("Running %r", args)
-        stdin, stdout, stderr = self._client.exec_command(" ".join([shlex.quote(arg) for arg in args]) + " 2>&1",
-                                                          timeout=10)
+        stdin, stdout, stderr = client.exec_command(" ".join([shlex.quote(arg) for arg in args]) + " 2>&1", timeout=10)
         self.logger.debug("Waiting for exit status")
         exitcode = stdout.channel.recv_exit_status()
         stdout = stdout.read().decode(encoding)
@@ -83,3 +87,10 @@ class SshTransportShell(Shell):
 
         logger.debug("Success: %r", stdout)
         return stdout
+
+    def put_file(self, f, dst_path):
+        client = self._get_client()
+
+        sftp = client.open_sftp()
+        sftp.putfo(f, dst_path)
+        sftp.close()

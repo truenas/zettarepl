@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 from mock import Mock
 
-from zettarepl.replication.run import get_snapshots_to_send
+from zettarepl.replication.run import get_snapshots_to_send, get_target_dataset
 from zettarepl.scheduler.cron import CronSchedule
 
 
@@ -38,3 +38,17 @@ def test__get_snapshot_to_send__multiple_tasks():
              restrict_schedule=None,
              only_matching_schedule=False),
     ) == ("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"])
+
+
+def test__get_target_dataset__1():
+    assert get_target_dataset(
+        Mock(source_dataset="data/src", target_dataset="data/dst"),
+        "data/src"
+    ) == "data/dst"
+
+
+def test__get_target_dataset__2():
+    assert get_target_dataset(
+        Mock(source_dataset="data/src", target_dataset="data/dst"),
+        "data/src/a/b"
+    ) == "data/dst/a/b"
