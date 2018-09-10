@@ -2,7 +2,7 @@
 import logging
 import os
 
-from zettarepl.transport.shell.interface import Shell
+from zettarepl.transport.interface import Shell
 
 logger = logging.getLogger(__name__)
 

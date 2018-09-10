@@ -6,7 +6,7 @@ from zettarepl.dataset.mtab import Mtab
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas
 from zettarepl.transport.interface import Transport
-from zettarepl.transport.shell.local import LocalShell
+from zettarepl.transport.local import LocalShell
 
 from .task.task import ReplicationTask
 
@@ -35,7 +35,7 @@ def run_push_replication_tasks(transport: Transport, replication_tasks: [Replica
             shell, replication_task.target_dataset, False, [], mtab)[replication_task.target_dataset]
 
         src_snapshots = list_snapshots(local_shell, src_mountpoint)
-        dst_snapshots = list_snapshots(local_shell, dst_mountpoint)
+        dst_snapshots = list_snapshots(shell, dst_mountpoint)
 
         try:
             incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task)

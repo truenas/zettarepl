@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
-from zettarepl.transport.shell.interface import *
+from zettarepl.transport.interface import *
 
 from .snapshot import Snapshot
 

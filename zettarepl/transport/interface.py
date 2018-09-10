@@ -1,11 +1,18 @@
 # -*- coding=utf-8 -*-
 import logging
 
-from .shell.interface import Shell
-
 logger = logging.getLogger(__name__)
 
-__all__ = ["Transport"]
+__all__ = ["Shell", "ExecException", "Transport"]
+
+
+class Shell:
+    def exec(self, args, encoding="utf8"):
+        raise NotImplementedError
+
+
+class ExecException(Exception):
+    pass
 
 
 class Transport:

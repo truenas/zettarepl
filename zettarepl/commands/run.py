@@ -8,7 +8,7 @@ from zettarepl.replication.replication import Replication
 from zettarepl.scheduler.clock import Clock
 from zettarepl.scheduler.tz_clock import TzClock
 from zettarepl.scheduler.scheduler import Scheduler
-from zettarepl.transport.shell.local import LocalShell
+from zettarepl.transport.local import LocalShell
 
 logger = logging.getLogger(__name__)
 

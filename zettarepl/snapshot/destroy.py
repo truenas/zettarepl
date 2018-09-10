@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
-from zettarepl.transport.shell.interface import Shell
+from zettarepl.transport.interface import Shell
 from zettarepl.utils.itertools import sortedgroupby
 
 from .snapshot import Snapshot
