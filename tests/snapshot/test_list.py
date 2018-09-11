@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from mock import Mock
+from unittest.mock import Mock
 
 from zettarepl.snapshot.list import list_snapshots
 

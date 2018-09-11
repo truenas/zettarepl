@@ -5,11 +5,11 @@ import os
 import subprocess
 import tempfile
 
+from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.utils.shlex import pipe
 
 from .base_ssh import BaseSshTransport
-from .interface import Shell
-from .local import LocalShell
+from .interface import *
 from .zfscli import *
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,65 @@ class SshClientCapabilities:
         return SshClientCapabilities(executable, supports_none_cipher)
 
 
+class SshReplicationProcess(ReplicationProcess):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.private_key_file = None
+        self.host_key_file = None
+        self.async_exec = None
+
+    def run(self):
+        self.private_key_file = tempfile.mkstemp()
+        os.chmod(self.private_key_file, 0o600)
+        with open(self.private_key_file, "w") as f:
+            f.write(self.remote_shell.transport.private_key)
+
+        self.host_key_file = tempfile.mkstemp()
+        os.chmod(self.host_key_file, 0o600)
+        with open(self.host_key_file, "w") as f:
+            f.write(self.remote_shell.transport.host_key)
+
+        cmd = [self.local_shell.client_capabilities.executable]
+
+        cmd.extend({
+           SshTransportCipher.STANDARD: [],
+           SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
+           SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
+        }[self.remote_shell.transport.cipher])
+
+        cmd.extend(["-i", self.private_key_file])
+
+        cmd.extend(["-o", f"UserKnownHostsFile={self.host_key_file}"])
+        cmd.extend(["-o", "StrictHostKeyChecking=yes"])
+
+        cmd.extend(["-o", "BatchMode=yes"])
+        cmd.extend(["-o", "ConnectTimeout=10"])
+
+        cmd.extend([f"-p{self.remote_shell.transport.port}"])
+        cmd.extend([f"{self.remote_shell.transport.username}@{self.remote_shell.transport.hostname}"])
+
+        send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
+                        self.receive_resume_token)
+
+        recv = zfs_recv(self.target_dataset)
+
+        if self.direction == ReplicationDirection.PUSH:
+            self.async_exec = self.local_shell.exec_async(pipe(send, cmd + recv))
+        elif self.direction == ReplicationDirection.PULL:
+            self.async_exec = self.local_shell.exec_async(pipe(cmd + send, recv))
+        else:
+            raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+    def wait(self):
+        return self.async_exec.wait()
+
+    def stop(self):
+        return self.async_exec.stop()
+
+
 class SshTransport(BaseSshTransport):
-    _client_capabilities = None
+    system_client_capabilities = None
 
     def __init__(self, client_capabilities, cipher, **kwargs):
         super().__init__(**kwargs)
@@ -54,15 +111,15 @@ class SshTransport(BaseSshTransport):
 
     @classmethod
     def from_data(cls, data):
-        if cls._client_capabilities is None:
-            cls._client_capabilities = SshClientCapabilities.discover()
+        if cls.system_client_capabilities is None:
+            cls.system_client_capabilities = SshClientCapabilities.discover()
 
         data = super().from_data(data)
 
         data.setdefault("cipher", "standard")
         data["cipher"] = SshTransportCipher(data["cipher"])
 
-        data["client_capabilities"] = cls._client_capabilities
+        data["client_capabilities"] = cls.system_client_capabilities
         if data["cipher"] is SshTransportCipher.DISABLED and not data["client_capabilities"].supports_none_cipher:
             raise ValueError("Local SSH client does not support disabling cipher")
 
@@ -71,47 +128,4 @@ class SshTransport(BaseSshTransport):
     def __hash__(self):
         return hash([hash(super()), self.cipher])
 
-    def push_snapshot(self, *args, **kwargs):
-        with tempfile.NamedTemporaryFile() as private_key_file:
-            with tempfile.NamedTemporaryFile() as host_key_file:
-                os.chmod(private_key_file.name, 0o600)
-                private_key_file.write(self.private_key.encode("ascii"))
-                private_key_file.flush()
-
-                os.chmod(host_key_file.name, 0o600)
-                host_key_file.write(" ".join([self.hostname, self.host_key]).encode("ascii"))
-                host_key_file.flush()
-
-                kwargs.update(private_key_file=private_key_file.name, host_key_file=host_key_file.name)
-
-                return self._push_snapshot(*args, **kwargs)
-
-    def _push_snapshot(self, shell: Shell, source_dataset: str, target_dataset: str, snapshot: str, recursive: bool,
-                       incremental_base: str, receive_resume_token: str,
-                       private_key_file: str, host_key_file: str):
-        cmd = [self.client_capabilities.executable]
-
-        cmd.extend({
-            SshTransportCipher.STANDARD: [],
-            SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
-            SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
-        }[self.cipher])
-
-        cmd.extend(["-i", private_key_file])
-
-        cmd.extend(["-o", f"UserKnownHostsFile={host_key_file}"])
-        cmd.extend(["-o", "StrictHostKeyChecking=yes"])
-
-        cmd.extend(["-o", "BatchMode=yes"])
-        cmd.extend(["-o", "ConnectTimeout=10"])
-
-        cmd.extend([f"-p{self.port}"])
-        cmd.extend([f"{self.username}@{self.hostname}"])
-
-        cmd.extend(zfs_recv(target_dataset))
-
-        commands = [zfs_send(source_dataset, snapshot, recursive, incremental_base, receive_resume_token)]
-        commands.append(cmd)
-
-        local_shell = LocalShell()
-        local_shell.exec(pipe(*commands))
+    replication_process = SshReplicationProcess

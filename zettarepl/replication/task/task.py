@@ -7,14 +7,11 @@ from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.create import create_transport
 
+from .direction import ReplicationDirection
+
 logger = logging.getLogger(__name__)
 
-__all__ = ["ReplicationDirection", "ReplicationTask"]
-
-
-class ReplicationDirection(enum.Enum):
-    PUSH = "push"
-    PULL = "pull"
+__all__ = ["ReplicationTask"]
 
 
 class TargetSnapshotRetentionPolicy:

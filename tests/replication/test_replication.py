@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
 
-from mock import ANY, call, Mock, patch
+from unittest.mock import ANY, call, Mock, patch
 
 from zettarepl.replication.replication import Replication
 from zettarepl.replication.task.task import ReplicationTask

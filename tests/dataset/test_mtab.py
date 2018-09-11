@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 import textwrap
 
-from mock import Mock
+from unittest.mock import Mock
 
 from zettarepl.dataset.mtab import Mtab
 

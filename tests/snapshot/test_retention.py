@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime, timedelta
 
-from mock import Mock
+from unittest.mock import Mock
 
 from zettarepl.snapshot.retention import *
 from zettarepl.snapshot.snapshot import Snapshot

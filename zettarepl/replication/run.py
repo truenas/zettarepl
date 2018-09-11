@@ -5,16 +5,18 @@ import os
 
 from zettarepl.dataset.mountpoint import dataset_mountpoints
 from zettarepl.dataset.mtab import Mtab
+from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas
 from zettarepl.transport.interface import Transport
 from zettarepl.transport.local import LocalShell
+from zettarepl.transport.zfscli import get_receive_resume_token
 
 from .task.task import ReplicationTask
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["run_push_replication_tasks"]
+__all__ = ["run_replication_tasks"]
 
 ReplicationContext = namedtuple("ReplicationContext", ["transport", "shell", "mtab"])
 
@@ -23,25 +25,32 @@ class NoIncrementalBaseException(Exception):
     pass
 
 
-def run_push_replication_tasks(transport: Transport, replication_tasks: [ReplicationTask]):
+def run_replication_tasks(local_shell: LocalShell, transport: Transport, replication_tasks: [ReplicationTask]):
     replication_tasks = sorted(replication_tasks, key=lambda replication_task: (
         replication_task.source_dataset,
         not replication_task.recursive,
     ))
 
-    src_shell = LocalShell()
-    src_mtab = Mtab(src_shell)
-    dst_shell = transport.create_shell()
-    dst_mtab = Mtab(dst_shell)
+    local_mtab = Mtab(local_shell)
+    remote_shell = transport.shell(transport)
+    remote_mtab = Mtab(remote_shell)
     for replication_task in replication_tasks:
         run_replication_task(replication_task,
-                             ReplicationContext(None, src_shell, src_mtab),
-                             ReplicationContext(transport, dst_shell, dst_mtab))
+                             ReplicationContext(None, local_shell, local_mtab),
+                             ReplicationContext(transport, remote_shell, remote_mtab))
 
 
-def run_replication_task(replication_task: ReplicationTask,
-                         src_context: ReplicationContext,
-                         dst_context: ReplicationContext):
+def run_replication_task(replication_task: ReplicationTask, local_context: ReplicationContext,
+                         remote_context: ReplicationContext):
+    if replication_task.direction == ReplicationDirection.PUSH:
+        src_context = local_context
+        dst_context = remote_context
+    elif replication_task.direction == ReplicationDirection.PULL:
+        src_context = remote_context
+        dst_context = local_context
+    else:
+        raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
+
     src_list_datasets_recursive = (
         # Will have to send individual datasets non-recursively so we need a list of them
         replication_task.recursive and replication_task.exclude
@@ -77,21 +86,30 @@ def run_replication_task(replication_task: ReplicationTask,
                      for src_dataset in src_mountpoints.keys()]
 
     for src_dataset, dst_dataset, recursive in replicate:
-        replicate_snapshots(src_dataset, dst_context, dst_dataset, snapshots, recursive, incremental_base)
+        replicate_snapshots(local_context, remote_context, replication_task.direction, src_dataset, dst_dataset,
+                            snapshots, recursive, incremental_base)
 
 
-def replicate_snapshots(src_dataset,
-                        dst_context: ReplicationContext, dst_dataset,
-                        snapshots, recursive, incremental_base):
+def replicate_snapshots(local_context: ReplicationContext, remote_context: ReplicationContext,
+                        direction: ReplicationDirection, src_dataset, dst_dataset, snapshots, recursive,
+                        incremental_base):
+    if direction == ReplicationDirection.PUSH:
+        dst_context = remote_context
+    elif direction == ReplicationDirection.PULL:
+        dst_context = local_context
+    else:
+        raise ValueError(f"Invalid replication direction: {direction!r}")
+
     dataset_incremental_base = incremental_base
 
-    receive_resume_token = dst_context.shell.exec(
-        ["zfs", "get", "-H", "receive_resume_token", dst_dataset]).split("\t")[2]
-    receive_resume_token = None if receive_resume_token == "-" else receive_resume_token
+    receive_resume_token = get_receive_resume_token(dst_context.shell, dst_dataset)
 
     for snapshot in snapshots:
-        dst_context.transport.push_snapshot(dst_context.shell, src_dataset, dst_dataset, snapshot, recursive,
-                                            dataset_incremental_base, receive_resume_token)
+        process = dst_context.transport.replication_process(
+            local_context.shell, remote_context.shell, direction, src_dataset, dst_dataset, snapshot, recursive,
+            dataset_incremental_base, receive_resume_token)
+        process.run()
+        process.wait()
         dataset_incremental_base = snapshot
         receive_resume_token = None
 

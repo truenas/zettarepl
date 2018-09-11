@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from mock import call, Mock
+from unittest.mock import call, Mock
 
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot

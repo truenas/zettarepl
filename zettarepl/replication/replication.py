@@ -6,7 +6,8 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.utils.itertools import bisect, bisect_by_class, sortedgroupby
 
-from .run import run_push_replication_tasks
+from .run import run_replication_tasks
+from .task.direction import ReplicationDirection
 from .task.task import *
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class Replication:
             push_replication_tasks, replication_tasks = bisect(
                 lambda replication_task: replication_task.direction == ReplicationDirection.PUSH, replication_tasks)
 
-            run_push_replication_tasks(transport, push_replication_tasks)
+            run_replication_tasks(self.local_shell, transport, push_replication_tasks)
 
             #pull_replication_tasks, replication_tasks = bisect(
             #    lambda replication_task: replication_task.direction == ReplicationDirection.PUSH, replication_tasks)

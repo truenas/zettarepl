@@ -3,11 +3,16 @@ import hashlib
 import logging
 import os
 
-from .interface import Shell, ExecException
+from .interface import Shell, ExecException, ReplicationProcess
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["put_file"]
+__all__ = ["ProcessReplicationProcess", "put_file"]
+
+
+class ProcessAwareReplicationProcess(ReplicationProcess):
+    def __init__(self, *args, **kwargs):
+        ReplicationProcess.__init__(*args, **kwargs)
 
 
 def put_file(name, shell: Shell):

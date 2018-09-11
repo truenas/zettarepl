@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
 
-from mock import Mock, patch
+from unittest.mock import Mock, patch
 import pytest
 
 from zettarepl.scheduler.clock import Clock

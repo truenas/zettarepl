@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from mock import Mock
+from unittest.mock import Mock
 
 from zettarepl.replication.run import get_snapshots_to_send, get_target_dataset
 from zettarepl.scheduler.cron import CronSchedule
