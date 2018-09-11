@@ -61,3 +61,4 @@ replication-tasks:
     auto: true
     allow-from-scratch: true
     retention-policy: source
+    speed-limit: 1024

@@ -53,49 +53,63 @@ class SshReplicationProcess(ReplicationProcess):
         self.async_exec = None
 
     def run(self):
-        self.private_key_file = tempfile.mkstemp()
-        os.chmod(self.private_key_file, 0o600)
-        with open(self.private_key_file, "w") as f:
-            f.write(self.remote_shell.transport.private_key)
+        self.private_key_file = tempfile.NamedTemporaryFile("w")
+        os.chmod(self.private_key_file.name, 0o600)
+        self.private_key_file.write(self.remote_shell.transport.private_key)
+        self.private_key_file.flush()
 
-        self.host_key_file = tempfile.mkstemp()
-        os.chmod(self.host_key_file, 0o600)
-        with open(self.host_key_file, "w") as f:
-            f.write(self.remote_shell.transport.host_key)
+        self.host_key_file = tempfile.NamedTemporaryFile("w")
+        os.chmod(self.host_key_file.name, 0o600)
+        self.host_key_file.write(f"{self.remote_shell.transport.hostname} {self.remote_shell.transport.host_key}")
+        self.host_key_file.flush()
 
-        cmd = [self.local_shell.client_capabilities.executable]
+        try:
+            cmd = [self.remote_shell.transport.client_capabilities.executable]
 
-        cmd.extend({
-           SshTransportCipher.STANDARD: [],
-           SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
-           SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
-        }[self.remote_shell.transport.cipher])
+            cmd.extend({
+               SshTransportCipher.STANDARD: [],
+               SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
+               SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
+            }[self.remote_shell.transport.cipher])
 
-        cmd.extend(["-i", self.private_key_file])
+            cmd.extend(["-i", self.private_key_file.name])
 
-        cmd.extend(["-o", f"UserKnownHostsFile={self.host_key_file}"])
-        cmd.extend(["-o", "StrictHostKeyChecking=yes"])
+            cmd.extend(["-o", f"UserKnownHostsFile={self.host_key_file.name}"])
+            cmd.extend(["-o", "StrictHostKeyChecking=yes"])
 
-        cmd.extend(["-o", "BatchMode=yes"])
-        cmd.extend(["-o", "ConnectTimeout=10"])
+            cmd.extend(["-o", "BatchMode=yes"])
+            cmd.extend(["-o", "ConnectTimeout=10"])
 
-        cmd.extend([f"-p{self.remote_shell.transport.port}"])
-        cmd.extend([f"{self.remote_shell.transport.username}@{self.remote_shell.transport.hostname}"])
+            cmd.extend([f"-p{self.remote_shell.transport.port}"])
+            cmd.extend([f"{self.remote_shell.transport.username}@{self.remote_shell.transport.hostname}"])
 
-        send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
-                        self.receive_resume_token)
+            send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
+                            self.receive_resume_token)
 
-        recv = zfs_recv(self.target_dataset)
+            recv = zfs_recv(self.target_dataset)
 
-        if self.direction == ReplicationDirection.PUSH:
-            self.async_exec = self.local_shell.exec_async(pipe(send, cmd + recv))
-        elif self.direction == ReplicationDirection.PULL:
-            self.async_exec = self.local_shell.exec_async(pipe(cmd + send, recv))
-        else:
-            raise ValueError(f"Invalid replication direction: {self.direction!r}")
+            if self.direction == ReplicationDirection.PUSH:
+                commands = [send, cmd + recv]
+            elif self.direction == ReplicationDirection.PULL:
+                commands = [cmd + send, recv]
+            else:
+                raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+            if self.speed_limit is not None:
+                commands.insert(1, ["throttle", "-B", str(self.speed_limit)])
+
+            self.async_exec = self.local_shell.exec_async(pipe(*commands))
+        except Exception:
+            self.private_key_file.close()
+            self.host_key_file.close()
+            raise
 
     def wait(self):
-        return self.async_exec.wait()
+        try:
+            return self.async_exec.wait()
+        finally:
+            self.private_key_file.close()
+            self.host_key_file.close()
 
     def stop(self):
         return self.async_exec.stop()

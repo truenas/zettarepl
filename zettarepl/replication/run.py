@@ -87,12 +87,12 @@ def run_replication_task(replication_task: ReplicationTask, local_context: Repli
 
     for src_dataset, dst_dataset, recursive in replicate:
         replicate_snapshots(local_context, remote_context, replication_task.direction, src_dataset, dst_dataset,
-                            snapshots, recursive, incremental_base)
+                            snapshots, recursive, incremental_base, replication_task.speed_limit)
 
 
 def replicate_snapshots(local_context: ReplicationContext, remote_context: ReplicationContext,
                         direction: ReplicationDirection, src_dataset, dst_dataset, snapshots, recursive,
-                        incremental_base):
+                        incremental_base, speed_limit):
     if direction == ReplicationDirection.PUSH:
         dst_context = remote_context
     elif direction == ReplicationDirection.PULL:
@@ -107,7 +107,7 @@ def replicate_snapshots(local_context: ReplicationContext, remote_context: Repli
     for snapshot in snapshots:
         process = dst_context.transport.replication_process(
             local_context.shell, remote_context.shell, direction, src_dataset, dst_dataset, snapshot, recursive,
-            dataset_incremental_base, receive_resume_token)
+            dataset_incremental_base, receive_resume_token, speed_limit)
         process.run()
         process.wait()
         dataset_incremental_base = snapshot

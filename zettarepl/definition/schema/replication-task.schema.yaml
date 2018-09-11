@@ -58,6 +58,8 @@ properties:
     type: boolean
   lifetime:
     type: string
+  speed-limit:
+    type: integer
 
 definitions:
   base-ssh-transport:

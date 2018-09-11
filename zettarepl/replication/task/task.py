@@ -1,5 +1,4 @@
 # -*- coding=utf-8 -*-
-import enum
 import logging
 
 from zettarepl.definition.schema import replication_task_validator
@@ -23,7 +22,7 @@ class ReplicationTask:
                  recursive: bool, exclude: [str], periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str], auto: bool, schedule: CronSchedule, restrict_schedule: CronSchedule,
                  only_matching_schedule: bool, allow_from_scratch: bool,
-                 retention_policy: TargetSnapshotRetentionPolicy):
+                 retention_policy: TargetSnapshotRetentionPolicy, speed_limit: int):
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -39,6 +38,7 @@ class ReplicationTask:
         self.only_matching_schedule = only_matching_schedule
         self.allow_from_scratch = allow_from_scratch
         self.retention_policy = retention_policy
+        self.speed_limit = speed_limit
 
     @classmethod
     def from_data(cls, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
@@ -50,6 +50,7 @@ class ReplicationTask:
         data.setdefault("only-matching-schedule", False)
         data.setdefault("allow-from-scratch", False)
         data.setdefault("lifetime", None)
+        data.setdefault("speed-limit", None)
 
         resolved_periodic_snapshot_tasks = []
         for task_id in data["periodic-snapshot-tasks"]:
@@ -79,7 +80,7 @@ class ReplicationTask:
                    data["source-dataset"], data["target-dataset"],
                    data["recursive"], data["exclude"], resolved_periodic_snapshot_tasks,
                    data["also-include-naming-schema"], data["auto"], schedule, restrict_schedule,
-                   data["only-matching-schedule"], data["allow-from-scratch"], retention_policy)
+                   data["only-matching-schedule"], data["allow-from-scratch"], retention_policy, data["speed-limit"])
 
     @classmethod
     def _parse_schedules(cls, data):

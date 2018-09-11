@@ -53,7 +53,8 @@ class ReplicationProcess:
                  direction: ReplicationDirection,
                  source_dataset: str, target_dataset: str,
                  snapshot: str, recursive: bool,
-                 incremental_base: str, receive_resume_token: str):
+                 incremental_base: str, receive_resume_token: str,
+                 speed_limit: int):
         self.local_shell = local_shell
         self.remote_shell = remote_shell
         self.direction = direction
@@ -63,6 +64,7 @@ class ReplicationProcess:
         self.recursive = recursive
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
+        self.speed_limit = speed_limit
 
     def run(self):
         raise NotImplementedError
