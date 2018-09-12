@@ -24,9 +24,10 @@ if __name__ == "__main__":
     send_parser = subparsers.add_parser("send")
     send_parser.set_defaults(command="send")
     send_parser.add_argument("dataset")
-    send_parser.add_argument("snapshot")
     send_parser.add_argument("--recursive", action="store_true")
+    send_parser.add_argument("--snapshot")
     send_parser.add_argument("--incremental-base")
+    send_parser.add_argument("--receive-resume-token")
 
     receive_parser = subparsers.add_parser("receive")
     receive_parser.set_defaults(command="receive")
@@ -74,9 +75,8 @@ if __name__ == "__main__":
     zfs = libzfs.ZFS()
 
     if args.command == "receive":
-        dataset = zfs.get_object(args.dataset)
         try:
-            dataset.receive(fh, force=True)
+            zfs.receive(args.dataset, fh, force=True, resumable=True)
         except libzfs.ZFSException as e:
             sys.stderr.write(f"{e.args[0]}\n")
             sys.exit(1)
@@ -89,7 +89,16 @@ if __name__ == "__main__":
             flags.append(libzfs.SendFlag.REPLICATE)
 
         try:
-            dataset.send(fh, fromname=args.incremental_base, toname=args.snapshot, flags=flags)
+            if args.receive_resume_token is None:
+                assert args.snapshot is not None
+
+                dataset.send(fh, fromname=args.incremental_base, toname=args.snapshot, flags=flags)
+            else:
+                assert args.snapshot is None
+                assert args.incremental_base is None
+
+                zfs.send_resume(fh, args.receive_resume_token, flags)
+
         except libzfs.ZFSException as e:
             sys.stderr.write(f"{e.args[0]}\n")
             sys.exit(1)

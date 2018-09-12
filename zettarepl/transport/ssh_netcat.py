@@ -43,11 +43,21 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                        "--listen-min-port", str(self.remote_shell.transport.active_side_min_port),
                        "--listen-max-port", str(self.remote_shell.transport.active_side_max_port)]
 
-        send_args = ["send", self.source_dataset, self.snapshot]
+        send_args = ["send", self.source_dataset]
         if self.recursive:
             send_args.append("--recursive")
-        if self.incremental_base:
-            send_args.extend(["--incremental-base", self.incremental_base])
+        if self.receive_resume_token is None:
+            assert self.snapshot is not None
+
+            send_args.extend(["--snapshot", self.snapshot])
+
+            if self.incremental_base:
+                send_args.extend(["--incremental-base", self.incremental_base])
+        else:
+            assert self.snapshot is None
+            assert self.incremental_base is None
+
+            send_args.extend(["--receive-resume-token", self.receive_resume_token])
 
         receive_args = ["receive", self.target_dataset]
 

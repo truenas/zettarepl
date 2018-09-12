@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import logging
+import os
 import shutil
 import subprocess
 
@@ -48,6 +49,12 @@ class LocalShell(Shell):
 
     def __init__(self, transport=None):
         super().__init__(transport)
+
+    def exists(self, path):
+        return os.path.exists(path)
+
+    def ls(self, path):
+        return os.listdir(path)
 
     def put_file(self, f, dst_path):
         with open(dst_path, "wb") as f2:

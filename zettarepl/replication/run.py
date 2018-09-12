@@ -12,6 +12,8 @@ from zettarepl.transport.interface import Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
 
+from .monitor import ReplicationMonitor
+from .process_runner import ReplicationProcessRunner
 from .task.task import ReplicationTask
 
 logger = logging.getLogger(__name__)
@@ -19,10 +21,54 @@ logger = logging.getLogger(__name__)
 __all__ = ["run_replication_tasks"]
 
 ReplicationContext = namedtuple("ReplicationContext", ["transport", "shell", "mtab"])
+ReplicationOptions = namedtuple("ReplicationOptions", ["speed_limit"])
 
 
 class NoIncrementalBaseException(Exception):
     pass
+
+
+class ReplicationStepTemplate:
+    def __init__(self, local_context: ReplicationContext, remote_context: ReplicationContext,
+                 direction: ReplicationDirection, src_dataset: str, dst_dataset: str, recursive: bool,
+                 options: ReplicationOptions):
+        self.local_context = local_context
+        self.remote_context = remote_context
+        self.direction = direction
+
+        if self.direction == ReplicationDirection.PUSH:
+            self.src_context = self.local_context
+            self.dst_context = remote_context
+        elif self.direction == ReplicationDirection.PULL:
+            self.src_context = remote_context
+            self.dst_context = local_context
+        else:
+            raise ValueError(f"Invalid replication direction: {self.direction.direction!r}")
+
+        self.src_dataset = src_dataset
+        self.dst_dataset = dst_dataset
+        self.recursive = recursive
+
+        self.options = options
+
+    def instantiate(self, **kwargs):
+        return ReplicationStep(self.local_context, self.remote_context,
+                               self.direction, self.src_dataset, self.dst_dataset, self.recursive,
+                               self.options, **kwargs)
+
+
+class ReplicationStep(ReplicationStepTemplate):
+    def __init__(self, *args, snapshot=None, incremental_base=None, receive_resume_token=None):
+        super().__init__(*args)
+
+        self.snapshot = snapshot
+        self.incremental_base = incremental_base
+        self.receive_resume_token = receive_resume_token
+        if self.receive_resume_token is None:
+            assert self.snapshot is not None
+        else:
+            assert self.snapshot is None
+            assert self.incremental_base is None
 
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, replication_tasks: [ReplicationTask]):
@@ -51,67 +97,75 @@ def run_replication_task(replication_task: ReplicationTask, local_context: Repli
     else:
         raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-    src_list_datasets_recursive = (
+    list_datasets_recursive = (
         # Will have to send individual datasets non-recursively so we need a list of them
         replication_task.recursive and replication_task.exclude
     )
 
     src_mountpoints = dataset_mountpoints(
         src_context.shell, replication_task.source_dataset,
-        src_list_datasets_recursive, replication_task.exclude,
+        list_datasets_recursive, replication_task.exclude,
         src_context.mtab)
-
-    src_mountpoint = src_mountpoints[replication_task.source_dataset]
-    dst_mountpoint = dataset_mountpoints(
+    dst_mountpoints = dataset_mountpoints(
         dst_context.shell, replication_task.target_dataset,
-        False, [],
-        dst_context.mtab)[replication_task.target_dataset]
-
-    src_snapshots = list_snapshots(src_context.shell, src_mountpoint)
-    dst_snapshots = list_snapshots(dst_context.shell, dst_mountpoint)
-
-    try:
-        incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task)
-    except NoIncrementalBaseException:
-        logger.warning("No incremental base for replication task %r and replication from scratch is not allowed",
-                       replication_task.id)
-        return
-
-    if not snapshots:
-        return
+        list_datasets_recursive, [],
+        dst_context.mtab)
 
     replicate = [(replication_task.source_dataset, replication_task.target_dataset, replication_task.recursive)]
     if replication_task.recursive and replication_task.exclude:
         replicate = [(src_dataset, get_target_dataset(replication_task, src_dataset), False)
                      for src_dataset in src_mountpoints.keys()]
 
+    options = ReplicationOptions(replication_task.speed_limit)
+
     for src_dataset, dst_dataset, recursive in replicate:
-        replicate_snapshots(local_context, remote_context, replication_task.direction, src_dataset, dst_dataset,
-                            snapshots, recursive, incremental_base, replication_task.speed_limit)
+        if dst_dataset in dst_mountpoints:
+            receive_resume_token = get_receive_resume_token(dst_context.shell, dst_dataset)
+
+            if receive_resume_token is not None:
+                logger.info("Resuming replication for dst_dataset %r", dst_dataset)
+                run_replication_step(
+                    ReplicationStep(local_context, remote_context, replication_task.direction, src_dataset, dst_dataset,
+                                    recursive, options, receive_resume_token=receive_resume_token))
+
+    for src_dataset, dst_dataset, recursive in replicate:
+        src_mountpoint = src_mountpoints[src_dataset]
+        src_snapshots = list_snapshots(src_context.shell, src_mountpoint)
+
+        dst_snapshots = []
+        if dst_dataset in dst_mountpoints:
+            dst_snapshots = list_snapshots(dst_context.shell, dst_mountpoints[dst_dataset])
+
+        try:
+            incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task)
+        except NoIncrementalBaseException:
+            logger.warning("No incremental base for replication task %r on dataset %r and replication from scratch "
+                           "is not allowed", replication_task.id, src_dataset)
+            continue
+
+        if not snapshots:
+            logger.info("No snapshots to send for replication task %r on dataset %r", replication_task.id, src_dataset)
+            continue
+
+        step_template = ReplicationStepTemplate(
+            local_context, remote_context, replication_task.direction, src_dataset, dst_dataset, recursive, options)
+        replicate_snapshots(step_template, incremental_base, snapshots)
 
 
-def replicate_snapshots(local_context: ReplicationContext, remote_context: ReplicationContext,
-                        direction: ReplicationDirection, src_dataset, dst_dataset, snapshots, recursive,
-                        incremental_base, speed_limit):
-    if direction == ReplicationDirection.PUSH:
-        dst_context = remote_context
-    elif direction == ReplicationDirection.PULL:
-        dst_context = local_context
-    else:
-        raise ValueError(f"Invalid replication direction: {direction!r}")
-
-    dataset_incremental_base = incremental_base
-
-    receive_resume_token = get_receive_resume_token(dst_context.shell, dst_dataset)
-
+def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots):
     for snapshot in snapshots:
-        process = dst_context.transport.replication_process(
-            local_context.shell, remote_context.shell, direction, src_dataset, dst_dataset, snapshot, recursive,
-            dataset_incremental_base, receive_resume_token, speed_limit)
-        process.run()
-        process.wait()
-        dataset_incremental_base = snapshot
-        receive_resume_token = None
+        run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot))
+        incremental_base = snapshot
+
+
+def run_replication_step(step: ReplicationStep):
+    process = step.dst_context.transport.replication_process(
+        step.local_context.shell, step.remote_context.shell, step.direction, step.src_dataset, step.dst_dataset,
+        step.snapshot, step.recursive, step.incremental_base, step.receive_resume_token, step.options.speed_limit)
+    process.run()
+
+    monitor = ReplicationMonitor(step.remote_context.shell, step.dst_dataset)
+    ReplicationProcessRunner(process, monitor).run()
 
 
 def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):

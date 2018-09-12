@@ -12,13 +12,18 @@ def zfs_send(source_dataset: str, snapshot: str, recursive: bool, incremental_ba
     if recursive:
         send.append("-R")
 
-    if incremental_base is not None:
-        send.extend(["-i", f"{source_dataset}@{incremental_base}"])
+    if receive_resume_token is None:
+        assert snapshot is not None
 
-    if receive_resume_token is not None:
+        if incremental_base is not None:
+            send.extend(["-i", f"{source_dataset}@{incremental_base}"])
+
+        send.append(f"{source_dataset}@{snapshot}")
+    else:
+        assert snapshot is None
+        assert incremental_base is None
+
         send.extend(["-t", receive_resume_token])
-
-    send.append(f"{source_dataset}@{snapshot}")
 
     return send
 

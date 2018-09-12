@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+import errno
 import logging
 import io
 import os
@@ -60,6 +61,7 @@ class SshTransportShell(Shell):
         super().__init__(*args, **kwargs)
 
         self._client = None
+        self._sftp = None
 
     def get_client(self):
         if self._client is None:
@@ -86,12 +88,32 @@ class SshTransportShell(Shell):
 
         return self._client
 
-    def put_file(self, f, dst_path):
-        client = self.get_client()
+    def get_sftp(self):
+        if self._sftp is None:
+            client = self.get_client()
 
-        sftp = client.open_sftp()
-        sftp.putfo(f, dst_path)
-        sftp.close()
+            self._sftp = client.open_sftp()
+
+        return self._sftp
+
+    def exists(self, path):
+        try:
+            self.get_sftp().stat(path)
+            return True
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                return False
+
+            raise
+
+    def ls(self, path):
+        return self.get_sftp().listdir(path)
+
+    def put_file(self, f, dst_path):
+        sftp = self.get_sftp()
+        incomplete_path = dst_path + ".incomplete"
+        sftp.putfo(f, incomplete_path)
+        sftp.rename(incomplete_path, dst_path)
 
 
 class BaseSshTransport(Transport):

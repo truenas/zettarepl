@@ -43,6 +43,12 @@ class Shell:
         async_exec.run()
         return async_exec
 
+    def exists(self, path):
+        raise NotImplementedError
+
+    def ls(self, path):
+        raise NotImplementedError
+
     def put_file(self, f, dst_path):
         raise NotImplementedError
 

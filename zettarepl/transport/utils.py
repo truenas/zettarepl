@@ -3,16 +3,11 @@ import hashlib
 import logging
 import os
 
-from .interface import Shell, ExecException, ReplicationProcess
+from .interface import Shell
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ProcessReplicationProcess", "put_file"]
-
-
-class ProcessAwareReplicationProcess(ReplicationProcess):
-    def __init__(self, *args, **kwargs):
-        ReplicationProcess.__init__(*args, **kwargs)
+__all__ = ["put_file"]
 
 
 def put_file(name, shell: Shell):
@@ -22,9 +17,7 @@ def put_file(name, shell: Shell):
         f.seek(0)
 
         remote_path = f"/tmp/zettarepl--{name.replace('/', '--')}--{md5}"
-        try:
-            shell.exec(["ls", remote_path])
-        except ExecException:
+        if not shell.exists(remote_path):
             shell.put_file(f, remote_path)
 
     return remote_path
