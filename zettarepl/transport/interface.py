@@ -26,7 +26,11 @@ class AsyncExec:
 
 
 class ExecException(Exception):
-    pass
+    def __init__(self, returncode, stdout):
+        self.returncode = returncode
+        self.stdout = stdout
+
+        super().__init__(returncode, stdout)
 
 
 class Shell:
@@ -54,13 +58,14 @@ class Shell:
 
 
 class ReplicationProcess:
-    def __init__(self,
+    def __init__(self, name,
                  local_shell: Shell, remote_shell: Shell,
                  direction: ReplicationDirection,
                  source_dataset: str, target_dataset: str,
                  snapshot: str, recursive: bool,
                  incremental_base: str, receive_resume_token: str,
                  speed_limit: int):
+        self.name = name
         self.local_shell = local_shell
         self.remote_shell = remote_shell
         self.direction = direction

@@ -1,9 +1,11 @@
 # -*- coding=utf-8 -*-
+from collections import namedtuple
 import enum
 import fcntl
 import json
 import logging
 import os
+import queue
 import select
 import threading
 
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["SshNetcatTransport"]
 
+FirstLineListenEvent = namedtuple("FirstLineListenEvent", ["data"])
+CompleteOutputListenEvent = namedtuple("CompleteOutputListenEvent", ["data"])
+CompletedListenEvent = namedtuple("CompletedListenEvent", ["returncode"])
+
 
 class SshNetcatTransportActiveSide(enum.Enum):
     LOCAL = "local"
@@ -28,8 +34,10 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         super().__init__(*args, **kwargs)
 
         self.listen_exec = None
-        self.listen_result = None
-        self.listen_exception = None
+        self.listen_exec_event_queue = queue.Queue()
+        self.listen_exec_returncode = None
+        self.listen_exec_output = None
+        self.listen_exec_complete_event = threading.Event()
 
         self.connect_exec = None
 
@@ -134,33 +142,71 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def _listen(self, listen_shell, listen_args):
         r, w = os.pipe()
         rh = os.fdopen(r)
-        fcntl.fcntl(r, fcntl.F_SETFL, fcntl.fcntl(r, fcntl.F_GETFL) | os.O_NONBLOCK)
         self.listen_exec = listen_shell.exec_async(listen_args, stdout=w)
-        self.listen_exec.run()
-        threading.Thread(daemon=True, target=self._wait_listen_exec, args=(rh,)).start()
-        for i in range(10):
-            rs, ws, xs = select.select([r], [], [], 1)
-            if rs:
-                data = rh.readline()
-                logger.debug("Read from listen side: %r", data)
-                return json.loads(data)
-            if self.listen_exception:
-                raise self.listen_exception
-            if self.listen_result:
-                break
-        else:
-            self.listen_exec.stop()
-            raise Exception("Timeout reading listen data")
+        threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh_netcat.read_listen_exec",
+                         target=self._read_listen_exec, args=(rh,)).start()
+        threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh_netcat.wait_listen_exec",
+                         target=self._wait_listen_exec).start()
 
-    def _wait_listen_exec(self, rh):
+        try:
+            event = self.listen_exec_event_queue.get(timeout=10)
+        except queue.Empty:
+            self.listen_exec.stop()
+            raise TimeoutError("Timeout reading listen data")
+
+        if isinstance(event, FirstLineListenEvent):
+            logger.debug("Read from listen side: %r", event.data)
+            return json.loads(event.data)
+
+        while True:
+            try:
+                event = self.listen_exec_event_queue.get(timeout=10)
+            except queue.Empty:
+                self.listen_exec.stop()
+                if self.listen_exec_returncode is None:
+                    raise TimeoutError("Timeout reading listen output")
+                elif self.listen_exec_output is None:
+                    raise TimeoutError("Timeout reading listen returncode")
+                else:
+                    raise RuntimeError()
+
+            if isinstance(event, CompleteOutputListenEvent):
+                self.listen_exec_output = event.data
+            elif isinstance(event, CompletedListenEvent):
+                self.listen_exec_returncode = event.returncode
+            else:
+                self.listen_exec.stop()
+                raise ValueError(f"Unknown listen event: {event!r}")
+
+            if self.listen_exec_output is not None and self.listen_exec_returncode is not None:
+                raise ExecException(self.listen_exec_returncode, self.listen_exec_output)
+
+    def _read_listen_exec(self, rh):
+        try:
+            try:
+                first_line = rh.readline()
+                self.listen_exec_event_queue.put(FirstLineListenEvent(first_line))
+            except Exception:
+                self.listen_exec_event_queue.put(CompleteOutputListenEvent(""))
+                raise
+
+            try:
+                self.listen_exec_event_queue.put(CompleteOutputListenEvent(first_line + "\n" + rh.read()))
+            except Exception:
+                self.listen_exec_event_queue.put(CompleteOutputListenEvent(""))
+                raise
+        except Exception:
+            logger.error("Unhandled exception in _read_listen_exec", exc_info=True)
+        finally:
+            rh.close()
+
+    def _wait_listen_exec(self):
         try:
             self.listen_exec.wait()
         except ExecException as e:
-            self.listen_exception = e
+            self.listen_exec_event_queue.put(CompletedListenEvent(e.returncode))
         else:
-            self.listen_result = rh.read()
-        finally:
-            rh.close()
+            self.listen_exec_event_queue.put(CompletedListenEvent(0))
 
     def wait(self):
         try:

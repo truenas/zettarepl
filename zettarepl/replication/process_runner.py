@@ -2,6 +2,8 @@
 import logging
 import threading
 
+from .error import StuckReplicationError
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["ReplicationProcessRunner"]
@@ -17,14 +19,16 @@ class ReplicationProcessRunner:
         self.process_stuck = False
 
     def run(self):
-        wait_process_thread = threading.Thread(daemon=True, target=self._wait_process)
-        wait_process_thread.start()
-        wait_monitor_thread = threading.Thread(daemon=True, target=self._wait_monitor)
-        wait_monitor_thread.start()
+        self.replication_process.run()
 
-        self.event.wait()
+        threading.Thread(daemon=True, name=f"{self.replication_process.name}.process",
+                         target=self._wait_process).start()
+        threading.Thread(daemon=True, name=f"{self.replication_process.name}.monitor",
+                         target=self._run_monitor).start()
+
+        self.event.wait()  # Wait for at least one of the threads to finish (`finally` block in one will stop the other)
         if self.process_stuck:
-            raise Exception("Replication was stuck")
+            raise StuckReplicationError()
         if self.process_exception:
             raise self.process_exception
 
@@ -37,7 +41,7 @@ class ReplicationProcessRunner:
             self.event.set()
             self.monitor.stop()
 
-    def _wait_monitor(self):
+    def _run_monitor(self):
         try:
             self.process_stuck = not self.monitor.run()
             if self.process_stuck:

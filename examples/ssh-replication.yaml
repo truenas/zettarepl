@@ -52,7 +52,7 @@ replication-tasks:
         -----END RSA PRIVATE KEY-----
       host-key: "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEg6bOfeVvexN5JgzlKVzM/2NgD6qNpeq9aF396qDiJR56bAx8ru2F0+fnrLnDywW1mYI0jxjbdofSjh0BYDWkM="
     source-dataset: data/src
-    target-dataset: data/dust
+    target-dataset: data/dst
     recursive: true
     exclude:
       - data/src/garbage

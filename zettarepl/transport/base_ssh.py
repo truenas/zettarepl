@@ -29,7 +29,8 @@ class SshTransportAsyncExec(AsyncExec):
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
             " ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1", timeout=10)
         if self.stdout is not None:
-            threading.Thread(daemon=True, target=self._copy, args=(self.stdout_fd, self.stdout)).start()
+            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh.stdout_copy",
+                             target=self._copy, args=(self.stdout_fd, self.stdout)).start()
 
     def wait(self):
         logger.debug("Waiting for exit status")

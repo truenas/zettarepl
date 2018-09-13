@@ -10,7 +10,4 @@ __all__ = ["list_snapshots"]
 
 
 def list_snapshots(shell: Shell, mountpoint: str) -> [str]:
-    snapshots_path = os.path.join(mountpoint, ".zfs/snapshot")
-    if not shell.exists(snapshots_path):
-        return []
-    return shell.ls(snapshots_path)
+    return shell.ls(os.path.join(mountpoint, ".zfs/snapshot"))
