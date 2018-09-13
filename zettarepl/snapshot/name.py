@@ -6,7 +6,7 @@ from typing import Iterable
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["parse_snapshots_names"]
+__all__ = ["ParsedSnapshotName", "parse_snapshots_names", "parse_snapshots_names_with_multiple_schemas"]
 
 ParsedSnapshotName = namedtuple("ParsedSnapshotName", ["name", "datetime"])
 

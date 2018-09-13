@@ -48,18 +48,33 @@ properties:
     $ref: http://freenas.org/zettarepl/schedule.schema.json
   only-matching-schedule:
     type: boolean
+  allow-from-scratch:
+    type: boolean
   retention-policy:
     type: string
     enum:
     - source
     - custom
     - none
-  allow-from-scratch:
-    type: boolean
   lifetime:
     type: string
+  compression:
+    type: string
+    enum:
+    - lz4
+    - pigz
+    - plzip
+    - xz
   speed-limit:
     type: integer
+  dedup:
+    type: boolean
+  large-block:
+    type: boolean
+  embed:
+    type: boolean
+  compressed:
+    type: boolean
 
 definitions:
   base-ssh-transport:

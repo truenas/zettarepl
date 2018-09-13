@@ -6,15 +6,13 @@ from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.create import create_transport
 
+from .compression import *
 from .direction import ReplicationDirection
+from .retention_policy import *
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ReplicationTask"]
-
-
-class TargetSnapshotRetentionPolicy:
-    pass
 
 
 class ReplicationTask:
@@ -22,7 +20,9 @@ class ReplicationTask:
                  recursive: bool, exclude: [str], periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str], auto: bool, schedule: CronSchedule, restrict_schedule: CronSchedule,
                  only_matching_schedule: bool, allow_from_scratch: bool,
-                 retention_policy: TargetSnapshotRetentionPolicy, speed_limit: int):
+                 retention_policy: TargetSnapshotRetentionPolicy,
+                 compression: ReplicationCompression, speed_limit: int,
+                 dedup: bool, large_block: bool, embed: bool, compressed: bool):
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -38,7 +38,12 @@ class ReplicationTask:
         self.only_matching_schedule = only_matching_schedule
         self.allow_from_scratch = allow_from_scratch
         self.retention_policy = retention_policy
+        self.compression = compression
         self.speed_limit = speed_limit
+        self.dedup = dedup
+        self.large_block = large_block
+        self.embed = embed
+        self.compressed = compressed
 
     @classmethod
     def from_data(cls, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
@@ -49,8 +54,12 @@ class ReplicationTask:
         data.setdefault("also-include-naming-schema", [])
         data.setdefault("only-matching-schedule", False)
         data.setdefault("allow-from-scratch", False)
-        data.setdefault("lifetime", None)
+        data.setdefault("compression", None)
         data.setdefault("speed-limit", None)
+        data.setdefault("dedup", False)
+        data.setdefault("large-block", False)
+        data.setdefault("embed", False)
+        data.setdefault("compressed", False)
 
         resolved_periodic_snapshot_tasks = []
         for task_id in data["periodic-snapshot-tasks"]:
@@ -72,7 +81,9 @@ class ReplicationTask:
 
         schedule, restrict_schedule = cls._parse_schedules(data)
 
-        retention_policy = None
+        retention_policy = TargetSnapshotRetentionPolicy.from_data(data)
+
+        compression = replication_compressions[data["compression"]] if data["compression"] else None
 
         return cls(data["id"],
                    data["direction"],
@@ -80,7 +91,10 @@ class ReplicationTask:
                    data["source-dataset"], data["target-dataset"],
                    data["recursive"], data["exclude"], resolved_periodic_snapshot_tasks,
                    data["also-include-naming-schema"], data["auto"], schedule, restrict_schedule,
-                   data["only-matching-schedule"], data["allow-from-scratch"], retention_policy, data["speed-limit"])
+                   data["only-matching-schedule"], data["allow-from-scratch"],
+                   retention_policy,
+                   compression, data["speed-limit"],
+                   data["dedup"], data["large-block"], data["embed"], data["compressed"])
 
     @classmethod
     def _parse_schedules(cls, data):

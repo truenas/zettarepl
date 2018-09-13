@@ -90,7 +90,6 @@ def run_replication_task(replication_task: ReplicationTask, local_context: Repli
 
     resumed = resume_replications(step_templates, dst_mountpoints.keys())
     if resumed:
-        #
         _, dst_mountpoints = get_src_dst_mountpoints(replication_task, local_context, remote_context,
                                                      src_mountpoints=False)
 
@@ -218,7 +217,7 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
         incremental_base = None
 
     snapshots_to_send = [
-        parsed_snapshot.name
+        parsed_snapshot
         for parsed_snapshot in sorted(
             parsed_src_snapshots,
             key=lambda parsed_snapshot: (parsed_snapshot.datetime, parsed_snapshot.name)
@@ -245,6 +244,12 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
             )
         )
     ]
+
+    # Do not send something that will immediately be removed by retention policy
+    will_be_removed = replication_task.retention_policy.calculate_delete_snapshots(snapshots_to_send, snapshots_to_send)
+    snapshots_to_send = [parsed_snapshot.name
+                         for parsed_snapshot in snapshots_to_send
+                         if parsed_snapshot not in will_be_removed]
 
     return incremental_base, snapshots_to_send
 

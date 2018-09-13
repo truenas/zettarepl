@@ -113,7 +113,8 @@ def test__get_snapshot_to_send__works():
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
              restrict_schedule=None,
-             only_matching_schedule=False),
+             only_matching_schedule=False,
+             retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
     ) == ("2018-09-02_17-45", ["2018-09-02_17-46", "2018-09-02_17-47"])
 
 
@@ -124,7 +125,8 @@ def test__get_snapshot_to_send__restrict_schedule():
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
              restrict_schedule=CronSchedule("*/2", "*", "*", "*", "*"),
-             only_matching_schedule=False),
+             only_matching_schedule=False,
+             retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
     ) == ("2018-09-02_17-45", ["2018-09-02_17-46"])
 
 
@@ -137,8 +139,24 @@ def test__get_snapshot_to_send__multiple_tasks():
                                       Mock(naming_schema="2d-%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
              restrict_schedule=None,
-             only_matching_schedule=False),
+             only_matching_schedule=False,
+             retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
     ) == ("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"])
+
+
+def test__get_snapshot_to_send__multiple_tasks_retention_policy():
+    retention_policy = lambda src_snapshots, dst_snapshots: [dst_snapshots[1]]  # 1w-2018-09-03_00-00
+    assert get_snapshots_to_send(
+        ["1w-2018-09-02_00-00", "2d-2018-09-02_00-00", "2d-2018-09-02_12-00",
+         "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"],
+        ["1w-2018-09-02_00-00", "2d-2018-09-02_00-00"],
+        Mock(periodic_snapshot_tasks=[Mock(naming_schema="1w-%Y-%m-%d_%H-%M"),
+                                      Mock(naming_schema="2d-%Y-%m-%d_%H-%M")],
+             also_include_naming_schema=[],
+             restrict_schedule=None,
+             only_matching_schedule=False,
+             retention_policy=Mock(calculate_delete_snapshots=Mock(side_effect=retention_policy))),
+    ) == ("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "2d-2018-09-03_12-00"])
 
 
 def test__replicate_snapshots():
