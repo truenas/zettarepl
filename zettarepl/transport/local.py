@@ -21,21 +21,21 @@ class LocalAsyncExec(AsyncExec):
         self.process = None
 
     def run(self):
-        logger.debug("Running %r", self.args)
+        self.logger.debug("Running %r", self.args)
         self.process = subprocess.Popen(self.args, stdout=self.stdout or subprocess.PIPE, stderr=subprocess.STDOUT,
                                         encoding=self.encoding)
 
     def wait(self):
         stdout, stderr = self.process.communicate()
         if self.process.returncode != 0:
-            logger.debug("Error %r: %r", self.process.returncode, stdout)
+            self.logger.debug("Error %r: %r", self.process.returncode, stdout)
             raise ExecException(self.process.returncode, stdout)
 
-        logger.debug("Success: %r", stdout)
+        self.logger.debug("Success: %r", stdout)
         return stdout
 
     def stop(self):
-        logger.debug("Terminating process")
+        self.logger.debug("Stopping")
         self.process.terminate()
         try:
             self.process.wait(10)
@@ -48,7 +48,7 @@ class LocalShell(Shell):
     async_exec = LocalAsyncExec
 
     def __init__(self, transport=None):
-        super().__init__(transport)
+        super().__init__(transport or LocalTransport())
 
     def exists(self, path):
         return os.path.exists(path)
@@ -84,6 +84,8 @@ class LocalReplicationProcess(ReplicationProcess):
 
 
 class LocalTransport(Transport):
+    logger = logger
+
     @classmethod
     def from_data(cls, data):
         return LocalTransport()

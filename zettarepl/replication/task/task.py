@@ -45,13 +45,15 @@ class ReplicationTask:
         self.embed = embed
         self.compressed = compressed
 
+    def __repr__(self):
+        return f"<ReplicationTask {self.id!r}>"
+
     @classmethod
     def from_data(cls, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
         replication_task_validator.validate(data)
 
         data.setdefault("exclude", [])
         data.setdefault("periodic-snapshot-tasks", [])
-        data.setdefault("also-include-naming-schema", [])
         data.setdefault("only-matching-schedule", False)
         data.setdefault("allow-from-scratch", False)
         data.setdefault("compression", None)
@@ -78,6 +80,22 @@ class ReplicationTask:
                         f"(task {data['id']!r} does not exclude {exclude!r} from periodic snapshot task {task.id!r})")
 
         data["direction"] = ReplicationDirection(data["direction"])
+
+        if data["direction"] == ReplicationDirection.PUSH:
+            if "naming-schema" in data:
+                raise ValueError(f"Push replication task can't have naming-schema (task {data['id']!r} includes")
+
+            data.setdefault("also-include-naming-schema", [])
+
+        elif data["direction"] == ReplicationDirection.PULL:
+            if "naming-schema" not in data:
+                raise ValueError(f"You must provide naming schema for pull replication task {data['id']!r}")
+
+            if "also-include-naming-schema" in data:
+                raise ValueError(f"Push replication task can't have also-include-naming-schema "
+                                 f"(task {data['id']!r} includes")
+
+            data.setdefault("also-include-naming-schema", data.pop("naming-schema"))
 
         schedule, restrict_schedule = cls._parse_schedules(data)
 

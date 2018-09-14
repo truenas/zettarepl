@@ -10,15 +10,16 @@ from zettarepl.replication.run import (
     get_snapshots_to_send,
     replicate_snapshots,
 )
+from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.scheduler.cron import CronSchedule
 
 
 @pytest.mark.parametrize("tasks", [
     [
-        Mock(source_dataset="data", recursive=True),
-        Mock(source_dataset="data", recursive=False),
-        Mock(source_dataset="data/garbage", recursive=True),
-        Mock(source_dataset="temp", recursive=False),
+        Mock(direction=ReplicationDirection.PUSH, source_dataset="data", recursive=True),
+        Mock(direction=ReplicationDirection.PUSH, source_dataset="data", recursive=False),
+        Mock(direction=ReplicationDirection.PUSH, source_dataset="data/garbage", recursive=True),
+        Mock(direction=ReplicationDirection.PUSH, source_dataset="temp", recursive=False),
     ]
 ])
 def test__run_replication_tasks(tasks):
@@ -34,7 +35,7 @@ def test__run_replication_tasks(tasks):
              target_dataset="data/dst",
              recursive=True,
              exclude=[]),
-        ["data/src", "data/src/work", "data/src/work/archive"],
+        {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [
             ("data/src", "data/dst", True),
         ]
@@ -44,7 +45,7 @@ def test__run_replication_tasks(tasks):
              target_dataset="data/dst",
              recursive=True,
              exclude=["data/src/trash"]),
-        ["data/src", "data/src/work", "data/src/work/archive"],
+        {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [
             ("data/src", "data/dst", False),
             ("data/src/work", "data/dst/work", False),
@@ -53,11 +54,14 @@ def test__run_replication_tasks(tasks):
     ),
 ])
 def test__calculate_replication_step_templates(replication_task, src_datasets, replication_step_templates):
-    with patch("zettarepl.replication.run.ReplicationStepTemplate") as ReplicationStepTemplate:
-        calculate_replication_step_templates(replication_task, Mock(), Mock(), src_datasets)
+    with patch("zettarepl.replication.run.list_datasets_with_snapshots") as list_datasets_with_snapshots:
+        list_datasets_with_snapshots.return_value = src_datasets
 
-        assert ReplicationStepTemplate.mock_calls == [call(replication_task, ANY, ANY, *replication_step_template)
-                                                      for replication_step_template in replication_step_templates]
+        with patch("zettarepl.replication.run.ReplicationStepTemplate") as ReplicationStepTemplate:
+            calculate_replication_step_templates(replication_task, Mock(datasets=src_datasets), Mock())
+
+            assert ReplicationStepTemplate.mock_calls == [call(replication_task, ANY, ANY, *replication_step_template)
+                                                          for replication_step_template in replication_step_templates]
 
 
 def test__get_target_dataset__1():
@@ -75,16 +79,17 @@ def test__get_target_dataset__2():
 
 
 def test__resume_replications__resume():
-    dst = Mock(dst_dataset="data/dst")
-    dst_work = Mock(dst_dataset="data/dst/work")
-    dst_zzz = Mock(dst_dataset="data/dst/zzz")
+    dst_context = Mock(datasets=["data/dst", "data/dst/work"])
+    dst = Mock(dst_context=dst_context, dst_dataset="data/dst")
+    dst_work = Mock(dst_context=dst_context, dst_dataset="data/dst/work")
+    dst_zzzz = Mock(dst_context=dst_context, dst_dataset="data/dst/zzz")
     with patch("zettarepl.replication.run.get_receive_resume_token") as get_receive_resume_token:
         get_receive_resume_token.side_effect = lambda _, dataset: {"data/dst/work": "token"}.get(dataset)
 
         step = Mock()
         dst_work.instantiate.return_value = step
         with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-            result = resume_replications([dst, dst_work, dst_zzz], ["data/dst", "data/dst/work"])
+            result = resume_replications([dst, dst_work, dst_zzzz])
 
             dst_work.instantiate.assert_called_once_with(receive_resume_token="token")
             run_replication_step.assert_called_once_with(step)
@@ -93,13 +98,14 @@ def test__resume_replications__resume():
 
 
 def test__resume_replications__no_resume():
-    dst = Mock(dst_dataset="data/dst")
-    dst_work = Mock(dst_dataset="data/dst/work")
-    dst_zzz = Mock(dst_dataset="data/dst/zzz")
+    dst_context = Mock(datasets=["data/dst", "data/dst/work"])
+    dst = Mock(dst_context=dst_context, dst_dataset="data/dst")
+    dst_work = Mock(dst_context=dst_context, dst_dataset="data/dst/work")
+    dst_zzzz = Mock(dst_context=dst_context, dst_dataset="data/dst/zzzz")
     with patch("zettarepl.replication.run.get_receive_resume_token") as get_receive_resume_token:
         get_receive_resume_token.return_value = None
         with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-            result = resume_replications([dst, dst_work, dst_zzz], ["data/dst", "data/dst/work"])
+            result = resume_replications([dst, dst_work, dst_zzzz])
 
             run_replication_step.assert_not_called()
 

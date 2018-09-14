@@ -1,12 +1,10 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
 import enum
-import fcntl
 import json
 import logging
 import os
 import queue
-import select
 import threading
 
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -47,9 +45,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         # Listen
 
-        listen_args = ["--listen", self.remote_shell.transport.active_side_listen_address,
-                       "--listen-min-port", str(self.remote_shell.transport.active_side_min_port),
-                       "--listen-max-port", str(self.remote_shell.transport.active_side_max_port)]
+        listen_args = ["--listen", self.transport.active_side_listen_address,
+                       "--listen-min-port", str(self.transport.active_side_min_port),
+                       "--listen-max-port", str(self.transport.active_side_max_port)]
 
         send_args = ["send", self.source_dataset]
         if self.recursive:
@@ -69,7 +67,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         receive_args = ["receive", self.target_dataset]
 
-        if self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
+        if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             listen_shell = self.local_shell
             listen_args = ["python3", "-u", local_helper] + listen_args
 
@@ -80,7 +78,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             else:
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
-        elif self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.REMOTE:
+        elif self.transport.active_side == SshNetcatTransportActiveSide.REMOTE:
             listen_shell = self.remote_shell
             listen_args = ["python3", "-u", remote_helper] + listen_args
 
@@ -92,27 +90,27 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
         else:
-            raise ValueError(f"Invalid active side: {self.remote_shell.transport.active_side!r}")
+            raise ValueError(f"Invalid active side: {self.transport.active_side!r}")
 
         listen = self._listen(listen_shell, listen_args)
 
         # Connect
 
-        connect_address = self.remote_shell.transport.passive_side_connect_address
+        connect_address = self.transport.passive_side_connect_address
         if connect_address is None:
-            if self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
+            if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
                 connect_address = self.remote_shell.exec(["sh", "-c", "echo $SSH_CLIENT"]).split()[0]
                 if not connect_address:
                     raise Exception("passive-side-connect-address not specified and $SSH_CLIENT variable is empty")
-            elif self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
-                connect_address = self.remote_shell.transport.hostname
+            elif self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
+                connect_address = self.transport.hostname
             logger.info("Automatically chose connect address %r", connect_address)
 
         connect_args = ["--connect", connect_address,
                         "--connect-port", str(listen["port"]),
                         "--connect-token", listen["token"]]
 
-        if self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
+        if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             connect_shell = self.remote_shell
             connect_args = ["python3", "-u", remote_helper] + connect_args
 
@@ -123,7 +121,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             else:
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
-        elif self.remote_shell.transport.active_side == SshNetcatTransportActiveSide.REMOTE:
+        elif self.transport.active_side == SshNetcatTransportActiveSide.REMOTE:
             connect_shell = self.local_shell
             connect_args = ["python3", "-u", local_helper] + connect_args
 
@@ -135,7 +133,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
         else:
-            raise ValueError(f"Invalid active side: {self.remote_shell.transport.active_side!r}")
+            raise ValueError(f"Invalid active side: {self.transport.active_side!r}")
 
         self.connect_exec = connect_shell.exec_async(connect_args)
 

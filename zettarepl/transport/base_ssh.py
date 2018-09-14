@@ -25,7 +25,7 @@ class SshTransportAsyncExec(AsyncExec):
     def run(self):
         client = self.shell.get_client()
 
-        logger.debug("Running %r", self.args)
+        self.logger.debug("Running %r", self.args)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
             " ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1", timeout=10)
         if self.stdout is not None:
@@ -33,17 +33,18 @@ class SshTransportAsyncExec(AsyncExec):
                              target=self._copy, args=(self.stdout_fd, self.stdout)).start()
 
     def wait(self):
-        logger.debug("Waiting for exit status")
+        self.logger.debug("Waiting for exit status")
         exitcode = self.stdout_fd.channel.recv_exit_status()
         stdout = self.stdout_fd.read().decode(self.encoding)
         if exitcode != 0:
-            logger.debug("Error %r: %r", exitcode, stdout)
+            self.logger.debug("Error %r: %r", exitcode, stdout)
             raise ExecException(exitcode, stdout)
 
-        logger.debug("Success: %r", stdout)
+        self.logger.debug("Success: %r", stdout)
         return stdout
 
     def stop(self):
+        self.logger.debug("Stopping")
         self.stdout_fd.close()
 
     def _copy(self, file_like, descriptor):
@@ -52,7 +53,8 @@ class SshTransportAsyncExec(AsyncExec):
                 for line in file_like.readlines():
                     f.write(line)
         except Exception as e:
-            logger.warning("Copying between from SSH %r to file descriptor %r failed: %r", file_like, descriptor, e)
+            self.logger.warning("Copying between from SSH %r to file descriptor %r failed: %r",
+                                file_like, descriptor, e)
 
 
 class SshTransportShell(Shell):
@@ -66,7 +68,7 @@ class SshTransportShell(Shell):
 
     def get_client(self):
         if self._client is None:
-            logger.debug("Connecting...")
+            self.logger.debug("Connecting...")
             hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([self.transport.hostname, self.transport.host_key]))
             self._client = paramiko.SSHClient()
             self._client.get_host_keys().add(self.transport.hostname, hke.key.get_name(), hke.key)
@@ -126,6 +128,8 @@ class BaseSshTransport(Transport):
         self.username = username
         self.private_key = private_key
         self.host_key = host_key
+
+        self.logger = logger.getChild(f"{self.username}@{self.hostname}")
 
     def __hash__(self):
         return hash([self.hostname, self.port, self.username, self.private_key, self.host_key])

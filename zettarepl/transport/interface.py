@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+import itertools
 import logging
 
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -9,11 +10,15 @@ __all__ = ["AsyncExec", "ExecException", "Shell", "ReplicationProcess", "Transpo
 
 
 class AsyncExec:
+    _logger_counter = itertools.count(1)
+
     def __init__(self, shell, args, encoding="utf8", stdout=None):
         self.shell = shell
         self.args = args
         self.encoding = encoding
         self.stdout = stdout
+
+        self.logger = self.shell.logger.getChild("async_exec").getChild(str(next(self._logger_counter)))
 
     def run(self):
         raise NotImplementedError
@@ -34,10 +39,14 @@ class ExecException(Exception):
 
 
 class Shell:
+    _logger_counter = itertools.count(1)
+
     async_exec: AsyncExec.__class__ = NotImplemented
 
     def __init__(self, transport):
         self.transport = transport
+
+        self.logger = self.transport.logger.getChild("shell").getChild(str(next(self._logger_counter)))
 
     def exec(self, args, encoding="utf8", stdout=None):
         return self.exec_async(args, encoding, stdout).wait()
@@ -58,14 +67,15 @@ class Shell:
 
 
 class ReplicationProcess:
-    def __init__(self, name,
+    def __init__(self, replication_task_id, transport,
                  local_shell: Shell, remote_shell: Shell,
                  direction: ReplicationDirection,
                  source_dataset: str, target_dataset: str,
                  snapshot: str, recursive: bool,
                  incremental_base: str, receive_resume_token: str,
                  speed_limit: int):
-        self.name = name
+        self.replication_task_id = replication_task_id
+        self.transport = transport
         self.local_shell = local_shell
         self.remote_shell = remote_shell
         self.direction = direction
@@ -76,6 +86,8 @@ class ReplicationProcess:
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
         self.speed_limit = speed_limit
+
+        self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
 
     def run(self):
         raise NotImplementedError
@@ -88,6 +100,8 @@ class ReplicationProcess:
 
 
 class Transport:
+    logger: logging.Logger = NotImplementedError
+
     shell: Shell.__class__ = NotImplementedError
 
     replication_process: ReplicationProcess.__class__ = NotImplementedError

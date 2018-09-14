@@ -1,0 +1,27 @@
+timezone: "Europe/Moscow"
+
+periodic-snapshot-tasks:
+  - id: src
+    dataset: data/src
+    recursive: true
+    lifetime: P365D
+    naming-schema: snap-%Y-%m-%d-%H-%M
+    schedule:
+      minute: "*"
+      hour: "*"
+      day-of-month: "*"
+      month: "*"
+      day-of-week: "*"
+
+replication-tasks:
+  - id: src
+    direction: push
+    transport:
+      type: local
+    source-dataset: data/src
+    target-dataset: data/dst
+    recursive: true
+    periodic-snapshot-tasks:
+      - src
+    auto: true
+    retention-policy: source

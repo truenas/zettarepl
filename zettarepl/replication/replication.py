@@ -56,9 +56,14 @@ class Replication:
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
             [(task, now.strftime(task.naming_schema)) for task in tasks],
-            # Lexicographically less snapshots should go first
-            # Recursive snapshot with same name as non-recursive should go first
-            key=lambda task_with_snapshot_name: (task_with_snapshot_name[1], not task_with_snapshot_name[0].recursive)
+            key=lambda task_with_snapshot_name: (
+                # Lexicographically less snapshots should go first
+                task_with_snapshot_name[1],
+                # Recursive snapshot with same name as non-recursive should go first
+                0 if task_with_snapshot_name[0].recursive else 1,
+                # Recursive snapshots without exclude should go first
+                0 if not task_with_snapshot_name[0].exclude else 1,
+            )
         )
 
         created_snapshots = set()
@@ -92,5 +97,9 @@ class Replication:
 
             run_replication_tasks(self.local_shell, transport, push_replication_tasks)
 
-            #pull_replication_tasks, replication_tasks = bisect(
-            #    lambda replication_task: replication_task.direction == ReplicationDirection.PUSH, replication_tasks)
+            pull_replication_tasks, replication_tasks = bisect(
+                lambda replication_task: replication_task.direction == ReplicationDirection.PULL, replication_tasks)
+
+            run_replication_tasks(self.local_shell, transport, pull_replication_tasks)
+
+            assert replication_tasks == []

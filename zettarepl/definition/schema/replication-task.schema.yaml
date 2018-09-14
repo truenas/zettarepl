@@ -36,6 +36,10 @@ properties:
   periodic-snapshot-tasks:
     type: array
     items: {}
+  naming-schema:
+    type: array
+    items:
+      type: string
   also-include-naming-schema:
     type: array
     items:

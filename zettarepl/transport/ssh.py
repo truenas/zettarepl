@@ -55,22 +55,22 @@ class SshReplicationProcess(ReplicationProcess):
     def run(self):
         self.private_key_file = tempfile.NamedTemporaryFile("w")
         os.chmod(self.private_key_file.name, 0o600)
-        self.private_key_file.write(self.remote_shell.transport.private_key)
+        self.private_key_file.write(self.transport.private_key)
         self.private_key_file.flush()
 
         self.host_key_file = tempfile.NamedTemporaryFile("w")
         os.chmod(self.host_key_file.name, 0o600)
-        self.host_key_file.write(f"{self.remote_shell.transport.hostname} {self.remote_shell.transport.host_key}")
+        self.host_key_file.write(f"{self.transport.hostname} {self.transport.host_key}")
         self.host_key_file.flush()
 
         try:
-            cmd = [self.remote_shell.transport.client_capabilities.executable]
+            cmd = [self.transport.client_capabilities.executable]
 
             cmd.extend({
                SshTransportCipher.STANDARD: [],
                SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
                SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
-            }[self.remote_shell.transport.cipher])
+            }[self.transport.cipher])
 
             cmd.extend(["-i", self.private_key_file.name])
 
@@ -80,8 +80,8 @@ class SshReplicationProcess(ReplicationProcess):
             cmd.extend(["-o", "BatchMode=yes"])
             cmd.extend(["-o", "ConnectTimeout=10"])
 
-            cmd.extend([f"-p{self.remote_shell.transport.port}"])
-            cmd.extend([f"{self.remote_shell.transport.username}@{self.remote_shell.transport.hostname}"])
+            cmd.extend([f"-p{self.transport.port}"])
+            cmd.extend([f"{self.transport.username}@{self.transport.hostname}"])
 
             send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
                             self.receive_resume_token)

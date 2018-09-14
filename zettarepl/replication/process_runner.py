@@ -21,9 +21,9 @@ class ReplicationProcessRunner:
     def run(self):
         self.replication_process.run()
 
-        threading.Thread(daemon=True, name=f"{self.replication_process.name}.process",
+        threading.Thread(daemon=True, name=f"{threading.current_thread().name}.process",
                          target=self._wait_process).start()
-        threading.Thread(daemon=True, name=f"{self.replication_process.name}.monitor",
+        threading.Thread(daemon=True, name=f"{threading.current_thread().name}.monitor",
                          target=self._run_monitor).start()
 
         self.event.wait()  # Wait for at least one of the threads to finish (`finally` block in one will stop the other)
