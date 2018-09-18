@@ -90,16 +90,14 @@ class Replication:
         return result
 
     def _run_replication_tasks(self, replication_tasks):
-        for transport, replication_tasks in sortedgroupby(
-                replication_tasks, lambda replication_task: replication_task.transport):
-            push_replication_tasks, replication_tasks = bisect(
-                lambda replication_task: replication_task.direction == ReplicationDirection.PUSH, replication_tasks)
-
+        transport = lambda replication_task: replication_task.transport
+        for transport, replication_tasks in sortedgroupby(replication_tasks, transport):
+            is_push_replication_task = lambda replication_task: replication_task.direction == ReplicationDirection.PUSH
+            push_replication_tasks, replication_tasks = bisect(is_push_replication_task, replication_tasks)
             run_replication_tasks(self.local_shell, transport, push_replication_tasks)
 
-            pull_replication_tasks, replication_tasks = bisect(
-                lambda replication_task: replication_task.direction == ReplicationDirection.PULL, replication_tasks)
-
+            is_pull_replication_task = lambda replication_task: replication_task.direction == ReplicationDirection.PULL
+            pull_replication_tasks, replication_tasks = bisect(is_pull_replication_task, replication_tasks)
             run_replication_tasks(self.local_shell, transport, pull_replication_tasks)
 
             assert replication_tasks == []

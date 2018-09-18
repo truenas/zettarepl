@@ -11,6 +11,7 @@ from zettarepl.transport.interface import Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
 
+from .error import *
 from .monitor import ReplicationMonitor
 from .process_runner import ReplicationProcessRunner
 from .task.direction import ReplicationDirection
@@ -22,10 +23,10 @@ __all__ = ["run_replication_tasks"]
 
 
 class ReplicationContext:
-    def __init__(self, transport: Transport, shell: Shell, datasets: dict):
+    def __init__(self, transport: Transport, shell: Shell):
         self.transport = transport
         self.shell = shell
-        self.datasets = datasets
+        self.datasets = None
 
 
 class ReplicationStepTemplate:
@@ -68,8 +69,8 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, replica
 
     remote_shell = transport.shell(transport)
     for replication_task in replication_tasks:
-        local_context = ReplicationContext(None, local_shell, None)
-        remote_context = ReplicationContext(transport, remote_shell, None)
+        local_context = ReplicationContext(None, local_shell)
+        remote_context = ReplicationContext(transport, remote_shell)
 
         if replication_task.direction == ReplicationDirection.PUSH:
             src_context = local_context
@@ -80,7 +81,21 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, replica
         else:
             raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-        run_replication_task(replication_task, src_context, dst_context)
+        for i in range(replication_task.retries):
+            try:
+                run_replication_task(replication_task, src_context, dst_context)
+                break
+            except RecoverableReplicationError as e:
+                logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
+                               i + 1, e)
+            except ReplicationError as e:
+                logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
+                break
+            except Exception as e:
+                logger.error("For task %r unhandled replication error %r", replication_task.id, e)
+                break
+        else:
+            logger.error("Failed replication task %r after %d retries", replication_task.id, replication_task.retries)
 
 
 def run_replication_task(replication_task: ReplicationTask,
@@ -248,6 +263,8 @@ def run_replication_step(step: ReplicationStep):
         local_context.shell, remote_context.shell,
         step.replication_task.direction, step.src_dataset, step.dst_dataset,
         step.snapshot, step.recursive, step.incremental_base, step.receive_resume_token,
-        step.replication_task.speed_limit)
+        step.replication_task.compression, step.replication_task.speed_limit,
+        step.replication_task.dedup, step.replication_task.large_block,
+        step.replication_task.embed, step.replication_task.compressed)
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()

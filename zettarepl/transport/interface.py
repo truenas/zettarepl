@@ -2,6 +2,7 @@
 import itertools
 import logging
 
+from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,8 @@ class ReplicationProcess:
                  source_dataset: str, target_dataset: str,
                  snapshot: str, recursive: bool,
                  incremental_base: str, receive_resume_token: str,
-                 speed_limit: int):
+                 compression: ReplicationCompression, speed_limit: int,
+                 dedup: bool, large_block: bool, embed: bool, compressed: bool):
         self.replication_task_id = replication_task_id
         self.transport = transport
         self.local_shell = local_shell
@@ -85,7 +87,12 @@ class ReplicationProcess:
         self.recursive = recursive
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
+        self.compression = compression
         self.speed_limit = speed_limit
+        self.dedup = dedup
+        self.large_block = large_block
+        self.embed = embed
+        self.compressed = compressed
 
         self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
 

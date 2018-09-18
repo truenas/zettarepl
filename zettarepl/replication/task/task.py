@@ -22,7 +22,8 @@ class ReplicationTask:
                  only_matching_schedule: bool, allow_from_scratch: bool,
                  retention_policy: TargetSnapshotRetentionPolicy,
                  compression: ReplicationCompression, speed_limit: int,
-                 dedup: bool, large_block: bool, embed: bool, compressed: bool):
+                 dedup: bool, large_block: bool, embed: bool, compressed: bool,
+                 retries: int):
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -44,6 +45,7 @@ class ReplicationTask:
         self.large_block = large_block
         self.embed = embed
         self.compressed = compressed
+        self.retries = retries
 
     def __repr__(self):
         return f"<ReplicationTask {self.id!r}>"
@@ -62,6 +64,7 @@ class ReplicationTask:
         data.setdefault("large-block", False)
         data.setdefault("embed", False)
         data.setdefault("compressed", False)
+        data.setdefault("retries", 5)
 
         resolved_periodic_snapshot_tasks = []
         for task_id in data["periodic-snapshot-tasks"]:
@@ -112,7 +115,8 @@ class ReplicationTask:
                    data["only-matching-schedule"], data["allow-from-scratch"],
                    retention_policy,
                    compression, data["speed-limit"],
-                   data["dedup"], data["large-block"], data["embed"], data["compressed"])
+                   data["dedup"], data["large-block"], data["embed"], data["compressed"],
+                   data["retries"])
 
     @classmethod
     def _parse_schedules(cls, data):

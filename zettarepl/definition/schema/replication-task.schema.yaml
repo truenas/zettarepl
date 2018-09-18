@@ -79,6 +79,8 @@ properties:
     type: boolean
   compressed:
     type: boolean
+  retries:
+    type: integer
 
 definitions:
   base-ssh-transport:
@@ -98,6 +100,8 @@ definitions:
         type: string
       host-key:
         type: string
+      connect-timeout:
+        type: integer
   ssh-transport:
     allOf:
     - $ref: "#/definitions/base-ssh-transport"

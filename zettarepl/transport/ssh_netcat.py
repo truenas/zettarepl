@@ -7,6 +7,7 @@ import os
 import queue
 import threading
 
+from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.replication.task.direction import ReplicationDirection
 
 from .base_ssh import BaseSshTransport
@@ -40,6 +41,12 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         self.connect_exec = None
 
     def run(self):
+        if self.compression is not None:
+            raise ReplicationConfigurationError("compression is not supported for ssh+netcat replication")
+
+        if self.speed_limit is not None:
+            raise ReplicationConfigurationError("speed-limit is not supported for ssh+netcat replication")
+
         local_helper = put_file("transport/ssh_netcat_helper.py", self.local_shell)
         remote_helper = put_file("transport/ssh_netcat_helper.py", self.remote_shell)
 
@@ -52,6 +59,14 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         send_args = ["send", self.source_dataset]
         if self.recursive:
             send_args.append("--recursive")
+        if self.dedup:
+            send_args.append("--dedup")
+        if self.large_block:
+            send_args.append("--large-block")
+        if self.embed:
+            send_args.append("--embed")
+        if self.compressed:
+            send_args.append("--compressed")
         if self.receive_resume_token is None:
             assert self.snapshot is not None
 

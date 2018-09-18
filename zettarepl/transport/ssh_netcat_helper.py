@@ -25,6 +25,10 @@ if __name__ == "__main__":
     send_parser.set_defaults(command="send")
     send_parser.add_argument("dataset")
     send_parser.add_argument("--recursive", action="store_true")
+    send_parser.add_argument("--dedup", action="store_true")
+    send_parser.add_argument("--large-block", action="store_true")
+    send_parser.add_argument("--embed", action="store_true")
+    send_parser.add_argument("--compressed", action="store_true")
     send_parser.add_argument("--snapshot")
     send_parser.add_argument("--incremental-base")
     send_parser.add_argument("--receive-resume-token")
@@ -87,6 +91,14 @@ if __name__ == "__main__":
         flags = []
         if args.recursive:
             flags.append(libzfs.SendFlag.REPLICATE)
+        if args.dedup:
+            flags.append(libzfs.SendFlag.DEDUP)
+        if args.large_block:
+            flags.append(libzfs.SendFlag.LARGEBLOCK)
+        if args.embed:
+            flags.append(libzfs.SendFlag.EMBED_DATA)
+        if args.compressed:
+            flags.append(libzfs.SendFlag.COMPRESSED)
 
         try:
             if args.receive_resume_token is None:
@@ -106,4 +118,3 @@ if __name__ == "__main__":
     else:
         sys.stderr.write("t\n")
         sys.exit(1)
-

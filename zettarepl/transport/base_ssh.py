@@ -82,11 +82,11 @@ class SshTransportShell(Shell):
                     "DSA": paramiko.DSSKey,
                 }[re.search("BEGIN (EC|RSA|DSA) PRIVATE KEY", self.transport.private_key).group(1)].from_private_key(
                     io.StringIO(self.transport.private_key)),
-                timeout=10,
+                timeout=self.transport.connect_timeout,
                 allow_agent=False,
                 look_for_keys=False,
-                banner_timeout=10,
-                auth_timeout=10,
+                banner_timeout=self.transport.connect_timeout,
+                auth_timeout=self.transport.connect_timeout,
             )
 
         return self._client
@@ -122,12 +122,13 @@ class SshTransportShell(Shell):
 class BaseSshTransport(Transport):
     shell = SshTransportShell
 
-    def __init__(self, hostname, port, username, private_key, host_key):
+    def __init__(self, hostname, port, username, private_key, host_key, connect_timeout):
         self.hostname = hostname
         self.port = port
         self.username = username
         self.private_key = private_key
         self.host_key = host_key
+        self.connect_timeout = connect_timeout
 
         self.logger = logger.getChild(f"{self.username}@{self.hostname}")
 
@@ -138,6 +139,8 @@ class BaseSshTransport(Transport):
     def from_data(cls, data):
         data.setdefault("port", 22)
         data.setdefault("username", "root")
+        data.setdefault("connect-timeout", 10)
         data["private_key"] = data.pop("private-key")
         data["host_key"] = data.pop("host-key")
+        data["connect_timeout"] = data.pop("connect-timeout")
         return data

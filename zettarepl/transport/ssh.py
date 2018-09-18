@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 from zettarepl.replication.task.direction import ReplicationDirection
-from zettarepl.utils.shlex import pipe
+from zettarepl.utils.shlex import implode, pipe
 
 from .base_ssh import BaseSshTransport
 from .interface import *
@@ -78,25 +78,30 @@ class SshReplicationProcess(ReplicationProcess):
             cmd.extend(["-o", "StrictHostKeyChecking=yes"])
 
             cmd.extend(["-o", "BatchMode=yes"])
-            cmd.extend(["-o", "ConnectTimeout=10"])
+            cmd.extend(["-o", f"ConnectTimeout={self.transport.connect_timeout}"])
 
             cmd.extend([f"-p{self.transport.port}"])
             cmd.extend([f"{self.transport.username}@{self.transport.hostname}"])
 
             send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
-                            self.receive_resume_token)
+                            self.receive_resume_token,
+                            self.dedup, self.large_block, self.embed, self.compressed)
 
             recv = zfs_recv(self.target_dataset)
 
-            if self.direction == ReplicationDirection.PUSH:
-                commands = [send, cmd + recv]
-            elif self.direction == ReplicationDirection.PULL:
-                commands = [cmd + send, recv]
-            else:
-                raise ValueError(f"Invalid replication direction: {self.direction!r}")
+            if self.compression is not None:
+                send = pipe(send, self.compression.compress)
+                recv = pipe(self.compression.decompress, recv)
 
             if self.speed_limit is not None:
-                commands.insert(1, ["throttle", "-B", str(self.speed_limit)])
+                send = pipe(send, ["throttle", "-B", str(self.speed_limit)])
+
+            if self.direction == ReplicationDirection.PUSH:
+                commands = [send, cmd + [implode(recv)]]
+            elif self.direction == ReplicationDirection.PULL:
+                commands = [cmd + [implode(send)], recv]
+            else:
+                raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
             self.async_exec = self.local_shell.exec_async(pipe(*commands))
         except Exception:

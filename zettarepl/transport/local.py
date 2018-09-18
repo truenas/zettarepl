@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 
+from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
 
 from .interface import *
@@ -68,10 +69,17 @@ class LocalReplicationProcess(ReplicationProcess):
         self.async_exec = None
 
     def run(self):
+        if self.compression is not None:
+            raise ReplicationConfigurationError("compression is not supported for local replication (it has no sense)")
+
+        if self.speed_limit is not None:
+            raise ReplicationConfigurationError("speed-limit is not supported for local replication (it has no sense)")
+
         self.async_exec = self.local_shell.exec_async(
             pipe(
                 zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
-                         self.receive_resume_token),
+                         self.receive_resume_token,
+                         self.dedup, self.large_block, self.embed, self.compressed),
                 zfs_recv(self.target_dataset)
             )
         )
