@@ -8,7 +8,7 @@ from .snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["list_datasets_with_snapshots", "list_snapshots"]
+__all__ = ["list_snapshots", "group_snapshots_by_datasets"]
 
 
 def list_snapshots(shell: Shell, dataset: str, recursive: bool) -> [Snapshot]:
@@ -21,8 +21,8 @@ def list_snapshots(shell: Shell, dataset: str, recursive: bool) -> [Snapshot]:
     return list(map(lambda s: Snapshot(*s.split("@")), filter(None, shell.exec(args).split("\n"))))
 
 
-def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
+def group_snapshots_by_datasets(snapshots: [Snapshot]) -> {str: [str]}:
     datasets = defaultdict(list)
-    for snapshot in list_snapshots(shell, dataset, recursive):
+    for snapshot in snapshots:
         datasets[snapshot.dataset].append(snapshot.name)
     return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))

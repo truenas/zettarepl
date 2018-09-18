@@ -1,9 +1,11 @@
 # -*- coding=utf-8 -*-
+from collections import OrderedDict
 import logging
 import os
 
+from zettarepl.dataset.list import *
 from zettarepl.snapshot.destroy import destroy_snapshots
-from zettarepl.snapshot.list import list_datasets_with_snapshots
+from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas
 from zettarepl.transport.interface import Shell, Transport
 from zettarepl.transport.local import LocalShell
@@ -109,6 +111,13 @@ def calculate_replication_step_templates(replication_task: ReplicationTask,
 
     return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset, dst_dataset, recursive)
             for src_dataset, dst_dataset, recursive in replicate]
+
+
+def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
+    datasets = list_datasets(shell, dataset, recursive)
+    datasets_from_snapshots = group_snapshots_by_datasets(list_snapshots(shell, dataset, recursive))
+    datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
+    return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
 
 
 def get_target_dataset(replication_task, src_dataset):
@@ -218,7 +227,7 @@ def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base
 
 
 def run_replication_step(step: ReplicationStep):
-    logger.info("For replication task %r: doing %s from %r to %r of snapshot %r recursive=%r incremental_base=%r "
+    logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r recursive=%r incremental_base=%r "
                 "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
                 step.src_dataset, step.dst_dataset, step.snapshot, step.recursive, step.incremental_base,
                 step.receive_resume_token)
