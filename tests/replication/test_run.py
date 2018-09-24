@@ -37,16 +37,6 @@ def test__run_replication_tasks(tasks):
         Mock(source_dataset="data/src",
              target_dataset="data/dst",
              recursive=True,
-             exclude=[]),
-        {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
-        [
-            ("data/src", "data/dst", True),
-        ]
-    ),
-    (
-        Mock(source_dataset="data/src",
-             target_dataset="data/dst",
-             recursive=True,
              exclude=["data/src/trash"]),
         {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [

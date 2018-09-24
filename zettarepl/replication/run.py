@@ -111,21 +111,17 @@ def run_replication_task(replication_task: ReplicationTask,
 
 def calculate_replication_step_templates(replication_task: ReplicationTask,
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
-    if replication_task.recursive and replication_task.exclude:
-        src_context.datasets = list_datasets_with_snapshots(src_context.shell, replication_task.source_dataset, True)
-        dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset, True)
+    src_context.datasets = list_datasets_with_snapshots(src_context.shell, replication_task.source_dataset,
+                                                        replication_task.recursive)
+    dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset,
+                                                        replication_task.recursive)
 
-        replicate = [(src_dataset, get_target_dataset(replication_task, src_dataset), False)
-                     for src_dataset in src_context.datasets.keys()
-                     if src_dataset not in replication_task.exclude]
-    else:
-        src_context.datasets = list_datasets_with_snapshots(src_context.shell, replication_task.source_dataset, False)
-        dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset, False)
-
-        replicate = [(replication_task.source_dataset, replication_task.target_dataset, replication_task.recursive)]
-
-    return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset, dst_dataset, recursive)
-            for src_dataset, dst_dataset, recursive in replicate]
+    # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
+    # or deleted empty snapshots
+    return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
+                                    get_target_dataset(replication_task, src_dataset), False)
+            for src_dataset in src_context.datasets.keys()
+            if src_dataset not in replication_task.exclude]
 
 
 def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
