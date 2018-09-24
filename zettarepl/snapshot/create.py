@@ -1,5 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
+import os
+import re
 
 from zettarepl.transport.interface import *
 from zettarepl.transport.utils import put_file
@@ -24,6 +26,17 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
         pool_name = snapshot.dataset.split("/")[0]
 
         args = ["zfs", "program", pool_name, program, snapshot.dataset, snapshot.name] + exclude
+
+        try:
+            shell.exec(args)
+        except ExecException as e:
+            errors = []
+            for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
+                errors.append((snapshot, os.strerror(int(error))))
+            if errors:
+                raise CreateSnapshotError(errors)
+            else:
+                raise CreateSnapshotError(e)
     else:
         args = ["zfs", "snapshot"]
 
@@ -32,9 +45,9 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
 
         args.append(str(snapshot))
 
-    try:
-        shell.exec(args)
-    except ExecException as e:
-        raise CreateSnapshotError(e)
+        try:
+            shell.exec(args)
+        except ExecException as e:
+            raise CreateSnapshotError(e)
 
     return
