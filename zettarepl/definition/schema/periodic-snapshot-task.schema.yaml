@@ -25,3 +25,5 @@ properties:
     type: string
   schedule:
     $ref: http://freenas.org/zettarepl/schedule.schema.json
+  allow-empty:
+    type: boolean

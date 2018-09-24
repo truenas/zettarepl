@@ -23,6 +23,9 @@ from zettarepl.scheduler.cron import CronSchedule
     ]
 ])
 def test__run_replication_tasks(tasks):
+    for task in tasks:
+        task.retries = 1
+
     with patch("zettarepl.replication.run.run_replication_task") as run_replication_task:
         run_replication_tasks(Mock(), Mock(), list(reversed(tasks)))
 

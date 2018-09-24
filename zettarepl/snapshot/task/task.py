@@ -16,7 +16,7 @@ __all__ = ["PeriodicSnapshotTask"]
 
 class PeriodicSnapshotTask:
     def __init__(self, id, dataset: str, recursive: bool, exclude: [str], lifetime: timedelta,
-                 naming_schema: str, schedule: CronSchedule):
+                 naming_schema: str, schedule: CronSchedule, allow_empty: bool):
         self.id = id
         self.dataset = dataset
         self.recursive = recursive
@@ -24,6 +24,7 @@ class PeriodicSnapshotTask:
         self.lifetime = lifetime
         self.naming_schema = naming_schema
         self.schedule = schedule
+        self.allow_empty = allow_empty
 
         validate_snapshot_naming_schema(self.naming_schema)
 
@@ -32,7 +33,8 @@ class PeriodicSnapshotTask:
         periodic_snapshot_task_validator.validate(data)
 
         data.setdefault("exclude", [])
+        data.setdefault("allow-empty", True)
 
         return cls(
             data["id"], data["dataset"], data["recursive"], data["exclude"], isodate.parse_duration(data["lifetime"]),
-            data["naming-schema"], CronSchedule.from_data(data["schedule"]))
+            data["naming-schema"], CronSchedule.from_data(data["schedule"]), data["allow-empty"])

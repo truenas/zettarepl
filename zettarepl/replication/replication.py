@@ -2,6 +2,8 @@
 import logging
 
 from zettarepl.snapshot.create import *
+from zettarepl.snapshot.destroy import destroy_snapshots
+from zettarepl.snapshot.empty import get_empty_snapshots_for_deletion
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.utils.itertools import bisect, bisect_by_class, sortedgroupby
@@ -79,6 +81,11 @@ class Replication:
             else:
                 logger.info("Created %r", snapshot)
                 created_snapshots.add(snapshot)
+
+        empty_snapshots = get_empty_snapshots_for_deletion(self.local_shell, tasks_with_snapshot_names)
+        if empty_snapshots:
+            logger.info("Destroying empty snapshots: %r", empty_snapshots)
+            destroy_snapshots(self.local_shell, empty_snapshots)
 
     def _replication_tasks_for_periodic_snapshot_tasks(self, replication_tasks, periodic_snapshot_tasks):
         result = []
