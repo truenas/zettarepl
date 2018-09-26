@@ -27,7 +27,7 @@ def test__run_replication_tasks(tasks):
         task.retries = 1
 
     with patch("zettarepl.replication.run.run_replication_task") as run_replication_task:
-        run_replication_tasks(Mock(), Mock(), list(reversed(tasks)))
+        run_replication_tasks(Mock(), Mock(), Mock(), list(reversed(tasks)))
 
         assert run_replication_task.mock_calls == [call(task, ANY, ANY) for task in tasks]
 

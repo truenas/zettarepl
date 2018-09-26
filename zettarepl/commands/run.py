@@ -4,11 +4,11 @@ import logging
 import yaml
 
 from zettarepl.definition.definition import Definition
-from zettarepl.replication.replication import Replication
 from zettarepl.scheduler.clock import Clock
 from zettarepl.scheduler.tz_clock import TzClock
 from zettarepl.scheduler.scheduler import Scheduler
 from zettarepl.transport.local import LocalShell
+from zettarepl.zettarepl import Zettarepl
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,6 @@ def run(args):
     scheduler = Scheduler(clock, tz_clock)
     local_shell = LocalShell()
 
-    replication = Replication(scheduler, local_shell)
-    replication.set_tasks(definition.tasks)
-    replication.run()
+    zettarepl = Zettarepl(scheduler, local_shell)
+    zettarepl.set_tasks(definition.tasks)
+    zettarepl.run()

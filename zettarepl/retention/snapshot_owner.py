@@ -9,8 +9,14 @@ __all__ = ["SnapshotOwner"]
 
 
 class SnapshotOwner:
-    def owns(self, parsed_snapshot_name: ParsedSnapshotName):
+    def get_naming_schemas(self) -> [str]:
         raise NotImplementedError
 
-    def should_retain(self, parsed_snapshot_name: ParsedSnapshotName):
+    def owns_dataset(self, dataset: str):
+        raise NotImplementedError
+
+    def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
+        raise NotImplementedError
+
+    def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         raise NotImplementedError

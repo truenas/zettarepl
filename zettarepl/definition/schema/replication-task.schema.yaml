@@ -54,6 +54,8 @@ properties:
     type: boolean
   allow-from-scratch:
     type: boolean
+  hold-pending-snapshots:
+    type: boolean
   retention-policy:
     type: string
     enum:

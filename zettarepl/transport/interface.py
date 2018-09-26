@@ -49,6 +49,9 @@ class Shell:
 
         self.logger = self.transport.logger.getChild("shell").getChild(str(next(self._logger_counter)))
 
+    def close(self):
+        raise NotImplementedError
+
     def exec(self, args, encoding="utf8", stdout=None):
         return self.exec_async(args, encoding, stdout).wait()
 

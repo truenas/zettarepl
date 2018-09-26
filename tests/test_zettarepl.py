@@ -3,16 +3,16 @@ from datetime import datetime
 
 from unittest.mock import ANY, call, Mock, patch
 
-from zettarepl.replication.replication import Replication
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.snapshot.snapshot import Snapshot
+from zettarepl.zettarepl import Zettarepl
 
 
 def test__run_periodic_snapshot_tasks__alphabetical():
-    with patch("zettarepl.replication.replication.create_snapshot") as create_snapshot:
-        with patch("zettarepl.replication.replication.get_empty_snapshots_for_deletion", Mock(return_value=[])):
-            replication = Replication(Mock(), Mock())
-            replication._run_periodic_snapshot_tasks(
+    with patch("zettarepl.zettarepl.create_snapshot") as create_snapshot:
+        with patch("zettarepl.zettarepl.get_empty_snapshots_for_deletion", Mock(return_value=[])):
+            zettarepl = Zettarepl(Mock(), Mock())
+            zettarepl._run_periodic_snapshot_tasks(
                 datetime(2018, 9, 1, 15, 11),
                 [
                     Mock(dataset="data", recursive=False, naming_schema="snap-%Y-%m-%d_%H-%M-2d"),
@@ -28,10 +28,10 @@ def test__run_periodic_snapshot_tasks__alphabetical():
 
 
 def test__run_periodic_snapshot_tasks__recursive():
-    with patch("zettarepl.replication.replication.create_snapshot") as create_snapshot:
-        with patch("zettarepl.replication.replication.get_empty_snapshots_for_deletion", Mock(return_value=[])):
-            replication = Replication(Mock(), Mock())
-            replication._run_periodic_snapshot_tasks(
+    with patch("zettarepl.zettarepl.create_snapshot") as create_snapshot:
+        with patch("zettarepl.zettarepl.get_empty_snapshots_for_deletion", Mock(return_value=[])):
+            zettarepl = Zettarepl(Mock(), Mock())
+            zettarepl._run_periodic_snapshot_tasks(
                 datetime(2018, 9, 1, 15, 11),
                 [
                     Mock(dataset="data", recursive=False, naming_schema="snap-%Y-%m-%d_%H-%M"),
@@ -43,7 +43,7 @@ def test__run_periodic_snapshot_tasks__recursive():
 
 
 def test__replication_tasks_for_periodic_snapshot_tasks():
-    replication = Replication(Mock(), Mock())
+    zettarepl = Zettarepl(Mock(), Mock())
 
     pst1 = Mock()
     pst2 = Mock()
@@ -55,4 +55,4 @@ def test__replication_tasks_for_periodic_snapshot_tasks():
     rt2 = Mock(spec=ReplicationTask)
     rt2.periodic_snapshot_tasks = []
 
-    assert replication._replication_tasks_for_periodic_snapshot_tasks([rt1, rt2], [pst1, pst3]) == [rt1]
+    assert zettarepl._replication_tasks_for_periodic_snapshot_tasks([rt1, rt2], [pst1, pst3]) == [rt1]

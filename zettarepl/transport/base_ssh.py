@@ -66,6 +66,10 @@ class SshTransportShell(Shell):
         self._client = None
         self._sftp = None
 
+    def close(self):
+        if self._client is not None:
+            self._client.close()
+
     def get_client(self):
         if self._client is None:
             self.logger.debug("Connecting...")

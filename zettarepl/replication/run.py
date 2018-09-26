@@ -1,12 +1,11 @@
 # -*- coding=utf-8 -*-
 from collections import OrderedDict
 import logging
-import os
 
 from zettarepl.dataset.list import *
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
-from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas
+from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
 from zettarepl.transport.interface import Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
@@ -14,7 +13,10 @@ from zettarepl.transport.zfscli import get_receive_resume_token
 from .error import *
 from .monitor import ReplicationMonitor
 from .process_runner import ReplicationProcessRunner
+from .task.dataset import get_target_dataset
 from .task.direction import ReplicationDirection
+from .task.naming_schema import replication_task_naming_schemas
+from .task.should_replicate import *
 from .task.task import ReplicationTask
 
 logger = logging.getLogger(__name__)
@@ -60,42 +62,46 @@ class ReplicationStep(ReplicationStepTemplate):
             assert self.incremental_base is None
 
 
-def run_replication_tasks(local_shell: LocalShell, transport: Transport, replication_tasks: [ReplicationTask]):
+def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
+                          replication_tasks: [ReplicationTask]):
     replication_tasks = sorted(replication_tasks, key=lambda replication_task: (
         replication_task.source_dataset,
         # Recursive replication tasks go first
         0 if replication_task.recursive else 1,
     ))
 
-    remote_shell = transport.shell(transport)
-    for replication_task in replication_tasks:
-        local_context = ReplicationContext(None, local_shell)
-        remote_context = ReplicationContext(transport, remote_shell)
+    try:
+        for replication_task in replication_tasks:
+            local_context = ReplicationContext(None, local_shell)
+            remote_context = ReplicationContext(transport, remote_shell)
 
-        if replication_task.direction == ReplicationDirection.PUSH:
-            src_context = local_context
-            dst_context = remote_context
-        elif replication_task.direction == ReplicationDirection.PULL:
-            src_context = remote_context
-            dst_context = local_context
-        else:
-            raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
+            if replication_task.direction == ReplicationDirection.PUSH:
+                src_context = local_context
+                dst_context = remote_context
+            elif replication_task.direction == ReplicationDirection.PULL:
+                src_context = remote_context
+                dst_context = local_context
+            else:
+                raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-        for i in range(replication_task.retries):
-            try:
-                run_replication_task(replication_task, src_context, dst_context)
-                break
-            except RecoverableReplicationError as e:
-                logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
-                               i + 1, e)
-            except ReplicationError as e:
-                logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
-                break
-            except Exception as e:
-                logger.error("For task %r unhandled replication error %r", replication_task.id, e)
-                break
-        else:
-            logger.error("Failed replication task %r after %d retries", replication_task.id, replication_task.retries)
+            for i in range(replication_task.retries):
+                try:
+                    run_replication_task(replication_task, src_context, dst_context)
+                    break
+                except RecoverableReplicationError as e:
+                    logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
+                                   i + 1, e)
+                except ReplicationError as e:
+                    logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
+                    break
+                except Exception as e:
+                    logger.error("For task %r unhandled replication error %r", replication_task.id, e)
+                    break
+            else:
+                logger.error("Failed replication task %r after %d retries", replication_task.id,
+                             replication_task.retries)
+    finally:
+        remote_shell.close()
 
 
 def run_replication_task(replication_task: ReplicationTask,
@@ -120,8 +126,8 @@ def calculate_replication_step_templates(replication_task: ReplicationTask,
     # or deleted empty snapshots
     return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
                                     get_target_dataset(replication_task, src_dataset), False)
-            for src_dataset in src_context.datasets.keys()
-            if src_dataset not in replication_task.exclude]
+            for src_dataset in src_context.datasets.keys()  # Order is right because it's OrderedDict
+            if replication_task_should_replicate_dataset(replication_task, src_dataset)]
 
 
 def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
@@ -129,11 +135,6 @@ def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) ->
     datasets_from_snapshots = group_snapshots_by_datasets(list_snapshots(shell, dataset, recursive))
     datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
     return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
-
-
-def get_target_dataset(replication_task, src_dataset):
-    return os.path.normpath(
-        os.path.join(replication_task.target_dataset, os.path.relpath(src_dataset, replication_task.source_dataset)))
 
 
 def resume_replications(step_templates: [ReplicationStepTemplate]):
@@ -176,9 +177,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate]):
 
 
 def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
-    naming_schemas = (set(periodic_snapshot_task.naming_schema
-                          for periodic_snapshot_task in replication_task.periodic_snapshot_tasks) |
-                      set(replication_task.also_include_naming_schema))
+    naming_schemas = replication_task_naming_schemas(replication_task)
 
     parsed_src_snapshots = parse_snapshots_names_with_multiple_schemas(src_snapshots, naming_schemas)
     parsed_dst_snapshots = parse_snapshots_names_with_multiple_schemas(dst_snapshots, naming_schemas)
@@ -186,7 +185,7 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
     try:
         parsed_incremental_base = sorted(
             set(parsed_src_snapshots) & set(parsed_dst_snapshots),
-            key=lambda parsed_snapshot: (parsed_snapshot.datetime, parsed_snapshot.name)
+            key=parsed_snapshot_sort_key,
         )[-1]
         incremental_base = parsed_incremental_base.name
     except IndexError:
@@ -195,10 +194,7 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
 
     snapshots_to_send = [
         parsed_snapshot
-        for parsed_snapshot in sorted(
-            parsed_src_snapshots,
-            key=lambda parsed_snapshot: (parsed_snapshot.datetime, parsed_snapshot.name)
-        )
+        for parsed_snapshot in sorted(parsed_src_snapshots, key=parsed_snapshot_sort_key)
         if (
             (
                 parsed_incremental_base is None or
@@ -211,14 +207,7 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
                     parsed_snapshot.datetime > parsed_incremental_base.datetime
                 )
             ) and
-            (
-                replication_task.restrict_schedule is None or
-                replication_task.restrict_schedule.should_run(parsed_snapshot.datetime)
-            ) and
-            (
-                not replication_task.only_matching_schedule or
-                replication_task.schedule.should_run(parsed_snapshot.datetime)
-            )
+            replication_task_should_replicate_parsed_snapshot(replication_task, parsed_snapshot)
         )
     ]
 

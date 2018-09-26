@@ -51,6 +51,9 @@ class LocalShell(Shell):
     def __init__(self, transport=None):
         super().__init__(transport or LocalTransport())
 
+    def close(self):
+        pass
+
     def exists(self, path):
         return os.path.exists(path)
 

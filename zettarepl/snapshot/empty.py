@@ -1,10 +1,10 @@
 # -*- coding=utf-8 -*-
 from collections import defaultdict
 import logging
-import os
 
 from zettarepl.dataset.exclude import should_exclude
 from zettarepl.dataset.list import list_datasets
+from zettarepl.dataset.relationship import is_child
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell
@@ -38,10 +38,7 @@ def get_task_snapshots(datasets: [str], task: PeriodicSnapshotTask, snapshot_nam
         return [
             Snapshot(dataset, snapshot_name)
             for dataset in datasets
-            if (
-                (dataset == task.dataset or not os.path.relpath(dataset, task.dataset).startswith("..")) and
-                not should_exclude(dataset, task.exclude)
-            )
+            if is_child(dataset, task.dataset) and not should_exclude(dataset, task.exclude)
         ]
     else:
         return [Snapshot(task.dataset, snapshot_name)]

@@ -1,28 +1,34 @@
 # -*- coding=utf-8 -*-
+from datetime import datetime
 import logging
 
+from zettarepl.replication.run import run_replication_tasks
+from zettarepl.replication.task.direction import ReplicationDirection
+from zettarepl.replication.task.snapshot_owner import pending_replication_task_snapshot_owners
+from zettarepl.replication.task.task import *
+from zettarepl.retention.calculate import calculate_snapshots_to_remove
 from zettarepl.snapshot.create import *
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.empty import get_empty_snapshots_for_deletion
+from zettarepl.snapshot.list import multilist_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
+from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotOwner
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
-from zettarepl.utils.itertools import bisect, bisect_by_class, sortedgroupby
-
-from .run import run_replication_tasks
-from .task.direction import ReplicationDirection
-from .task.task import *
+from zettarepl.utils.itertools import bisect, bisect_by_class, select_by_class, sortedgroupby
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["Replication"]
+__all__ = ["Zettarepl"]
 
 
-class Replication:
+class Zettarepl:
     def __init__(self, scheduler, local_shell):
         self.scheduler = scheduler
         self.local_shell = local_shell
 
         self.tasks = []
+
+        self.shells = []
 
     def set_tasks(self, tasks):
         self.tasks = tasks
@@ -54,6 +60,11 @@ class Replication:
             self._run_replication_tasks(replication_tasks)
 
             assert tasks == []
+
+            self._run_local_retention(scheduled.datetime.datetime)
+
+            for shell in self.shells:
+                shell.close()
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
@@ -97,14 +108,53 @@ class Replication:
         return result
 
     def _run_replication_tasks(self, replication_tasks):
-        transport = lambda replication_task: replication_task.transport
-        for transport, replication_tasks in sortedgroupby(replication_tasks, transport):
-            is_push_replication_task = lambda replication_task: replication_task.direction == ReplicationDirection.PUSH
-            push_replication_tasks, replication_tasks = bisect(is_push_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, push_replication_tasks)
+        for transport, replication_tasks in self._transport_for_replication_tasks(replication_tasks):
+            remote_shell = self._get_shell(transport)
 
-            is_pull_replication_task = lambda replication_task: replication_task.direction == ReplicationDirection.PULL
-            pull_replication_tasks, replication_tasks = bisect(is_pull_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, pull_replication_tasks)
+            push_replication_tasks, replication_tasks = bisect(self._is_push_replication_task, replication_tasks)
+            run_replication_tasks(self.local_shell, transport, remote_shell, push_replication_tasks)
+
+            pull_replication_tasks, replication_tasks = bisect(self._is_pull_replication_task, replication_tasks)
+            run_replication_tasks(self.local_shell, transport, remote_shell, pull_replication_tasks)
 
             assert replication_tasks == []
+
+    def _transport_for_replication_tasks(self, replication_tasks):
+        return sortedgroupby(replication_tasks, lambda replication_task: replication_task.transport)
+
+    def _is_push_replication_task(self, replication_task: ReplicationTask):
+        return replication_task.direction == ReplicationDirection.PUSH
+
+    def _is_pull_replication_task(self, replication_task: ReplicationTask):
+        return replication_task.direction == ReplicationDirection.PULL
+
+    def _get_shell(self, transport):
+        if transport not in self.shells:
+            self.shells[transport] = transport.shell(transport)
+
+        return self.shells[transport]
+
+    def _run_local_retention(self, now: datetime):
+        periodic_snapshot_tasks = select_by_class(PeriodicSnapshotTask, self.tasks)
+        replication_tasks = select_by_class(ReplicationTask, self.tasks)
+
+        owners = []
+
+        owners.extend([
+            PeriodicSnapshotTaskSnapshotOwner(now, periodic_snapshot_task)
+            for periodic_snapshot_task in periodic_snapshot_tasks
+        ])
+
+        replication_tasks_that_can_hold = [replication_task for replication_task in replication_tasks
+                                           if replication_task.hold_pending_snapshots]
+        snapshots = multilist_snapshots(self.local_shell, [
+            (replication_task.target_dataset, replication_task.recursive)
+            for replication_task in replication_tasks_that_can_hold
+        ])
+        for transport, replication_tasks in self._transport_for_replication_tasks(replication_tasks_that_can_hold):
+            shell = self._get_shell(transport)
+            owners.extend(pending_replication_task_snapshot_owners(snapshots, shell, replication_tasks))
+
+        snapshots_to_destroy = calculate_snapshots_to_remove(owners, snapshots)
+        logger.info("Retention destroying snapshots: %r", snapshots_to_destroy)
+        destroy_snapshots(self.local_shell, snapshots_to_destroy)

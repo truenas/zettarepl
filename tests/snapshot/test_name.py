@@ -19,8 +19,8 @@ def test__parse_snapshots_names_with_multiple_schemas__multiple_schemas():
             ]
         )
     ) == {
-        ParsedSnapshotName("snap-2018-09-06-11-30", datetime(2018, 9, 6, 11, 30)),
-        ParsedSnapshotName("snap-2018-09-06-11_31", datetime(2018, 9, 6, 11, 31)),
+        ParsedSnapshotName("snap-%Y-%m-%d-%H-%M", "snap-2018-09-06-11-30", datetime(2018, 9, 6, 11, 30)),
+        ParsedSnapshotName("snap-%Y-%m-%d-%H_%M", "snap-2018-09-06-11_31", datetime(2018, 9, 6, 11, 31)),
     }
 
 
@@ -37,8 +37,8 @@ def test__parse_snapshots_names_with_multiple_schemas__multiple_schemas__inambig
             ]
         )
     ) == {
-        ParsedSnapshotName("snap-2018-09-06-11-30-1w", datetime(2018, 9, 6, 11, 30)),
-        ParsedSnapshotName("snap-2018-09-06-11-30-2m", datetime(2018, 9, 6, 11, 30)),
+        ParsedSnapshotName("snap-%Y-%m-%d-%H-%M-1w", "snap-2018-09-06-11-30-1w", datetime(2018, 9, 6, 11, 30)),
+        ParsedSnapshotName("snap-%Y-%m-%d-%H-%M-2m", "snap-2018-09-06-11-30-2m", datetime(2018, 9, 6, 11, 30)),
     }
 
 

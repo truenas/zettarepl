@@ -6,9 +6,10 @@ from typing import Iterable
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ParsedSnapshotName", "parse_snapshots_names", "parse_snapshots_names_with_multiple_schemas"]
+__all__ = ["ParsedSnapshotName", "parse_snapshots_names", "parse_snapshots_names_with_multiple_schemas",
+           "parsed_snapshot_sort_key"]
 
-ParsedSnapshotName = namedtuple("ParsedSnapshotName", ["name", "datetime"])
+ParsedSnapshotName = namedtuple("ParsedSnapshotName", ["naming_schema", "name", "datetime"])
 
 
 def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSnapshotName]:
@@ -19,7 +20,7 @@ def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSn
         except ValueError:
             pass
         else:
-            result.append(ParsedSnapshotName(name, d))
+            result.append(ParsedSnapshotName(naming_schema, name, d))
 
     return result
 
@@ -38,3 +39,7 @@ def parse_snapshots_names_with_multiple_schemas(names: Iterable[str], naming_sch
                                      f"with naming schema {naming_schema}, as {parsed_snapshot.datetime}")
 
     return list(parsed_snapshots.values())
+
+
+def parsed_snapshot_sort_key(parsed_snapshot: ParsedSnapshotName):
+    return parsed_snapshot.datetime, parsed_snapshot.name

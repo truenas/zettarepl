@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["bisect", "bisect_by_class", "sortedgroupby"]
+__all__ = ["bisect", "bisect_by_class", "select_by_class", "sortedgroupby"]
 
 
 def bisect(condition, iterable):
@@ -21,6 +21,10 @@ def bisect(condition, iterable):
 
 def bisect_by_class(klass, iterable):
     return bisect(lambda v: isinstance(v, klass), iterable)
+
+
+def select_by_class(klass, iterable):
+    return list(filter(lambda v: isinstance(v, klass), iterable))
 
 
 def sortedgroupby(iterable, key):
