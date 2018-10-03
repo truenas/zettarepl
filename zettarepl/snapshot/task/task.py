@@ -35,6 +35,13 @@ class PeriodicSnapshotTask:
         data.setdefault("exclude", [])
         data.setdefault("allow-empty", True)
 
+        if "lifetime" in data:
+            lifetime = isodate.parse_duration(data["lifetime"])
+        else:
+            # timedelta.max is not good here because operations with it would result in
+            # OverflowError: date value out of range
+            lifetime = timedelta(days=36500)
+
         return cls(
-            data["id"], data["dataset"], data["recursive"], data["exclude"], isodate.parse_duration(data["lifetime"]),
+            data["id"], data["dataset"], data["recursive"], data["exclude"], lifetime,
             data["naming-schema"], CronSchedule.from_data(data["schedule"]), data["allow-empty"])

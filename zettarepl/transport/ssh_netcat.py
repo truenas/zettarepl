@@ -117,7 +117,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                 connect_address = self.remote_shell.exec(["sh", "-c", "echo $SSH_CLIENT"]).split()[0]
                 if not connect_address:
                     raise Exception("passive-side-connect-address not specified and $SSH_CLIENT variable is empty")
-            elif self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
+            elif self.transport.active_side == SshNetcatTransportActiveSide.REMOTE:
                 connect_address = self.transport.hostname
             logger.info("Automatically chose connect address %r", connect_address)
 

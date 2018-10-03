@@ -144,7 +144,7 @@ def test__get_snapshot_to_send__multiple_tasks():
 
 
 def test__get_snapshot_to_send__multiple_tasks_retention_policy():
-    retention_policy = lambda src_snapshots, dst_snapshots: [dst_snapshots[1]]  # 1w-2018-09-03_00-00
+    retention_policy = lambda now, src_snapshots, dst_snapshots: [dst_snapshots[1]]  # 1w-2018-09-03_00-00
     assert get_snapshots_to_send(
         ["1w-2018-09-02_00-00", "2d-2018-09-02_00-00", "2d-2018-09-02_12-00",
          "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"],

@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 from collections import OrderedDict
+from datetime import datetime
 import logging
 
 from zettarepl.dataset.list import *
@@ -212,7 +213,10 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
     ]
 
     # Do not send something that will immediately be removed by retention policy
-    will_be_removed = replication_task.retention_policy.calculate_delete_snapshots(snapshots_to_send, snapshots_to_send)
+    will_be_removed = replication_task.retention_policy.calculate_delete_snapshots(
+        # We don't know what time it is, our best guess is newest snapshot datetime
+        max([parsed_src_snapshot.datetime for parsed_src_snapshot in parsed_src_snapshots] or [datetime.max]),
+        snapshots_to_send, snapshots_to_send)
     snapshots_to_send = [parsed_snapshot.name
                          for parsed_snapshot in snapshots_to_send
                          if parsed_snapshot not in will_be_removed]

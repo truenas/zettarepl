@@ -147,7 +147,7 @@ class ReplicationTask:
 
             if "restrict-schedule" in data:
                 if not data["auto"]:
-                    raise ValueError("You can only have restrict-schedule for replication that does not run "
+                    raise ValueError("You can only have restrict-schedule for replication that runs "
                                      "automatically")
 
                 if not data["periodic-snapshot-tasks"]:

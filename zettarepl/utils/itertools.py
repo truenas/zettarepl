@@ -28,4 +28,4 @@ def select_by_class(klass, iterable):
 
 
 def sortedgroupby(iterable, key):
-    return itertools.groupby(sorted(iterable, key=key), key=key)
+    return [(a, list(b)) for a, b in itertools.groupby(sorted(iterable, key=key), key=key)]

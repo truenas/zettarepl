@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from datetime import datetime
 import enum
 import logging
 
@@ -7,24 +8,23 @@ from zettarepl.snapshot.list import multilist_snapshots, group_snapshots_by_data
 from zettarepl.snapshot.name import *
 from zettarepl.transport.interface import Shell
 
-from .dataset import get_target_dataset
+from .dataset import *
 from .naming_schema import replication_task_naming_schemas
 from .should_replicate import *
 from .task import ReplicationTask
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["PendingReplicationTaskSnapshotOwner"]
+__all__ = ["PendingPushReplicationTaskSnapshotOwner", "pending_push_replication_task_snapshot_owners",
+           "ExecutedReplicationTaskSnapshotOwner"]
 
 
 class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
     class Side(enum.Enum):
-        LOCAL = 1
-        ENUM = 2
+        SOURCE = 1
+        TARGET = 2
 
     def __init__(self, replication_task: ReplicationTask, side: Side):
-        assert replication_task.hold_pending_snapshots
-
         self.replication_task = replication_task
         self.side = side
 
@@ -34,19 +34,23 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
         return self.naming_schemas
 
     def owns_dataset(self, dataset: str):
-        return (
-            replication_task_should_replicate_dataset(self.replication_task, dataset)
-            if self.side == BaseReplicationTaskSnapshotOwner.Side.LOCAL
-            else replication_task_replicates_target_dataset(self.replication_task, dataset)
-        )
+        if self.side == BaseReplicationTaskSnapshotOwner.Side.SOURCE:
+            return replication_task_should_replicate_dataset(self.replication_task, dataset)
+
+        if self.side == BaseReplicationTaskSnapshotOwner.Side.TARGET:
+            return replication_task_replicates_target_dataset(self.replication_task, dataset)
+
+        raise ValueError(self.side)
 
     def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
         return replication_task_should_replicate_parsed_snapshot(self.replication_task, parsed_snapshot_name)
 
 
-class PendingReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
+class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
     def __init__(self, replication_task: ReplicationTask, src_snapshots: {str: [str]}, dst_snapshots: {str: [str]}):
-        super().__init__(replication_task, BaseReplicationTaskSnapshotOwner.Side.LOCAL)
+        assert replication_task.hold_pending_snapshots
+
+        super().__init__(replication_task, BaseReplicationTaskSnapshotOwner.Side.SOURCE)
         self.src_snapshots = src_snapshots
         self.dst_snapshots = dst_snapshots
 
@@ -59,8 +63,8 @@ class PendingReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
         )
 
 
-def pending_replication_task_snapshot_owners(src_snapshots: {str: [str]},
-                                             shell: Shell, replication_tasks: [ReplicationTask]):
+def pending_push_replication_task_snapshot_owners(src_snapshots: {str: [str]}, shell: Shell,
+                                                  replication_tasks: [ReplicationTask]):
     replication_tasks = [replication_task for replication_task in replication_tasks
                          if replication_task.hold_pending_snapshots]
 
@@ -75,7 +79,40 @@ def pending_replication_task_snapshot_owners(src_snapshots: {str: [str]},
                          exc_info=True)
             dst_snapshots = {}
 
-        return [PendingReplicationTaskSnapshotOwner(replication_task, src_snapshots, dst_snapshots)
+        return [PendingPushReplicationTaskSnapshotOwner(replication_task, src_snapshots, dst_snapshots)
                 for replication_task in replication_tasks]
 
     return []
+
+
+class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
+    def __init__(self, now: datetime, replication_task: ReplicationTask, src_snapshots: {str: [str]},
+                 dst_snapshots: {str: [str]}):
+        self.now = now
+        super().__init__(replication_task, BaseReplicationTaskSnapshotOwner.Side.TARGET)
+        self.src_snapshots = src_snapshots
+        self.dst_snapshots = dst_snapshots
+
+        parsed_src_snapshots_names = {
+            dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
+            for dataset, snapshots in self.src_snapshots.items()
+        }
+        parsed_dst_snapshots_names = {
+            dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
+            for dataset, snapshots in self.dst_snapshots.items()
+        }
+
+        self.delete_snapshots = {
+            dst_dataset: self.replication_task.retention_policy.calculate_delete_snapshots(
+                now,
+                parsed_src_snapshots_names.get(get_source_dataset(self.replication_task, dst_dataset), []),
+                parsed_dst_snapshots_names.get(dst_dataset, []),
+            )
+            for dst_dataset in self.dst_snapshots.keys()
+        }
+
+    def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
+        return (
+            self.owns_dataset(dataset) and
+            parsed_snapshot_name.name not in self.delete_snapshots[dataset]
+        )

@@ -1,5 +1,7 @@
 # -*- coding=utf-8 -*-
+import jsonschema.exceptions
 import logging
+import sys
 
 import yaml
 
@@ -16,7 +18,17 @@ __all__ = ["run"]
 
 
 def run(args):
-    definition = Definition.from_data(yaml.load(args.definition_path))
+    try:
+        definition = Definition.from_data(yaml.load(args.definition_path))
+    except yaml.YAMLError as e:
+        sys.stderr.write(f"Definition syntax error: {e!s}\n")
+        sys.exit(1)
+    except jsonschema.exceptions.ValidationError as e:
+        sys.stderr.write(f"Definition validation error: {e!s}\n")
+        sys.exit(1)
+    except ValueError as e:
+        sys.stderr.write(f"{e!s}\n")
+        sys.exit(1)
 
     clock = Clock(args.once)
     tz_clock = TzClock(definition.timezone, clock.now)

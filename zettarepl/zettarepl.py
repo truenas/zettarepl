@@ -4,13 +4,13 @@ import logging
 
 from zettarepl.replication.run import run_replication_tasks
 from zettarepl.replication.task.direction import ReplicationDirection
-from zettarepl.replication.task.snapshot_owner import pending_replication_task_snapshot_owners
+from zettarepl.replication.task.snapshot_owner import *
 from zettarepl.replication.task.task import *
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
 from zettarepl.snapshot.create import *
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.empty import get_empty_snapshots_for_deletion
-from zettarepl.snapshot.list import multilist_snapshots
+from zettarepl.snapshot.list import *
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotOwner
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
@@ -28,7 +28,7 @@ class Zettarepl:
 
         self.tasks = []
 
-        self.shells = []
+        self.shells = {}
 
     def set_tasks(self, tasks):
         self.tasks = tasks
@@ -62,8 +62,9 @@ class Zettarepl:
             assert tasks == []
 
             self._run_local_retention(scheduled.datetime.datetime)
+            self._run_remote_retention(scheduled.datetime.datetime)
 
-            for shell in self.shells:
+            for shell in self.shells.values():
                 shell.close()
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
@@ -138,23 +139,74 @@ class Zettarepl:
         periodic_snapshot_tasks = select_by_class(PeriodicSnapshotTask, self.tasks)
         replication_tasks = select_by_class(ReplicationTask, self.tasks)
 
-        owners = []
+        push_replication_tasks_that_can_hold = [replication_task for replication_task in replication_tasks
+                                                if replication_task.hold_pending_snapshots]
+        pull_replications_tasks = list(filter(self._is_pull_replication_task, replication_tasks))
 
+        local_snapshots_queries = []
+        local_snapshots_queries.extend([
+            (periodic_snapshot_task.dataset, periodic_snapshot_task.recursive)
+            for periodic_snapshot_task in periodic_snapshot_tasks
+        ])
+        local_snapshots_queries.extend([
+            (replication_task.source_dataset, replication_task.recursive)
+            for replication_task in push_replication_tasks_that_can_hold
+        ])
+        local_snapshots_queries.extend([
+            (replication_task.target_dataset, replication_task.recursive)
+            for replication_task in pull_replications_tasks
+        ])
+        local_snapshots = multilist_snapshots(self.local_shell, local_snapshots_queries)
+        local_snapshots_grouped = group_snapshots_by_datasets(local_snapshots)
+
+        owners = []
         owners.extend([
             PeriodicSnapshotTaskSnapshotOwner(now, periodic_snapshot_task)
             for periodic_snapshot_task in periodic_snapshot_tasks
         ])
 
-        replication_tasks_that_can_hold = [replication_task for replication_task in replication_tasks
-                                           if replication_task.hold_pending_snapshots]
-        snapshots = multilist_snapshots(self.local_shell, [
-            (replication_task.target_dataset, replication_task.recursive)
-            for replication_task in replication_tasks_that_can_hold
-        ])
-        for transport, replication_tasks in self._transport_for_replication_tasks(replication_tasks_that_can_hold):
+        # These are always only PUSH replication tasks
+        for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks_that_can_hold):
             shell = self._get_shell(transport)
-            owners.extend(pending_replication_task_snapshot_owners(snapshots, shell, replication_tasks))
+            owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
+                                                                        replication_tasks))
 
-        snapshots_to_destroy = calculate_snapshots_to_remove(owners, snapshots)
-        logger.info("Retention destroying snapshots: %r", snapshots_to_destroy)
+        for transport, replication_tasks in self._transport_for_replication_tasks(pull_replications_tasks):
+            shell = self._get_shell(transport)
+            remote_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(shell, [
+                (replication_task.source_dataset, replication_task.recursive)
+                for replication_task in replication_tasks
+            ]))
+            owners.extend([
+                ExecutedReplicationTaskSnapshotOwner(replication_task, remote_snapshots_grouped,
+                                                     local_snapshots_grouped)
+                for replication_task in replication_tasks
+            ])
+
+        snapshots_to_destroy = calculate_snapshots_to_remove(owners, local_snapshots)
+        logger.info("Retention destroying local snapshots: %r", snapshots_to_destroy)
         destroy_snapshots(self.local_shell, snapshots_to_destroy)
+
+    def _run_remote_retention(self, now: datetime):
+        push_replication_tasks = list(
+            filter(self._is_push_replication_task, select_by_class(ReplicationTask, self.tasks)))
+        local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(self.local_shell, [
+            (replication_task.source_dataset, replication_task.recursive)
+            for replication_task in push_replication_tasks
+        ]))
+        for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
+            shell = self._get_shell(transport)
+            remote_snapshots = multilist_snapshots(shell, [
+                (replication_task.target_dataset, replication_task.recursive)
+                for replication_task in replication_tasks
+            ])
+            remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
+            owners = [
+                ExecutedReplicationTaskSnapshotOwner(now, replication_task, local_snapshots_grouped,
+                                                     remote_snapshots_grouped)
+                for replication_task in replication_tasks
+            ]
+
+            snapshots_to_destroy = calculate_snapshots_to_remove(owners, remote_snapshots)
+            logger.info("Retention on transport %r destroying snapshots: %r", transport, snapshots_to_destroy)
+            destroy_snapshots(shell, snapshots_to_destroy)
