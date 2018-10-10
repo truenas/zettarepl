@@ -7,7 +7,7 @@ from zettarepl.replication.task.should_replicate import replication_task_replica
 
 @pytest.mark.parametrize("replication_task,dataset,result", [
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=True,
              exclude=["data/work/garbage"]),
@@ -15,7 +15,7 @@ from zettarepl.replication.task.should_replicate import replication_task_replica
         True,
     ),
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=True,
              exclude=["data/work/garbage"]),

@@ -1,6 +1,8 @@
 # -*- coding=utf-8 -*-
-import pytest
+import copy
 from unittest.mock import ANY, call, Mock, patch
+
+import pytest
 
 from zettarepl.replication.run import (
     run_replication_tasks,
@@ -14,27 +16,49 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.scheduler.cron import CronSchedule
 
 
-@pytest.mark.parametrize("tasks", [
-    [
-        Mock(direction=ReplicationDirection.PUSH, source_dataset="data", recursive=True),
-        Mock(direction=ReplicationDirection.PUSH, source_dataset="data", recursive=False),
-        Mock(direction=ReplicationDirection.PUSH, source_dataset="data/garbage", recursive=True),
-        Mock(direction=ReplicationDirection.PUSH, source_dataset="temp", recursive=False),
-    ]
+@pytest.mark.parametrize("tasks,parts", [
+    (
+        [
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["work"], recursive=False),
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["data/garbage"], recursive=True),
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["data"], recursive=False),
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["data"], recursive=True),
+        ],
+        [
+            (3, "data"),
+            (2, "data"),
+            (1, "data/garbage"),
+            (0, "work"),
+        ]
+    ),
+    (
+        [
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["data/work"], recursive=True),
+            Mock(direction=ReplicationDirection.PUSH, source_datasets=["data", "data/work/ix"], recursive=False),
+        ],
+        [
+            (1, "data"),
+            (0, "data/work"),
+            (1, "data/work/ix"),
+        ],
+    ),
 ])
-def test__run_replication_tasks(tasks):
+def test__run_replication_tasks(tasks, parts):
     for task in tasks:
         task.retries = 1
 
-    with patch("zettarepl.replication.run.run_replication_task") as run_replication_task:
-        run_replication_tasks(Mock(), Mock(), Mock(), list(reversed(tasks)))
+    with patch("zettarepl.replication.run.run_replication_task_part") as run_replication_task_part:
+        run_replication_tasks(Mock(), Mock(), Mock(), tasks)
 
-        assert run_replication_task.mock_calls == [call(task, ANY, ANY) for task in tasks]
+        assert run_replication_task_part.mock_calls == [
+            call(tasks[task_id], source_dataset, ANY, ANY)
+            for task_id, source_dataset in parts
+        ]
 
 
 @pytest.mark.parametrize("replication_task, src_datasets, replication_step_templates", [
     (
-        Mock(source_dataset="data/src",
+        Mock(source_datasets=["data/src"],
              target_dataset="data/dst",
              recursive=True,
              exclude=["data/src/trash"]),
@@ -51,7 +75,8 @@ def test__calculate_replication_step_templates(replication_task, src_datasets, r
         list_datasets_with_snapshots.return_value = src_datasets
 
         with patch("zettarepl.replication.run.ReplicationStepTemplate") as ReplicationStepTemplate:
-            calculate_replication_step_templates(replication_task, Mock(datasets=src_datasets), Mock())
+            calculate_replication_step_templates(replication_task, replication_task.source_datasets[0],
+                                                 Mock(datasets=src_datasets), Mock())
 
             assert ReplicationStepTemplate.mock_calls == [call(replication_task, ANY, ANY, *replication_step_template)
                                                           for replication_step_template in replication_step_templates]
@@ -59,14 +84,14 @@ def test__calculate_replication_step_templates(replication_task, src_datasets, r
 
 def test__get_target_dataset__1():
     assert get_target_dataset(
-        Mock(source_dataset="data/src", target_dataset="data/dst"),
+        Mock(source_datasets=["data/src"], target_dataset="data/dst"),
         "data/src"
     ) == "data/dst"
 
 
 def test__get_target_dataset__2():
     assert get_target_dataset(
-        Mock(source_dataset="data/src", target_dataset="data/dst"),
+        Mock(source_datasets=["data/src"], target_dataset="data/dst"),
         "data/src/a/b"
     ) == "data/dst/a/b"
 

@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
+from zettarepl.dataset.relationship import is_child
 from zettarepl.definition.schema import replication_task_validator
 from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
@@ -16,7 +17,7 @@ __all__ = ["ReplicationTask"]
 
 
 class ReplicationTask:
-    def __init__(self, id, direction: ReplicationDirection, transport, source_dataset: str, target_dataset: str,
+    def __init__(self, id, direction: ReplicationDirection, transport, source_datasets: [str], target_dataset: str,
                  recursive: bool, exclude: [str], periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str], auto: bool, schedule: CronSchedule, restrict_schedule: CronSchedule,
                  only_matching_schedule: bool, allow_from_scratch: bool, hold_pending_snapshots: bool,
@@ -27,7 +28,7 @@ class ReplicationTask:
         self.id = id
         self.direction = direction
         self.transport = transport
-        self.source_dataset = source_dataset
+        self.source_datasets = source_datasets
         self.target_dataset = target_dataset
         self.recursive = recursive
         self.exclude = exclude
@@ -55,6 +56,10 @@ class ReplicationTask:
     def from_data(cls, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
         replication_task_validator.validate(data)
 
+        for k in ["source-dataset", "naming-schema", "also-include-naming-schema"]:
+            if k in data and isinstance(data[k], str):
+                data[k] = [data[k]]
+
         data.setdefault("exclude", [])
         data.setdefault("periodic-snapshot-tasks", [])
         data.setdefault("only-matching-schedule", False)
@@ -77,12 +82,15 @@ class ReplicationTask:
             else:
                 raise ValueError(f"Periodic snapshot task {task.id!r} does not exist")
 
-        for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
-            for exclude in periodic_snapshot_task.exclude:
-                if exclude not in data["exclude"]:
-                    raise ValueError(
-                        f"Replication tasks should exclude everything their periodic snapshot tasks exclude "
-                        f"(task {data['id']!r} does not exclude {exclude!r} from periodic snapshot task {task.id!r})")
+        for source_dataset in data["source-dataset"]:
+            for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
+                if is_child(source_dataset, periodic_snapshot_task.dataset):
+                    for exclude in periodic_snapshot_task.exclude:
+                        if exclude not in data["exclude"]:
+                            raise ValueError(
+                                f"Replication tasks should exclude everything their periodic snapshot tasks exclude"
+                                f" (task {data['id']!r} does not exclude {exclude!r} from periodic snapshot task "
+                                f"{task.id!r})")
 
         data["direction"] = ReplicationDirection(data["direction"])
 

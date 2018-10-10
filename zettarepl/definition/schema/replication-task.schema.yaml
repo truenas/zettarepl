@@ -24,7 +24,11 @@ properties:
     - $ref: "#/definitions/ssh-netcat-transport"
     - $ref: "#/definitions/local-transport"
   source-dataset:
-    type: string
+    anyOf:
+    - type: array
+      items:
+        type: string
+    - type: string
   target-dataset:
     type: string
   recursive:
@@ -37,13 +41,17 @@ properties:
     type: array
     items: {}
   naming-schema:
-    type: array
-    items:
-      type: string
+    anyOf:
+    - type: array
+      items:
+        type: string
+    - type: string
   also-include-naming-schema:
-    type: array
-    items:
-      type: string
+    anyOf:
+    - type: array
+      items:
+        type: string
+    - type: string
   auto:
     type: boolean
   schedule:

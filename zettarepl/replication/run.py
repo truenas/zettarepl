@@ -65,14 +65,23 @@ class ReplicationStep(ReplicationStepTemplate):
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
                           replication_tasks: [ReplicationTask]):
-    replication_tasks = sorted(replication_tasks, key=lambda replication_task: (
-        replication_task.source_dataset,
-        # Recursive replication tasks go first
-        0 if replication_task.recursive else 1,
-    ))
+    replication_tasks_parts = sorted(
+        sum([
+            [
+                (replication_task, source_dataset)
+                for source_dataset in replication_task.source_datasets
+            ]
+            for replication_task in replication_tasks
+        ], []),
+        key=lambda replication_task__source_dataset: (
+            replication_task__source_dataset[1],
+            # Recursive replication tasks go first
+            0 if replication_task__source_dataset[0].recursive else 1,
+        )
+    )
 
     try:
-        for replication_task in replication_tasks:
+        for replication_task, source_dataset in replication_tasks_parts:
             local_context = ReplicationContext(None, local_shell)
             remote_context = ReplicationContext(transport, remote_shell)
 
@@ -87,7 +96,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
 
             for i in range(replication_task.retries):
                 try:
-                    run_replication_task(replication_task, src_context, dst_context)
+                    run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
                     break
                 except RecoverableReplicationError as e:
                     logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
@@ -105,20 +114,22 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         remote_shell.close()
 
 
-def run_replication_task(replication_task: ReplicationTask,
-                         src_context: ReplicationContext, dst_context: ReplicationContext):
-    step_templates = calculate_replication_step_templates(replication_task, src_context, dst_context)
+def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
+                              src_context: ReplicationContext, dst_context: ReplicationContext):
+    step_templates = calculate_replication_step_templates(replication_task, source_dataset,
+                                                          src_context, dst_context)
 
     resumed = resume_replications(step_templates)
     if resumed:
-        step_templates = calculate_replication_step_templates(replication_task, src_context, dst_context)
+        step_templates = calculate_replication_step_templates(replication_task, source_dataset,
+                                                              src_context, dst_context)
 
     run_replication_steps(step_templates)
 
 
-def calculate_replication_step_templates(replication_task: ReplicationTask,
+def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
-    src_context.datasets = list_datasets_with_snapshots(src_context.shell, replication_task.source_dataset,
+    src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
                                                         replication_task.recursive)
     dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset,
                                                         replication_task.recursive)

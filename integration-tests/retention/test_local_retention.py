@@ -49,29 +49,15 @@ def test_hold_pending_snapshots(retention_policy, remains):
     data = yaml.load(textwrap.dedent("""\
         timezone: "UTC"
 
-        periodic-snapshot-tasks:
-          - id: src
-            dataset: data/src
-            recursive: true
-            lifetime: PT1H
-            naming-schema: "%Y-%m-%d_%H-%M"
-            schedule:
-              minute: "0"
-              hour: "*"
-              day-of-month: "*"
-              month: "*"
-              day-of-week: "*"
-
         replication-tasks:
           - id: src
-            direction: push
+            direction: pull
             transport:
               type: local
             source-dataset: data/src
             target-dataset: data/dst
+            naming-schema: "%Y-%m-%d_%H-%M"
             recursive: true
-            periodic-snapshot-tasks:
-              - src
             auto: true
     """))
     data["replication-tasks"][0].update(**retention_policy)
@@ -80,6 +66,6 @@ def test_hold_pending_snapshots(retention_policy, remains):
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_remote_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0))
 
     assert list_snapshots(local_shell, "data/dst", False) == remains

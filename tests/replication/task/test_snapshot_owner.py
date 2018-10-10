@@ -11,7 +11,7 @@ from zettarepl.replication.task.snapshot_owner import *
 @pytest.mark.parametrize("replication_task,src_snapshots,dst_snapshots,dataset,snapshot_name,should_retain", [
     # Everything is ok
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=False),
         {
@@ -26,7 +26,7 @@ from zettarepl.replication.task.snapshot_owner import *
     ),
     # Replication probably failed
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=False),
         {
@@ -41,7 +41,7 @@ from zettarepl.replication.task.snapshot_owner import *
     ),
     # There was no data/work/ix at 2018-09-26_11-47
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=True,
              exclude=[]),
@@ -59,7 +59,7 @@ from zettarepl.replication.task.snapshot_owner import *
     ),
     # Replication of repl/work/ix@2018-09-26_11-49 failed
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=True,
              exclude=[]),
@@ -77,7 +77,7 @@ from zettarepl.replication.task.snapshot_owner import *
     ),
     # Same but non-recursive and we don't care
     (
-        Mock(source_dataset="data/work",
+        Mock(source_datasets=["data/work"],
              target_dataset="repl/work",
              recursive=False),
         {
@@ -113,7 +113,7 @@ def test__pending_replication_task_snapshot_owner(replication_task, src_snapshot
     ("repl/work/ix", "2018-09-26_11-48", False),
 ])
 def test__pull_replication_task_snapshot_owner(dataset, snapshot, should_retain):
-    replication_task = Mock(source_dataset="data/work",
+    replication_task = Mock(source_datasets=["data/work"],
                             target_dataset="repl/work",
                             recursive=True,
                             exclude=[])

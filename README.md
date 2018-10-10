@@ -111,6 +111,12 @@ replication-tasks:
     # Target dataset
     target-dataset: data/dst
 
+    # Or you can specify multiple source datasets, e.g.:
+    # source-dataset:
+    #   - data/src/work
+    #   - data/src/holiday/summer
+    # They would be replicated to data/dst/work and data/dst/holiday/summer
+
     # "recursive" and "exclude" work exactly like they work for periodic
     # snapshot tasks
     recursive: true

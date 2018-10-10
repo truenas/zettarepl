@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 __all__ = ["Zettarepl"]
 
 
+def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
+    return sum([
+        [
+            (source_dataset, replication_task.recursive)
+            for source_dataset in replication_task.source_datasets
+        ]
+        for replication_task in replication_tasks
+    ], [])
+
+
 class Zettarepl:
     def __init__(self, scheduler, local_shell):
         self.scheduler = scheduler
@@ -148,10 +158,7 @@ class Zettarepl:
             (periodic_snapshot_task.dataset, periodic_snapshot_task.recursive)
             for periodic_snapshot_task in periodic_snapshot_tasks
         ])
-        local_snapshots_queries.extend([
-            (replication_task.source_dataset, replication_task.recursive)
-            for replication_task in push_replication_tasks_that_can_hold
-        ])
+        local_snapshots_queries.extend(replication_tasks_source_datasets_queries(push_replication_tasks_that_can_hold))
         local_snapshots_queries.extend([
             (replication_task.target_dataset, replication_task.recursive)
             for replication_task in pull_replications_tasks
@@ -173,12 +180,10 @@ class Zettarepl:
 
         for transport, replication_tasks in self._transport_for_replication_tasks(pull_replications_tasks):
             shell = self._get_shell(transport)
-            remote_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(shell, [
-                (replication_task.source_dataset, replication_task.recursive)
-                for replication_task in replication_tasks
-            ]))
+            remote_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
+                shell, replication_tasks_source_datasets_queries(replication_tasks)))
             owners.extend([
-                ExecutedReplicationTaskSnapshotOwner(replication_task, remote_snapshots_grouped,
+                ExecutedReplicationTaskSnapshotOwner(now, replication_task, remote_snapshots_grouped,
                                                      local_snapshots_grouped)
                 for replication_task in replication_tasks
             ])
@@ -190,10 +195,8 @@ class Zettarepl:
     def _run_remote_retention(self, now: datetime):
         push_replication_tasks = list(
             filter(self._is_push_replication_task, select_by_class(ReplicationTask, self.tasks)))
-        local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(self.local_shell, [
-            (replication_task.source_dataset, replication_task.recursive)
-            for replication_task in push_replication_tasks
-        ]))
+        local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
+            self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
             shell = self._get_shell(transport)
             remote_snapshots = multilist_snapshots(shell, [

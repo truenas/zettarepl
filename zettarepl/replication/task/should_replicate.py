@@ -14,8 +14,11 @@ __all__ = ["replication_task_should_replicate_dataset", "replication_task_replic
 
 
 def replication_task_should_replicate_dataset(replication_task: ReplicationTask, dataset: str):
-    return belongs_to_tree(dataset, replication_task.source_dataset, replication_task.recursive,
-                           replication_task.exclude)
+    return any(
+        belongs_to_tree(dataset, source_dataset, replication_task.recursive,
+                        replication_task.exclude)
+        for source_dataset in replication_task.source_datasets
+    )
 
 
 def replication_task_replicates_target_dataset(replication_task: ReplicationTask, dataset: str):
