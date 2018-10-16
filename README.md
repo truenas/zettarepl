@@ -71,12 +71,15 @@ periodic-snapshot-tasks:
     naming-schema: snap-%Y-%m-%d-%H-%M
 
     # Crontab-like schedule when this replication task would run
+    # default schedule is * * * * * (every minute)
     schedule:
       minute: "*/15"    # Every 15 minutes
       hour: "8,12,17"   # At 8, 12 and 17'o clock
       day-of-month: "*" # At any day of month
       month: "*"
       day-of-week: "*"
+      start: "09:30"
+      end: "17:00"
 ```
 
 zettarepl periodic snapshot tasks retention is smart enough to behave correctly in variety of situations. E.g., if task
@@ -153,10 +156,6 @@ replication-tasks:
     # run automatically on schedule
     schedule:
       minute: "0"
-      hour: "*"
-      day-of-month: "*"
-      month: "*"
-      day-of-week: "*"
 
     # How to delete snapshots on target. "source" means "delete snapshots
     # that are no more present on source", more policies documented
@@ -172,11 +171,7 @@ There are also a few additional options that you can use:
     # to periodic snapshot task that takes snapshots every hour but only
     # replicate snapshots taken at even hours.
     restrict-schedule:
-      minute: "*"
       hour: "*/2"
-      day-of-month: "*"
-      month: "*"
-      day-of-week: "*"
 
     # Set it to true to user your task schedule as restrict-schedule
     only-matching-schedule: true

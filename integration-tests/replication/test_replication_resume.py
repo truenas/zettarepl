@@ -39,10 +39,6 @@ def test_replication_resume(caplog):
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
-              hour: "*"
-              day-of-month: "*"
-              month: "*"
-              day-of-week: "*"
 
         replication-tasks:
           - id: src

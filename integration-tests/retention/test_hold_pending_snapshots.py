@@ -49,10 +49,6 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
-              hour: "*"
-              day-of-month: "*"
-              month: "*"
-              day-of-week: "*"
 
         replication-tasks:
           - id: src

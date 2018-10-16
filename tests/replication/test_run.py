@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-import copy
+from datetime import time
 from unittest.mock import ANY, call, Mock, patch
 
 import pytest
@@ -148,7 +148,7 @@ def test__get_snapshot_to_send__restrict_schedule():
         ["2018-09-02_17-45"],
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
-             restrict_schedule=CronSchedule("*/2", "*", "*", "*", "*"),
+             restrict_schedule=CronSchedule("*/2", "*", "*", "*", "*", time(0, 0), time(23, 59)),
              only_matching_schedule=False,
              retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
     ) == ("2018-09-02_17-45", ["2018-09-02_17-46"])

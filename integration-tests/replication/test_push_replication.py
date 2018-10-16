@@ -34,10 +34,6 @@ def test_push_replication():
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
-              hour: "*"
-              day-of-month: "*"
-              month: "*"
-              day-of-week: "*"
 
         replication-tasks:
           - id: src
