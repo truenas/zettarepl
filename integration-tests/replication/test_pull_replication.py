@@ -27,7 +27,7 @@ def test_pull_replication():
         timezone: "UTC"
 
         replication-tasks:
-          - id: src
+          src:
             direction: pull
             transport:
               type: local

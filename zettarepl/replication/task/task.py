@@ -53,7 +53,7 @@ class ReplicationTask:
         return f"<ReplicationTask {self.id!r}>"
 
     @classmethod
-    def from_data(cls, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
+    def from_data(cls, id, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
         replication_task_validator.validate(data)
 
         for k in ["source-dataset", "naming-schema", "also-include-naming-schema"]:
@@ -121,7 +121,7 @@ class ReplicationTask:
 
         compression = replication_compressions[data["compression"]] if data["compression"] else None
 
-        return cls(data["id"],
+        return cls(id,
                    data["direction"],
                    create_transport(data["transport"]),
                    data["source-dataset"], data["target-dataset"],

@@ -1,7 +1,7 @@
 timezone: "Europe/Moscow"
 
 periodic-snapshot-tasks:
-  - id: src
+  src:
     dataset: data/src
     recursive: true
     lifetime: P365D
@@ -14,7 +14,7 @@ periodic-snapshot-tasks:
       day-of-week: "*"
 
 replication-tasks:
-  - id: src
+  src:
     direction: push
     transport:
       type: local

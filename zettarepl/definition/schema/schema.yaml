@@ -3,13 +3,23 @@ $schema: http://json-schema.org/draft-07/schema#
 type: object
 additionalProperties: false
 properties:
-  periodic-snapshot-tasks:
-    type: array
-    items:
-      $ref: http://freenas.org/zettarepl/periodic-snapshot-task.schema.json
-  replication-tasks:
-    type: array
-    items:
-      $ref: http://freenas.org/zettarepl/replication-task.schema.json
   timezone:
     type: string
+  periodic-snapshot-tasks:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      ^.+$:
+        $ref: http://freenas.org/zettarepl/periodic-snapshot-task.schema.json
+  transports:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      ^.+$:
+        $ref: http://freenas.org/zettarepl/transport.schema.json
+  replication-tasks:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      ^.+$:
+        $ref: http://freenas.org/zettarepl/replication-task.schema.json

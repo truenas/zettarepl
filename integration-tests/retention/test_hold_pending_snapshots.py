@@ -42,7 +42,7 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
         timezone: "UTC"
 
         periodic-snapshot-tasks:
-          - id: src
+          src:
             dataset: data/src
             recursive: true
             lifetime: PT1H
@@ -51,7 +51,7 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
               minute: "0"
 
         replication-tasks:
-          - id: src
+          src:
             direction: push
             transport:
               type: local
