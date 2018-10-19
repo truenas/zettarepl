@@ -5,6 +5,8 @@ import sys
 
 import coloredlogs
 
+from .commands.create_dataset import create_dataset
+from .commands.list_datasets import list_datasets
 from .commands.run import run
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,17 @@ def main():
     subparsers = parser.add_subparsers()
     subparsers.required = True
     subparsers.dest = "command"
+
+    list_datasets_parser = subparsers.add_parser("list_datasets", help="List datasets")
+    list_datasets_parser.add_argument("definition_path", type=argparse.FileType("r"))
+    list_datasets_parser.add_argument("transport", nargs="?")
+    list_datasets_parser.set_defaults(func=list_datasets)
+
+    run_parser = subparsers.add_parser("create_dataset", help="Create dataset")
+    run_parser.add_argument("definition_path", type=argparse.FileType("r"))
+    run_parser.add_argument("name")
+    run_parser.add_argument("transport", nargs="?")
+    run_parser.set_defaults(func=create_dataset)
 
     run_parser = subparsers.add_parser("run", help="Continuously run scheduled replication tasks")
     run_parser.add_argument("definition_path", type=argparse.FileType("r"))

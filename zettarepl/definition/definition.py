@@ -22,8 +22,12 @@ class Definition:
         self.timezone = timezone
 
     @classmethod
-    def from_data(cls, data):
+    def validate(cls, data):
         schema_validator.validate(data)
+
+    @classmethod
+    def from_data(cls, data):
+        cls.validate(data)
 
         if "timezone" in data:
             try:
@@ -55,9 +59,5 @@ class Definition:
                 replication_tasks.append(ReplicationTask.from_data(id, task, periodic_snapshot_tasks))
             except ValueError as e:
                 raise ValueError(f"When parsing replication task {id!r}: {e!s}")
-
-        for item, count in Counter([task.id for task in replication_tasks]).items():
-            if count > 1:
-                raise ValueError(f"Duplicate replication task id: {id!r}")
 
         return cls(periodic_snapshot_tasks + replication_tasks, timezone)
