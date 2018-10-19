@@ -29,7 +29,7 @@ class PeriodicSnapshotTask:
         validate_snapshot_naming_schema(self.naming_schema)
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, id, data):
         periodic_snapshot_task_validator.validate(data)
 
         data.setdefault("exclude", [])
@@ -43,5 +43,5 @@ class PeriodicSnapshotTask:
             lifetime = timedelta(days=36500)
 
         return cls(
-            data["id"], data["dataset"], data["recursive"], data["exclude"], lifetime,
+            id, data["dataset"], data["recursive"], data["exclude"], lifetime,
             data["naming-schema"], CronSchedule.from_data(data["schedule"]), data["allow-empty"])

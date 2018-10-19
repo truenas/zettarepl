@@ -31,7 +31,7 @@ used standalone without performing any actual replication.
 ```yaml
 periodic-snapshot-tasks:
   # Each task in zettarepl must have an unique id to make references for it
-  - id: src
+  src:
     # Dataset to make snapshots
     dataset: data/src
 
@@ -99,8 +99,7 @@ tasks can be both triggered automatically by periodic snapshot task or schedule 
 
 ```yaml
 replication-tasks:
-  - id: src
-
+  src:
     # Either push or pull
     direction: push
 

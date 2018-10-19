@@ -27,7 +27,7 @@ def test_push_replication():
         timezone: "UTC"
 
         periodic-snapshot-tasks:
-          - id: src
+          src:
             dataset: data/src
             recursive: true
             lifetime: PT1H
@@ -36,7 +36,7 @@ def test_push_replication():
               minute: "0"
 
         replication-tasks:
-          - id: src
+          src:
             direction: push
             transport:
               type: local

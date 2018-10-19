@@ -50,7 +50,7 @@ def test_hold_pending_snapshots(retention_policy, remains):
         timezone: "UTC"
 
         replication-tasks:
-          - id: src
+          src:
             direction: pull
             transport:
               type: local
@@ -60,7 +60,7 @@ def test_hold_pending_snapshots(retention_policy, remains):
             recursive: true
             auto: true
     """))
-    data["replication-tasks"][0].update(**retention_policy)
+    data["replication-tasks"]["src"].update(**retention_policy)
     definition = Definition.from_data(data)
 
     local_shell = LocalShell()

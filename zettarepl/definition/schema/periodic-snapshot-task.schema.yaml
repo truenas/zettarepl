@@ -2,14 +2,12 @@ $id: http://freenas.org/zettarepl/periodic-snapshot-task.schema.json
 $schema: http://json-schema.org/draft-07/schema#
 type: object
 required:
-- id
 - dataset
 - recursive
 - naming-schema
 - schedule
 additionalProperties: false
 properties:
-  id: {}
   dataset:
     type: string
   recursive:

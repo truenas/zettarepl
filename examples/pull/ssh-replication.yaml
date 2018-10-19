@@ -1,7 +1,7 @@
 timezone: "Europe/Moscow"
 
 replication-tasks:
-  - id: src
+  src:
     direction: pull
     transport:
       type: ssh
