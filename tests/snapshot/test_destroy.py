@@ -12,6 +12,6 @@ def test__destroy_snapshots__works():
 
     assert shell.exec.call_count == 2
     shell.exec.assert_has_calls([
-        call(["zfs", "destroy", "data@snap-1%snap-2"]),
+        call(["zfs", "destroy", "data@snap-1,snap-2"]),
         call(["zfs", "destroy", "data/work@snap-1"])
     ], True)
