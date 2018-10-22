@@ -16,6 +16,6 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
         names = [snapshot.name for snapshot in snapshots]
 
         logger.info("On %r for dataset %r destroying snapshots %r", shell, dataset, names)
-        args = ["zfs", "destroy", f"{dataset}@" + "%".join(names)]
+        args = ["zfs", "destroy", f"{dataset}@" + ",".join(names)]
 
         shell.exec(args)
