@@ -80,12 +80,17 @@ class SshTransportShell(Shell):
                 self.transport.hostname,
                 self.transport.port,
                 self.transport.username,
-                pkey={
-                    "EC": paramiko.ECDSAKey,
-                    "RSA": paramiko.RSAKey,
-                    "DSA": paramiko.DSSKey,
-                }[re.search("BEGIN (EC|RSA|DSA) PRIVATE KEY", self.transport.private_key).group(1)].from_private_key(
-                    io.StringIO(self.transport.private_key)),
+                pkey=(
+                    {
+                        "OPENSSH": paramiko.Ed25519Key,  # Other parsers do not support new OpenSSH private key format
+                                                         # so when we see key like this we assume that it is Ed25519 key
+                        "EC": paramiko.ECDSAKey,
+                        "RSA": paramiko.RSAKey,
+                        "DSA": paramiko.DSSKey,
+                    }[
+                        re.search("BEGIN (OPENSSH|EC|RSA|DSA) PRIVATE KEY", self.transport.private_key).group(1)
+                    ].from_private_key(io.StringIO(self.transport.private_key))
+                ),
                 timeout=self.transport.connect_timeout,
                 allow_agent=False,
                 look_for_keys=False,
