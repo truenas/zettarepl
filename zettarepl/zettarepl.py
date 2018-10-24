@@ -77,6 +77,8 @@ class Zettarepl:
             for shell in self.shells.values():
                 shell.close()
 
+            self.shells = {}
+
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
             [(task, now.strftime(task.naming_schema)) for task in tasks],

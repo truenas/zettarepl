@@ -81,38 +81,35 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         )
     )
 
-    try:
-        for replication_task, source_dataset in replication_tasks_parts:
-            local_context = ReplicationContext(None, local_shell)
-            remote_context = ReplicationContext(transport, remote_shell)
+    for replication_task, source_dataset in replication_tasks_parts:
+        local_context = ReplicationContext(None, local_shell)
+        remote_context = ReplicationContext(transport, remote_shell)
 
-            if replication_task.direction == ReplicationDirection.PUSH:
-                src_context = local_context
-                dst_context = remote_context
-            elif replication_task.direction == ReplicationDirection.PULL:
-                src_context = remote_context
-                dst_context = local_context
-            else:
-                raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
+        if replication_task.direction == ReplicationDirection.PUSH:
+            src_context = local_context
+            dst_context = remote_context
+        elif replication_task.direction == ReplicationDirection.PULL:
+            src_context = remote_context
+            dst_context = local_context
+        else:
+            raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-            for i in range(replication_task.retries):
-                try:
-                    run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
-                    break
-                except RecoverableReplicationError as e:
-                    logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
-                                   i + 1, e)
-                except ReplicationError as e:
-                    logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
-                    break
-                except Exception as e:
-                    logger.error("For task %r unhandled replication error %r", replication_task.id, e)
-                    break
-            else:
-                logger.error("Failed replication task %r after %d retries", replication_task.id,
-                             replication_task.retries)
-    finally:
-        remote_shell.close()
+        for i in range(replication_task.retries):
+            try:
+                run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
+                break
+            except RecoverableReplicationError as e:
+                logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
+                               i + 1, e)
+            except ReplicationError as e:
+                logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
+                break
+            except Exception as e:
+                logger.error("For task %r unhandled replication error %r", replication_task.id, e)
+                break
+        else:
+            logger.error("Failed replication task %r after %d retries", replication_task.id,
+                         replication_task.retries)
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
