@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from collections import Counter
+import copy
 import logging
 
 from dateutil.tz import tzlocal
@@ -27,6 +27,8 @@ class Definition:
 
     @classmethod
     def from_data(cls, data):
+        data = copy.deepcopy(data)
+
         cls.validate(data)
 
         if "timezone" in data:
