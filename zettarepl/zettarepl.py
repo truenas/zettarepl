@@ -2,6 +2,7 @@
 from datetime import datetime
 import logging
 
+from zettarepl.observer import notify, PeriodicSnapshotTaskStart, PeriodicSnapshotTaskSuccess, PeriodicSnapshotTaskError
 from zettarepl.replication.run import run_replication_tasks
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
@@ -36,9 +37,14 @@ class Zettarepl:
         self.scheduler = scheduler
         self.local_shell = local_shell
 
+        self.observer = None
+
         self.tasks = []
 
         self.shells = {}
+
+    def set_observer(self, observer):
+        self.observer = observer
 
     def set_tasks(self, tasks):
         self.tasks = tasks
@@ -98,13 +104,18 @@ class Zettarepl:
             if snapshot in created_snapshots:
                 continue
 
+            notify(self.observer, PeriodicSnapshotTaskStart(task.id))
             try:
                 create_snapshot(self.local_shell, snapshot, task.recursive, task.exclude)
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
+
+                notify(self.observer, PeriodicSnapshotTaskError(task.id, str(e)))
             else:
                 logger.info("Created %r", snapshot)
                 created_snapshots.add(snapshot)
+
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
 
         empty_snapshots = get_empty_snapshots_for_deletion(self.local_shell, tasks_with_snapshot_names)
         if empty_snapshots:
@@ -125,10 +136,10 @@ class Zettarepl:
             remote_shell = self._get_shell(transport)
 
             push_replication_tasks, replication_tasks = bisect(self._is_push_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, remote_shell, push_replication_tasks)
+            run_replication_tasks(self.local_shell, transport, remote_shell, push_replication_tasks, self.observer)
 
             pull_replication_tasks, replication_tasks = bisect(self._is_pull_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, remote_shell, pull_replication_tasks)
+            run_replication_tasks(self.local_shell, transport, remote_shell, pull_replication_tasks, self.observer)
 
             assert replication_tasks == []
 
