@@ -96,7 +96,7 @@ class ReplicationTask:
 
         if data["direction"] == ReplicationDirection.PUSH:
             if "naming-schema" in data:
-                raise ValueError(f"Push replication task can't have naming-schema")
+                raise ValueError("Push replication task can't have naming-schema")
 
             data.setdefault("also-include-naming-schema", [])
 
