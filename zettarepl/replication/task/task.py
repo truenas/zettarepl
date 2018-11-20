@@ -74,13 +74,13 @@ class ReplicationTask:
         data.setdefault("retries", 5)
 
         resolved_periodic_snapshot_tasks = []
-        for task_id in data["periodic-snapshot-tasks"]:
-            for task in periodic_snapshot_tasks:
-                if task.id == task_id:
-                    resolved_periodic_snapshot_tasks.append(task)
+        for periodic_snapshot_task_id in data["periodic-snapshot-tasks"]:
+            for periodic_snapshot_task in periodic_snapshot_tasks:
+                if periodic_snapshot_task.id == periodic_snapshot_task_id:
+                    resolved_periodic_snapshot_tasks.append(periodic_snapshot_task)
                     break
             else:
-                raise ValueError(f"Periodic snapshot task {task.id!r} does not exist")
+                raise ValueError(f"Periodic snapshot task {periodic_snapshot_task_id!r} does not exist")
 
         for source_dataset in data["source-dataset"]:
             for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
@@ -88,25 +88,24 @@ class ReplicationTask:
                     for exclude in periodic_snapshot_task.exclude:
                         if exclude not in data["exclude"]:
                             raise ValueError(
-                                f"Replication tasks should exclude everything their periodic snapshot tasks exclude"
-                                f" (task {data['id']!r} does not exclude {exclude!r} from periodic snapshot task "
-                                f"{task.id!r})")
+                                f"Replication tasks should exclude everything their periodic snapshot tasks exclude "
+                                f"(task does not exclude {exclude!r} from periodic snapshot task "
+                                f"{periodic_snapshot_task.id!r})")
 
         data["direction"] = ReplicationDirection(data["direction"])
 
         if data["direction"] == ReplicationDirection.PUSH:
             if "naming-schema" in data:
-                raise ValueError(f"Push replication task can't have naming-schema (task {data['id']!r} includes")
+                raise ValueError("Push replication task can't have naming-schema")
 
             data.setdefault("also-include-naming-schema", [])
 
         elif data["direction"] == ReplicationDirection.PULL:
             if "naming-schema" not in data:
-                raise ValueError(f"You must provide naming schema for pull replication task {data['id']!r}")
+                raise ValueError("You must provide naming-schema for pull replication task")
 
             if "also-include-naming-schema" in data:
-                raise ValueError(f"Pull replication task can't have also-include-naming-schema "
-                                 f"(task {data['id']!r} includes")
+                raise ValueError("Pull replication task can't have also-include-naming-schema")
 
             data.setdefault("also-include-naming-schema", data.pop("naming-schema"))
 
@@ -115,7 +114,7 @@ class ReplicationTask:
         if data["direction"] == ReplicationDirection.PULL:
             if data["hold-pending-snapshots"]:
                 raise ValueError("Pull replication tasks can't hold pending snapshots because they don't do source "
-                                 f"retention (task {data['id']!r} has hold-pending-snapshots: true)")
+                                 "retention")
 
         retention_policy = TargetSnapshotRetentionPolicy.from_data(data)
 

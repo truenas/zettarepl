@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 
 from zettarepl.dataset.list import *
+from zettarepl.observer import notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskError
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -65,7 +66,7 @@ class ReplicationStep(ReplicationStepTemplate):
 
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
-                          replication_tasks: [ReplicationTask]):
+                          replication_tasks: [ReplicationTask], observer=None):
     replication_tasks_parts = sorted(
         sum([
             [
@@ -94,22 +95,28 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         else:
             raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
+        notify(observer, ReplicationTaskStart(replication_task.id))
+        recoverable_error = None
         for i in range(replication_task.retries):
             try:
                 run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
+                notify(observer, ReplicationTaskSuccess(replication_task.id))
                 break
-            except RecoverableReplicationError as e:
+            except RecoverableReplicationError as recoverable_error:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
-                               i + 1, e)
+                               i + 1, recoverable_error)
             except ReplicationError as e:
                 logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
+                notify(observer, ReplicationTaskError(replication_task.id, str(e)))
                 break
             except Exception as e:
                 logger.error("For task %r unhandled replication error %r", replication_task.id, e)
+                notify(observer, ReplicationTaskError(replication_task.id, str(e)))
                 break
         else:
             logger.error("Failed replication task %r after %d retries", replication_task.id,
                          replication_task.retries)
+            notify(observer, ReplicationTaskError(replication_task.id, str(recoverable_error)))
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,

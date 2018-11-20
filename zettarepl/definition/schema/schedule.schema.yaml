@@ -13,7 +13,7 @@ properties:
     type: string
   day-of-week:
     type: string
-  start:
+  begin:
     type: string
   end:
     type: string
