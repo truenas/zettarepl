@@ -165,14 +165,14 @@ replication-tasks:
 There are also a few additional options that you can use:
 
 ```yaml
-    # If replication task is set up to run automatically, you can restrict
-    # snapshots that it replicates. For example, you can bind replication
-    # to periodic snapshot task that takes snapshots every hour but only
-    # replicate snapshots taken at even hours.
+    # You can restrict snapshots that your task replicates. For example,
+    # you can bind replication to periodic snapshot task that takes snapshots
+    # every hour but only replicate snapshots taken at even hours.
     restrict-schedule:
       hour: "*/2"
 
     # Set it to true to user your task schedule as restrict-schedule
+    # (or in addition to it)
     only-matching-schedule: true
 
     # By default, if there are snapshots on target dataset but none of them

@@ -134,43 +134,41 @@ class ReplicationTask:
 
     @classmethod
     def _parse_schedules(cls, data):
-        schedule = None
-        restrict_schedule = None
+        if "schedule" in data:
+            schedule = CronSchedule.from_data(data["schedule"])
+        else:
+            schedule = None
 
-        if "schedule" in data and not data["auto"]:
-            raise ValueError("You can't have schedule for replication that does not run automatically")
+        if "restrict-schedule" in data:
+            restrict_schedule = CronSchedule.from_data(data["restrict-schedule"])
+        else:
+            restrict_schedule = None
 
         if data["direction"] == ReplicationDirection.PUSH:
-            if "schedule" in data:
+            if schedule:
                 if data["periodic-snapshot-tasks"]:
                     raise ValueError("Push replication can't be bound to periodic snapshot task and have "
                                      "schedule at the same time")
-
-                schedule = CronSchedule.from_data(data["schedule"])
             else:
                 if data["auto"] and not data["periodic-snapshot-tasks"]:
                     raise ValueError("Push replication that runs automatically must be either bound to periodic "
                                      "snapshot task or have schedule")
 
-            if "restrict-schedule" in data:
-                if not data["auto"]:
-                    raise ValueError("You can only have restrict-schedule for replication that runs "
-                                     "automatically")
-
-                if not data["periodic-snapshot-tasks"]:
-                    raise ValueError("You can only have restrict-schedule for replication that is bound to "
-                                     "periodic snapshot tasks")
-
-                restrict_schedule = CronSchedule.from_data(data["restrict-schedule"])
-
         if data["direction"] == ReplicationDirection.PULL:
-            if "schedule" in data:
-                schedule = CronSchedule.from_data(data["schedule"])
-
-            if "restrict-schedule" in data:
-                raise ValueError("Pull replication can't have restrict-schedule")
+            if schedule:
+                pass
+            else:
+                if data["auto"]:
+                    raise ValueError("Pull replication that runs automatically must have schedule")
 
             if data["periodic-snapshot-tasks"]:
                 raise ValueError("Pull replication can't be bound to periodic snapshot task")
+
+        if schedule:
+            if not data["auto"]:
+                raise ValueError("You can't have schedule for replication that does not run automatically")
+        else:
+            if data["only-matching-schedule"]:
+                raise ValueError("You can't have only-matching-schedule without schedule")
 
         return schedule, restrict_schedule
