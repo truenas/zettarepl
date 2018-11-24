@@ -3,6 +3,7 @@ from datetime import datetime
 import enum
 import logging
 
+from zettarepl.dataset.relationship import is_child
 from zettarepl.retention.snapshot_owner import SnapshotOwner
 from zettarepl.snapshot.list import multilist_snapshots, group_snapshots_by_datasets
 from zettarepl.snapshot.name import *
@@ -16,7 +17,7 @@ from .task import ReplicationTask
 logger = logging.getLogger(__name__)
 
 __all__ = ["PendingPushReplicationTaskSnapshotOwner", "pending_push_replication_task_snapshot_owners",
-           "ExecutedReplicationTaskSnapshotOwner"]
+           "ExecutedReplicationTaskSnapshotOwner", "executed_pull_replication_task_snapshot_owner"]
 
 
 class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
@@ -116,3 +117,15 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
             self.owns_dataset(dataset) and
             parsed_snapshot_name.name not in self.delete_snapshots[dataset]
         )
+
+
+def executed_pull_replication_task_snapshot_owner(now: datetime, replication_task: ReplicationTask,
+                                                         remote_snapshots: {str: [str]}, local_snapshots: {str: [str]}):
+    return ExecutedReplicationTaskSnapshotOwner(
+        now, replication_task, remote_snapshots,
+        {
+            dataset: snapshots
+            for dataset, snapshots in local_snapshots.items()
+            if is_child(dataset, replication_task.target_dataset)
+        }
+    )

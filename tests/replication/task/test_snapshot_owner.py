@@ -136,3 +136,24 @@ def test__pull_replication_task_snapshot_owner(dataset, snapshot, should_retain)
             datetime(2018, 9, 26, 11, 48), replication_task, src_snapshots, dst_snapshots)
 
     assert snapshot_owner.should_retain(dataset, mock_name(Mock(), snapshot)) == should_retain
+
+
+def test__executed_pull_replication_task_snapshot_owner_1():
+    executed_pull_replication_task_snapshot_owner(
+        Mock(),
+        Mock(source_datasets=["tank/data"],
+             target_dataset="tank/repl",
+             periodic_snapshot_tasks=[],
+             also_include_naming_schema=["%Y%m%d%H%M"]),
+        # Remote snapshots
+        {
+            "tank/data": [],
+        },
+        # Local snapshots
+        {
+            # It is a localhost to localhost replication so we have source dataset here (from replication task)
+            "tank/data": [],
+            # Destination dataset
+            "tank/repl": [],
+        },
+    )
