@@ -196,8 +196,8 @@ class Zettarepl:
             remote_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
                 shell, replication_tasks_source_datasets_queries(replication_tasks)))
             owners.extend([
-                ExecutedReplicationTaskSnapshotOwner(now, replication_task, remote_snapshots_grouped,
-                                                     local_snapshots_grouped)
+                executed_pull_replication_task_snapshot_owner(now, replication_task, remote_snapshots_grouped,
+                                                              local_snapshots_grouped)
                 for replication_task in replication_tasks
             ])
 
