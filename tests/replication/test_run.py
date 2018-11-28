@@ -12,6 +12,7 @@ from zettarepl.replication.run import (
     get_snapshots_to_send,
     replicate_snapshots,
 )
+from zettarepl.replication.error import ReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.scheduler.cron import CronSchedule
 
@@ -53,6 +54,29 @@ def test__run_replication_tasks(tasks, parts):
         assert run_replication_task_part.mock_calls == [
             call(tasks[task_id], source_dataset, ANY, ANY)
             for task_id, source_dataset in parts
+        ]
+
+
+def test__run_replication_tasks__do_not_try_second_part_if_first_has_failed():
+    task1 = Mock(direction=ReplicationDirection.PUSH, source_datasets=["data/work"], recursive=True,
+                 retries=1)
+    task2 = Mock(direction=ReplicationDirection.PUSH, source_datasets=["data", "data/work/ix"], recursive=False,
+                 retries=1)
+
+    def run_replication_task_part__side_effect(replication_task, source_dataset, src_context, dst_context):
+        if replication_task == task2:
+            if source_dataset == "data":
+                raise ReplicationError("This should fail")
+            else:
+                raise Exception("This should never be reached")
+
+    with patch("zettarepl.replication.run.run_replication_task_part",
+               Mock(side_effect=run_replication_task_part__side_effect)) as run_replication_task_part:
+        run_replication_tasks(Mock(), Mock(), Mock(), [task1, task2])
+
+        assert run_replication_task_part.call_args_list == [
+            call(task2, "data", ANY, ANY),
+            call(task1, "data/work", ANY, ANY),
         ]
 
 

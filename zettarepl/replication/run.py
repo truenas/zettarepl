@@ -82,7 +82,11 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         )
     )
 
+    failed_replication_tasks_ids = set()
     for replication_task, source_dataset in replication_tasks_parts:
+        if replication_task.id in failed_replication_tasks_ids:
+            continue
+
         local_context = ReplicationContext(None, local_shell)
         remote_context = ReplicationContext(transport, remote_shell)
 
@@ -108,15 +112,18 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
             except ReplicationError as e:
                 logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
                 notify(observer, ReplicationTaskError(replication_task.id, str(e)))
+                failed_replication_tasks_ids.add(replication_task.id)
                 break
             except Exception as e:
                 logger.error("For task %r unhandled replication error %r", replication_task.id, e)
                 notify(observer, ReplicationTaskError(replication_task.id, str(e)))
+                failed_replication_tasks_ids.add(replication_task.id)
                 break
         else:
             logger.error("Failed replication task %r after %d retries", replication_task.id,
                          replication_task.retries)
             notify(observer, ReplicationTaskError(replication_task.id, str(recoverable_error)))
+            failed_replication_tasks_ids.add(replication_task.id)
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
