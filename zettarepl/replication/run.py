@@ -67,20 +67,7 @@ class ReplicationStep(ReplicationStepTemplate):
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
                           replication_tasks: [ReplicationTask], observer=None):
-    replication_tasks_parts = sorted(
-        sum([
-            [
-                (replication_task, source_dataset)
-                for source_dataset in replication_task.source_datasets
-            ]
-            for replication_task in replication_tasks
-        ], []),
-        key=lambda replication_task__source_dataset: (
-            replication_task__source_dataset[1],
-            # Recursive replication tasks go first
-            0 if replication_task__source_dataset[0].recursive else 1,
-        )
-    )
+    replication_tasks_parts = calculate_replication_tasks_parts(replication_tasks)
 
     failed_replication_tasks_ids = set()
     for replication_task, source_dataset in replication_tasks_parts:
@@ -124,6 +111,23 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                          replication_task.retries)
             notify(observer, ReplicationTaskError(replication_task.id, str(recoverable_error)))
             failed_replication_tasks_ids.add(replication_task.id)
+
+
+def calculate_replication_tasks_parts(replication_tasks):
+    return sorted(
+        sum([
+            [
+                (replication_task, source_dataset)
+                for source_dataset in replication_task.source_datasets
+            ]
+            for replication_task in replication_tasks
+        ], []),
+        key=lambda replication_task__source_dataset: (
+            replication_task__source_dataset[1],
+            # Recursive replication tasks go first
+            0 if replication_task__source_dataset[0].recursive else 1,
+        )
+    )
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
