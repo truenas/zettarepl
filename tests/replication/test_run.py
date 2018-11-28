@@ -165,7 +165,7 @@ def test__resume_replications__resume():
             result = resume_replications([dst, dst_work, dst_zzzz])
 
             dst_work.instantiate.assert_called_once_with(receive_resume_token="token")
-            run_replication_step.assert_called_once_with(step)
+            run_replication_step.assert_called_once_with(step, None)
 
             assert result is True
 

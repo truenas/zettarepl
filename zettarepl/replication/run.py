@@ -4,7 +4,8 @@ from datetime import datetime
 import logging
 
 from zettarepl.dataset.list import *
-from zettarepl.observer import notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskError
+from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotSuccess,
+                                ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -99,7 +100,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         recoverable_error = None
         for i in range(replication_task.retries):
             try:
-                run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
+                run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
                 replication_tasks_parts_left[replication_task.id] -= 1
                 if replication_tasks_parts_left[replication_task.id] == 0:
                     notify(observer, ReplicationTaskSuccess(replication_task.id))
@@ -142,16 +143,16 @@ def calculate_replication_tasks_parts(replication_tasks):
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
-                              src_context: ReplicationContext, dst_context: ReplicationContext):
+                              src_context: ReplicationContext, dst_context: ReplicationContext, observer=None):
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
 
-    resumed = resume_replications(step_templates)
+    resumed = resume_replications(step_templates, observer)
     if resumed:
         step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                               src_context, dst_context)
 
-    run_replication_steps(step_templates)
+    run_replication_steps(step_templates, observer)
 
 
 def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,
@@ -176,7 +177,7 @@ def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) ->
     return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
 
 
-def resume_replications(step_templates: [ReplicationStepTemplate]):
+def resume_replications(step_templates: [ReplicationStepTemplate], observer=None):
     resumed = False
     for step_template in step_templates:
         if step_template.dst_dataset in step_template.dst_context.datasets:
@@ -184,13 +185,13 @@ def resume_replications(step_templates: [ReplicationStepTemplate]):
 
             if receive_resume_token is not None:
                 logger.info("Resuming replication for dst_dataset %r", step_template.dst_dataset)
-                run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token))
+                run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
                 resumed = True
 
     return resumed
 
 
-def run_replication_steps(step_templates: [ReplicationStepTemplate]):
+def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
     for step_template in step_templates:
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
@@ -215,7 +216,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate]):
                         step_template.src_dataset)
             continue
 
-        replicate_snapshots(step_template, incremental_base, snapshots)
+        replicate_snapshots(step_template, incremental_base, snapshots, observer)
 
 
 def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
@@ -265,13 +266,13 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
     return incremental_base, snapshots_to_send
 
 
-def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots):
+def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, observer=None):
     for snapshot in snapshots:
-        run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot))
+        run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot), observer)
         incremental_base = snapshot
 
 
-def run_replication_step(step: ReplicationStep):
+def run_replication_step(step: ReplicationStep, observer=None):
     logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r recursive=%r incremental_base=%r "
                 "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
                 step.src_dataset, step.dst_dataset, step.snapshot, step.recursive, step.incremental_base,
@@ -298,3 +299,5 @@ def run_replication_step(step: ReplicationStep):
         step.replication_task.embed, step.replication_task.compressed)
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()
+
+    notify(observer, ReplicationTaskSnapshotSuccess(step.replication_task.id, step.src_dataset, step.snapshot))
