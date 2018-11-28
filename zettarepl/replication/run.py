@@ -69,7 +69,14 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                           replication_tasks: [ReplicationTask], observer=None):
     replication_tasks_parts = calculate_replication_tasks_parts(replication_tasks)
 
+    started_replication_tasks_ids = set()
     failed_replication_tasks_ids = set()
+    replication_tasks_parts_left = {
+        replication_task.id: len([1
+                                  for another_replication_task, source_dataset in replication_tasks_parts
+                                  if another_replication_task == replication_task])
+        for replication_task in replication_tasks
+    }
     for replication_task, source_dataset in replication_tasks_parts:
         if replication_task.id in failed_replication_tasks_ids:
             continue
@@ -86,12 +93,16 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         else:
             raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-        notify(observer, ReplicationTaskStart(replication_task.id))
+        if replication_task.id not in started_replication_tasks_ids:
+            notify(observer, ReplicationTaskStart(replication_task.id))
+            started_replication_tasks_ids.add(replication_task.id)
         recoverable_error = None
         for i in range(replication_task.retries):
             try:
                 run_replication_task_part(replication_task, source_dataset, src_context, dst_context)
-                notify(observer, ReplicationTaskSuccess(replication_task.id))
+                replication_tasks_parts_left[replication_task.id] -= 1
+                if replication_tasks_parts_left[replication_task.id] == 0:
+                    notify(observer, ReplicationTaskSuccess(replication_task.id))
                 break
             except RecoverableReplicationError as recoverable_error:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
