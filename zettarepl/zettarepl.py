@@ -197,7 +197,7 @@ class Zettarepl:
             try:
                 remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
             except Exception as e:
-                logger.warning("Local retention failed: error listing snapshots on transport %r: %r", transport, e)
+                logger.warning("Local retention failed: error listing snapshots on %r: %r", transport, e)
                 return
             remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
             owners.extend([
@@ -224,7 +224,7 @@ class Zettarepl:
             try:
                 remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
             except Exception as e:
-                logger.warning("Remote retention failed on transport %r failed: error listing snapshots: %r",
+                logger.warning("Remote retention failed on %r: error listing snapshots: %r",
                                transport, e)
                 continue
             remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
@@ -235,10 +235,10 @@ class Zettarepl:
             ]
 
             snapshots_to_destroy = calculate_snapshots_to_remove(owners, remote_snapshots)
-            logger.info("Retention on transport %r destroying snapshots: %r", transport, snapshots_to_destroy)
+            logger.info("Retention on %r destroying snapshots: %r", transport, snapshots_to_destroy)
             try:
                 destroy_snapshots(shell, snapshots_to_destroy)
             except Exception as e:
-                logger.warning("Remote retention failed on transport %r failed: error destroying snapshots: %r",
+                logger.warning("Remote retention failed on %r: error destroying snapshots: %r",
                                transport, e)
                 continue

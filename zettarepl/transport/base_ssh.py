@@ -144,6 +144,9 @@ class BaseSshTransport(Transport):
     def __hash__(self):
         return hash((self.hostname, self.port, self.username, self.private_key, self.host_key))
 
+    def __repr__(self):
+        return f"<SSH Transport({self.username}@{self.hostname})>"
+
     @classmethod
     def from_data(cls, data):
         data.setdefault("port", 22)

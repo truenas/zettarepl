@@ -70,15 +70,15 @@ def pending_push_replication_task_snapshot_owners(src_snapshots: {str: [str]}, s
                          if replication_task.hold_pending_snapshots]
 
     if replication_tasks:
+        dst_snapshots_queries = [(replication_task.target_dataset, replication_task.recursive)
+                                 for replication_task in replication_tasks]
         try:
-            dst_snapshots = group_snapshots_by_datasets(
-                multilist_snapshots(shell, [(replication_task.target_dataset, replication_task.recursive)
-                                            for replication_task in replication_tasks])
-            )
-        except Exception:
-            logger.error("Failed to list snapshots with shell %r, assuming remote has no snapshots", shell,
-                         exc_info=True)
+            dst_snapshots = multilist_snapshots(shell, dst_snapshots_queries)
+        except Exception as e:
+            logger.error("Failed to list snapshots with %r: %r. Assuming remote has no snapshots", shell, e)
             dst_snapshots = {}
+        else:
+            dst_snapshots = group_snapshots_by_datasets(dst_snapshots)
 
         return [PendingPushReplicationTaskSnapshotOwner(replication_task, src_snapshots, dst_snapshots)
                 for replication_task in replication_tasks]

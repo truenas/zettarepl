@@ -69,6 +69,9 @@ class Shell:
     def put_file(self, f, dst_path):
         raise NotImplementedError
 
+    def __repr__(self):
+        return "<Shell(%r)>" % self.transport
+
 
 class ReplicationProcess:
     def __init__(self, replication_task_id, transport,

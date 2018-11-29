@@ -50,7 +50,7 @@ class ReplicationTask:
         self.retries = retries
 
     def __repr__(self):
-        return f"<ReplicationTask {self.id!r}>"
+        return f"<Replication Task {self.id!r}>"
 
     @classmethod
     def from_data(cls, id, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
