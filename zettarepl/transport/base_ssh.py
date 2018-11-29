@@ -74,9 +74,9 @@ class SshTransportShell(Shell):
         if self._client is None:
             self.logger.debug("Connecting...")
             hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([self.transport.hostname, self.transport.host_key]))
-            self._client = paramiko.SSHClient()
-            self._client.get_host_keys().add(self.transport.hostname, hke.key.get_name(), hke.key)
-            self._client.connect(
+            client = paramiko.SSHClient()
+            client.get_host_keys().add(self.transport.hostname, hke.key.get_name(), hke.key)
+            client.connect(
                 self.transport.hostname,
                 self.transport.port,
                 self.transport.username,
@@ -97,6 +97,7 @@ class SshTransportShell(Shell):
                 banner_timeout=self.transport.connect_timeout,
                 auth_timeout=self.transport.connect_timeout,
             )
+            self._client = client
 
         return self._client
 
