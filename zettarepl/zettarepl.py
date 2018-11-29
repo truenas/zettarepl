@@ -193,8 +193,13 @@ class Zettarepl:
 
         for transport, replication_tasks in self._transport_for_replication_tasks(pull_replications_tasks):
             shell = self._get_shell(transport)
-            remote_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
-                shell, replication_tasks_source_datasets_queries(replication_tasks)))
+            remote_snapshots_queries = replication_tasks_source_datasets_queries(replication_tasks)
+            try:
+                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
+            except Exception as e:
+                logger.warning("Local retention failed: error listing snapshots on transport %r: %r", transport, e)
+                return
+            remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
             owners.extend([
                 executed_pull_replication_task_snapshot_owner(now, replication_task, remote_snapshots_grouped,
                                                               local_snapshots_grouped)
@@ -212,10 +217,16 @@ class Zettarepl:
             self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
             shell = self._get_shell(transport)
-            remote_snapshots = multilist_snapshots(shell, [
+            remote_snapshots_queries = [
                 (replication_task.target_dataset, replication_task.recursive)
                 for replication_task in replication_tasks
-            ])
+            ]
+            try:
+                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
+            except Exception as e:
+                logger.warning("Remote retention failed on transport %r failed: error listing snapshots: %r",
+                               transport, e)
+                continue
             remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
             owners = [
                 ExecutedReplicationTaskSnapshotOwner(now, replication_task, local_snapshots_grouped,
@@ -225,4 +236,9 @@ class Zettarepl:
 
             snapshots_to_destroy = calculate_snapshots_to_remove(owners, remote_snapshots)
             logger.info("Retention on transport %r destroying snapshots: %r", transport, snapshots_to_destroy)
-            destroy_snapshots(shell, snapshots_to_destroy)
+            try:
+                destroy_snapshots(shell, snapshots_to_destroy)
+            except Exception as e:
+                logger.warning("Remote retention failed on transport %r failed: error destroying snapshots: %r",
+                               transport, e)
+                continue
