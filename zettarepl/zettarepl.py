@@ -62,9 +62,10 @@ class Zettarepl:
 
     def run(self):
         for scheduled in self.scheduler.schedule():
-            logger.info("Scheduled tasks: %r", scheduled)
+            logger.debug("Scheduled: %r", scheduled)
 
             tasks = scheduled.tasks
+            logger.info("Scheduled tasks: %r", tasks)
 
             periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
             self._run_periodic_snapshot_tasks(scheduled.datetime.datetime, periodic_snapshot_tasks)
