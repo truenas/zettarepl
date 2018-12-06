@@ -145,7 +145,7 @@ class Zettarepl:
             assert replication_tasks == []
 
     def _transport_for_replication_tasks(self, replication_tasks):
-        return sortedgroupby(replication_tasks, lambda replication_task: replication_task.transport)
+        return sortedgroupby(replication_tasks, lambda replication_task: replication_task.transport, False)
 
     def _is_push_replication_task(self, replication_task: ReplicationTask):
         return replication_task.direction == ReplicationDirection.PUSH

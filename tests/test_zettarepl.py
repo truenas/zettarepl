@@ -56,3 +56,19 @@ def test__replication_tasks_for_periodic_snapshot_tasks():
     rt2.periodic_snapshot_tasks = []
 
     assert zettarepl._replication_tasks_for_periodic_snapshot_tasks([rt1, rt2], [pst1, pst3]) == [rt1]
+
+
+def test__transport_for_replication_tasks():
+    zettarepl = Zettarepl(Mock(), Mock())
+
+    t1 = Mock()
+    t2 = Mock()
+
+    rt1 = Mock(transport=t1)
+    rt2 = Mock(transport=t2)
+    rt3 = Mock(transport=t1)
+
+    assert sorted(zettarepl._transport_for_replication_tasks([rt1, rt2, rt3]), key=lambda t: [t1, t2].index(t[0])) == [
+        (t1, [rt1, rt3]),
+        (t2, [rt2]),
+    ]
