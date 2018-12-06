@@ -53,7 +53,7 @@ def test__run_replication_tasks(tasks, parts):
         run_replication_tasks(Mock(), Mock(), Mock(), tasks)
 
         assert run_replication_task_part.mock_calls == [
-            call(tasks[task_id], source_dataset, ANY, ANY)
+            call(tasks[task_id], source_dataset, ANY, ANY, None)
             for task_id, source_dataset in parts
         ]
 
@@ -76,8 +76,8 @@ def test__run_replication_tasks__do_not_try_second_part_if_first_has_failed():
         run_replication_tasks(Mock(), Mock(), Mock(), [task1, task2])
 
         assert run_replication_task_part.call_args_list == [
-            call(task2, "data", ANY, ANY),
-            call(task1, "data/work", ANY, ANY),
+            call(task2, "data", ANY, ANY, None),
+            call(task1, "data/work", ANY, ANY, None),
         ]
 
 
