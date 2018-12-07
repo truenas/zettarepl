@@ -7,19 +7,32 @@ __all__ = ["notify", "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess",
            "ReplicationTaskStart", "ReplicationTaskSnapshotSuccess", "ReplicationTaskSuccess", "ReplicationTaskError"]
 
 
-def notify(observer, *args, **kwargs):
+def notify(observer, message):
+    result = None
     if observer is not None:
         try:
-            observer(*args, **kwargs)
+            result = observer(message)
         except Exception:
             logger.error("Unhandled exception in observer %r", observer, exc_info=True)
 
+    if message.response is not None and result is None:
+        result = message.response()
+
+    return result
+
 
 class ObserverMessage:
-    pass
+    response = None
+
+
+class PeriodicSnapshotTaskStartResponse:
+    def __init__(self, properties=None):
+        self.properties = properties or {}
 
 
 class PeriodicSnapshotTaskStart(ObserverMessage):
+    response = PeriodicSnapshotTaskStartResponse
+
     def __init__(self, task_id):
         self.task_id = task_id
 
