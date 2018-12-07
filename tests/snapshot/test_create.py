@@ -8,11 +8,27 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException
 
 
+def test__create_snapshot__zfscli_no_properties():
+    shell = Mock()
+
+    create_snapshot(shell, Snapshot("data/src", "snap-1"), True, [], {})
+
+    shell.exec.assert_called_once_with(["zfs", "snapshot", "-r", "data/src@snap-1"])
+
+
+def test__create_snapshot__zfscli_properties():
+    shell = Mock()
+
+    create_snapshot(shell, Snapshot("data/src", "snap-1"), True, [], {"freenas:vmsynced": "Y"})
+
+    shell.exec.assert_called_once_with(["zfs", "snapshot", "-r", "-o", "freenas:vmsynced=Y", "data/src@snap-1"])
+
+
 def test__create_snapshot__zcp_ok():
     shell = Mock()
     shell.exec.return_value = "Channel program fully executed with no return value."
 
-    create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage", "data/src/temp"])
+    create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage", "data/src/temp"], {})
 
     shell.exec.assert_called_once_with(["zfs", "program", "data", ANY, "data/src", "snap-1",
                                         "data/src/garbage", "data/src/temp"])
@@ -29,7 +45,7 @@ def test__create_snapshot__zcp_errors():
     """))
 
     with pytest.raises(CreateSnapshotError) as e:
-        create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage"])
+        create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage"], {})
 
     assert e.value.args[0] == [
         ("data/src/home@snap-1", "File exists"),

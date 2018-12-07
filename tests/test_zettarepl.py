@@ -22,8 +22,8 @@ def test__run_periodic_snapshot_tasks__alphabetical():
 
             assert create_snapshot.call_count == 2
             create_snapshot.assert_has_calls([
-                call(ANY, Snapshot("data", "snap-2018-09-01_15-11-1w"), False, ANY),
-                call(ANY, Snapshot("data", "snap-2018-09-01_15-11-2d"), False, ANY),
+                call(ANY, Snapshot("data", "snap-2018-09-01_15-11-1w"), False, ANY, ANY),
+                call(ANY, Snapshot("data", "snap-2018-09-01_15-11-2d"), False, ANY, ANY),
             ])
 
 
@@ -39,7 +39,7 @@ def test__run_periodic_snapshot_tasks__recursive():
                 ]
             )
 
-            create_snapshot.assert_called_once_with(ANY, Snapshot("data", "snap-2018-09-01_15-11"), True, ANY)
+            create_snapshot.assert_called_once_with(ANY, Snapshot("data", "snap-2018-09-01_15-11"), True, ANY, ANY)
 
 
 def test__replication_tasks_for_periodic_snapshot_tasks():

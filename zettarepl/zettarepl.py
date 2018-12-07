@@ -105,9 +105,9 @@ class Zettarepl:
             if snapshot in created_snapshots:
                 continue
 
-            notify(self.observer, PeriodicSnapshotTaskStart(task.id))
+            options = notify(self.observer, PeriodicSnapshotTaskStart(task.id))
             try:
-                create_snapshot(self.local_shell, snapshot, task.recursive, task.exclude)
+                create_snapshot(self.local_shell, snapshot, task.recursive, task.exclude, options.properties)
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
 
