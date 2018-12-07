@@ -28,6 +28,9 @@ class PeriodicSnapshotTask:
 
         validate_snapshot_naming_schema(self.naming_schema)
 
+    def __repr__(self):
+        return f"<Periodic Snapshot Task {self.id!r}>"
+
     @classmethod
     def from_data(cls, id, data):
         periodic_snapshot_task_validator.validate(data)

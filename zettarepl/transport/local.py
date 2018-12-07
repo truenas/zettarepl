@@ -104,6 +104,9 @@ class LocalTransport(Transport):
     def __hash__(self):
         return 1
 
+    def __repr__(self):
+        return "<LocalTransport()>"
+
     shell = LocalShell
 
     replication_process = LocalReplicationProcess

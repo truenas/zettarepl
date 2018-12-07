@@ -27,5 +27,11 @@ def select_by_class(klass, iterable):
     return list(filter(lambda v: isinstance(v, klass), iterable))
 
 
-def sortedgroupby(iterable, key):
-    return [(a, list(b)) for a, b in itertools.groupby(sorted(iterable, key=key), key=key)]
+def sortedgroupby(iterable, key, comparable=True):
+    return [
+        (a, list(b))
+        for a, b in itertools.groupby(
+            sorted(iterable, key=key if comparable else lambda v: hash(key(v))),
+            key=key
+        )
+    ]
