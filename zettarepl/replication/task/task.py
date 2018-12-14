@@ -82,15 +82,16 @@ class ReplicationTask:
             else:
                 raise ValueError(f"Periodic snapshot task {periodic_snapshot_task_id!r} does not exist")
 
-        for source_dataset in data["source-dataset"]:
-            for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
-                if is_child(source_dataset, periodic_snapshot_task.dataset):
-                    for exclude in periodic_snapshot_task.exclude:
-                        if exclude not in data["exclude"]:
-                            raise ValueError(
-                                f"Replication tasks should exclude everything their periodic snapshot tasks exclude "
-                                f"(task does not exclude {exclude!r} from periodic snapshot task "
-                                f"{periodic_snapshot_task.id!r})")
+        if data["recursive"]:
+            for source_dataset in data["source-dataset"]:
+                for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
+                    if is_child(source_dataset, periodic_snapshot_task.dataset):
+                        for exclude in periodic_snapshot_task.exclude:
+                            if exclude not in data["exclude"]:
+                                raise ValueError(
+                                    "Replication tasks should exclude everything their periodic snapshot tasks exclude "
+                                    f"(task does not exclude {exclude!r} from periodic snapshot task "
+                                    f"{periodic_snapshot_task.id!r})")
 
         data["direction"] = ReplicationDirection(data["direction"])
 
