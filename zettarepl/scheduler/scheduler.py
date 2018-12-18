@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,9 @@ class Scheduler:
 
         self.tasks = []
 
+        self.interrupt_lock = threading.Lock()
+        self.interrupt_tasks = []
+
     def set_tasks(self, tasks):
         self.tasks = tasks
 
@@ -28,8 +32,17 @@ class Scheduler:
             now = self.tz_clock.tick(utcnow)
 
             tasks = []
+            with self.interrupt_lock:
+                if self.interrupt_tasks:
+                    tasks = self.interrupt_tasks
+                    self.interrupt_tasks = []
             for task in self.tasks.copy():
                 if task.schedule.should_run(now.datetime):
                     tasks.append(task)
 
             yield SchedulerResult(now, tasks)
+
+    def interrupt(self, tasks):
+        with self.interrupt_lock:
+            self.interrupt_tasks = tasks
+        self.clock.interrupt()
