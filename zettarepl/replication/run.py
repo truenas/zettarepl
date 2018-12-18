@@ -207,9 +207,10 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
                 )
             else:
-                logger.warning("No incremental base for replication task %r on dataset %r and replication from scratch "
-                               "is not allowed", step_template.replication_task.id, step_template.src_dataset)
-                continue
+                raise NoIncrementalBaseReplicationError(
+                    f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
+                    f"is not allowed"
+                )
 
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
