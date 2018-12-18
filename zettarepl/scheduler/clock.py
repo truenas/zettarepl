@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime, timedelta
 import logging
-import time
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,8 @@ class Clock:
 
         self.ticked = False
         self.now = datetime.utcnow()
+
+        self.interrupt_event = threading.Event()
 
     def tick(self):
         if self.once:
@@ -28,6 +30,9 @@ class Clock:
             if now is not None:
                 return now
 
+    def interrupt(self):
+        self.interrupt_event.set()
+
     def _tick(self):
         now = datetime.utcnow()
 
@@ -38,7 +43,13 @@ class Clock:
 
             if self._minutetuple(self.now) == self._minutetuple(now):
                 next_minute_begin = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
-                time.sleep(min(10, (next_minute_begin - now).total_seconds()))
+                if self.interrupt_event.wait(min(10, (next_minute_begin - now).total_seconds())):
+                    logger.info("Interrupted")
+                    self.interrupt_event.clear()
+                    try:
+                        return now
+                    finally:
+                        now = self.now  # To resume from the same moment next time
                 return
 
             return now
