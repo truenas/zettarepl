@@ -37,7 +37,8 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
             for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
                 errors.append((snapshot, os.strerror(int(error))))
             if errors:
-                raise CreateSnapshotError(errors)
+                raise CreateSnapshotError("Failed to create following snapshots:\n" +
+                                          "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors]))
             else:
                 raise CreateSnapshotError(e)
     else:

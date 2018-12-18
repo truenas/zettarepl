@@ -47,7 +47,8 @@ def test__create_snapshot__zcp_errors():
     with pytest.raises(CreateSnapshotError) as e:
         create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage"], {})
 
-    assert e.value.args[0] == [
-        ("data/src/home@snap-1", "File exists"),
-        ("data/src/work@snap-1", "File exists"),
-    ]
+    assert e.value.args[0] == (
+        "Failed to create following snapshots:\n"
+        "'data/src/home@snap-1': File exists\n"
+        "'data/src/work@snap-1': File exists"
+    )

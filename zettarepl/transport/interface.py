@@ -38,6 +38,9 @@ class ExecException(Exception):
 
         super().__init__(returncode, stdout)
 
+    def __str__(self):
+        return self.stdout.strip() or f"Command failed with code {self.returncode}"
+
 
 class Shell:
     _logger_counter = itertools.count(1)
