@@ -98,7 +98,7 @@ if __name__ == "__main__":
         if args.embed:
             flags.append(libzfs.SendFlag.EMBED_DATA)
         if args.compressed:
-            flags.append(libzfs.SendFlag.COMPRESSED)
+            flags.append(libzfs.SendFlag.COMPRESS)
 
         try:
             if args.receive_resume_token is None:
