@@ -4,8 +4,8 @@ from datetime import datetime
 import logging
 
 from zettarepl.dataset.list import *
-from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotSuccess,
-                                ReplicationTaskError)
+from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
+                                ReplicationTaskSnapshotSuccess, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -298,6 +298,10 @@ def run_replication_step(step: ReplicationStep, observer=None):
         step.replication_task.compression, step.replication_task.speed_limit,
         step.replication_task.dedup, step.replication_task.large_block,
         step.replication_task.embed, step.replication_task.compressed)
+    process.add_progress_observer(
+        lambda snapshot, current, total:
+            notify(observer, ReplicationTaskSnapshotProgress(step.replication_task.id, snapshot.split("@")[0],
+                                                             snapshot.split("@")[1], current, total)))
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()
 
