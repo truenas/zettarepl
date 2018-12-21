@@ -4,7 +4,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ["notify", "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess", "PeriodicSnapshotTaskError",
-           "ReplicationTaskStart", "ReplicationTaskSnapshotSuccess", "ReplicationTaskSuccess", "ReplicationTaskError"]
+           "ReplicationTaskStart", "ReplicationTaskSnapshotProgress", "ReplicationTaskSnapshotSuccess",
+           "ReplicationTaskSuccess", "ReplicationTaskError"]
 
 
 def notify(observer, message):
@@ -51,6 +52,15 @@ class PeriodicSnapshotTaskError(ObserverMessage):
 class ReplicationTaskStart(ObserverMessage):
     def __init__(self, task_id):
         self.task_id = task_id
+
+
+class ReplicationTaskSnapshotProgress(ObserverMessage):
+    def __init__(self, task_id, dataset, snapshot, current, total):
+        self.task_id = task_id
+        self.dataset = dataset
+        self.snapshot = snapshot
+        self.current = current
+        self.total = total
 
 
 class ReplicationTaskSnapshotSuccess(ObserverMessage):

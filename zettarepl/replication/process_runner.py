@@ -28,7 +28,7 @@ class ReplicationProcessRunner:
 
         self.event.wait()  # Wait for at least one of the threads to finish (`finally` block in one will stop the other)
         if self.process_stuck:
-            raise StuckReplicationError()
+            raise StuckReplicationError("Replication has stuck")
         if self.process_exception:
             raise self.process_exception
 

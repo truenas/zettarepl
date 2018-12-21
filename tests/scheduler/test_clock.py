@@ -10,8 +10,9 @@ from zettarepl.scheduler.clock import Clock
 @pytest.fixture()
 def sleep(monkeypatch):
     mock = Mock()
-    monkeypatch.setattr("time.sleep", mock)
-    return mock
+    mock.wait.return_value = None
+    monkeypatch.setattr("threading.Event", Mock(return_value=mock))
+    return mock.wait
 
 
 def test__time_backward(sleep):

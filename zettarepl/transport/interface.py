@@ -13,6 +13,12 @@ __all__ = ["AsyncExec", "ExecException", "Shell", "ReplicationProcess", "Transpo
 class AsyncExec:
     _logger_counter = itertools.count(1)
 
+    """
+    :param Shell shell: The shell to run command on
+    :param [str] args: Command arguments
+    :param str encoding: Encoding to decode command output
+    :param fd stdout: OS file descriptor to stream command output instead of returning it upon command completion
+    """
     def __init__(self, shell, args, encoding="utf8", stdout=None):
         self.shell = shell
         self.args = args
@@ -37,6 +43,9 @@ class ExecException(Exception):
         self.stdout = stdout
 
         super().__init__(returncode, stdout)
+
+    def __str__(self):
+        return self.stdout.strip() or f"Command failed with code {self.returncode}"
 
 
 class Shell:
@@ -101,6 +110,19 @@ class ReplicationProcess:
         self.compressed = compressed
 
         self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
+
+        self.progress_observers = []
+
+    def add_progress_observer(self, progress_observer):
+        self.progress_observers.append(progress_observer)
+
+    def notify_progress_observer(self, snapshot, current, total):
+        for progress_observer in self.progress_observers:
+            try:
+                progress_observer(snapshot, current, total)
+            except Exception:
+                self.logger.warning("Error notifying replication progress observer %r", progress_observer,
+                                    exc_info=True)
 
     def run(self):
         raise NotImplementedError

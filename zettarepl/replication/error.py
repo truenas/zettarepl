@@ -3,7 +3,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ReplicationError", "ReplicationConfigurationError", "RecoverableReplicationError", "StuckReplicationError"]
+__all__ = ["ReplicationError", "ReplicationConfigurationError", "RecoverableReplicationError",
+           "NoIncrementalBaseReplicationError", "StuckReplicationError"]
 
 
 class ReplicationError(Exception):
@@ -15,6 +16,10 @@ class ReplicationConfigurationError(ReplicationError):
 
 
 class RecoverableReplicationError(ReplicationError):
+    pass
+
+
+class NoIncrementalBaseReplicationError(ReplicationError):
     pass
 
 

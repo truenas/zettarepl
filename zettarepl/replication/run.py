@@ -4,8 +4,8 @@ from datetime import datetime
 import logging
 
 from zettarepl.dataset.list import *
-from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotSuccess,
-                                ReplicationTaskError)
+from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
+                                ReplicationTaskSnapshotSuccess, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -207,9 +207,10 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
                 )
             else:
-                logger.warning("No incremental base for replication task %r on dataset %r and replication from scratch "
-                               "is not allowed", step_template.replication_task.id, step_template.src_dataset)
-                continue
+                raise NoIncrementalBaseReplicationError(
+                    f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
+                    f"is not allowed"
+                )
 
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
@@ -297,6 +298,10 @@ def run_replication_step(step: ReplicationStep, observer=None):
         step.replication_task.compression, step.replication_task.speed_limit,
         step.replication_task.dedup, step.replication_task.large_block,
         step.replication_task.embed, step.replication_task.compressed)
+    process.add_progress_observer(
+        lambda snapshot, current, total:
+            notify(observer, ReplicationTaskSnapshotProgress(step.replication_task.id, snapshot.split("@")[0],
+                                                             snapshot.split("@")[1], current, total)))
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()
 
