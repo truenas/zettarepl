@@ -272,8 +272,7 @@ available.
       connect-timeout: 10
 
       # SSH encryption cipher.
-      # "fast" is "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,
-      # aes256-ctr"
+      # "fast" is "aes128-ctr,aes192-ctr,aes256-ctr"
       # "none" completely disables SSH encryption, both server and client must
       # have HPN-SSH patch
       cipher: standard
