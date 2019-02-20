@@ -77,7 +77,7 @@ class SshReplicationProcess(ReplicationProcess):
 
             cmd.extend({
                SshTransportCipher.STANDARD: [],
-               SshTransportCipher.FAST: ["-c", "arcfour256,arcfour128,blowfish-cbc,aes128-ctr,aes192-ctr,aes256-ctr"],
+               SshTransportCipher.FAST: ["-c", "aes128-ctr,aes192-ctr,aes256-ctr"],
                SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
             }[self.transport.cipher])
 
