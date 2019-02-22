@@ -8,6 +8,7 @@ import coloredlogs
 from .commands.create_dataset import create_dataset
 from .commands.list_datasets import list_datasets
 from .commands.run import run
+from .utils.logging import LongStringsFilter
 
 logger = logging.getLogger(__name__)
 
@@ -71,5 +72,7 @@ def main():
         coloredlogs.install(level=args.logging.default_level, fmt=logging_format)
     for name, level in args.logging.loggers:
         logging.getLogger(name).setLevel(level)
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(LongStringsFilter())
 
     args.func(args)
