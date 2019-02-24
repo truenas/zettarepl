@@ -88,3 +88,5 @@ properties:
     type: boolean
   retries:
     type: integer
+  logging-level:
+    $ref: http://freenas.org/zettarepl/logging-level.schema.json
