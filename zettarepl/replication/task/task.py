@@ -24,7 +24,7 @@ class ReplicationTask:
                  retention_policy: TargetSnapshotRetentionPolicy,
                  compression: ReplicationCompression, speed_limit: int,
                  dedup: bool, large_block: bool, embed: bool, compressed: bool,
-                 retries: int):
+                 retries: int, logging_level: int):
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -48,6 +48,7 @@ class ReplicationTask:
         self.embed = embed
         self.compressed = compressed
         self.retries = retries
+        self.logging_level = logging_level
 
     def __repr__(self):
         return f"<Replication Task {self.id!r}>"
@@ -72,6 +73,7 @@ class ReplicationTask:
         data.setdefault("embed", False)
         data.setdefault("compressed", False)
         data.setdefault("retries", 5)
+        data.setdefault("logging-level", "notset")
 
         resolved_periodic_snapshot_tasks = []
         for periodic_snapshot_task_id in data["periodic-snapshot-tasks"]:
@@ -131,7 +133,7 @@ class ReplicationTask:
                    retention_policy,
                    compression, data["speed-limit"],
                    data["dedup"], data["large-block"], data["embed"], data["compressed"],
-                   data["retries"])
+                   data["retries"], logging._nameToLevel[data["logging-level"].upper()])
 
     @classmethod
     def _parse_schedules(cls, data):

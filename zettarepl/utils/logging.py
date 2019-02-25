@@ -4,7 +4,24 @@ import os
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LongStringsFilter"]
+__all__ = ["LoggingLevelContext", "LongStringsFilter"]
+
+
+class LoggingLevelContext:
+    def __init__(self, level):
+        self.level = level
+        self.prev_level = None
+
+    def __enter__(self):
+        self.prev_level = logging.getLogger().level
+
+        if self.level != logging.NOTSET:
+            logger.debug("Setting new logging level: %r", self.level)
+            logging.getLogger().setLevel(self.level)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.prev_level is not None:
+            logging.getLogger().setLevel(self.prev_level)
 
 
 class LongStringsFilter(logging.Filter):
