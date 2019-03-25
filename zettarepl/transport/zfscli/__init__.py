@@ -8,7 +8,7 @@ __all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token"]
 
 def zfs_send(source_dataset: str, snapshot: str, recursive: bool, incremental_base: str, receive_resume_token: str,
              dedup: bool, large_block: bool, embed: bool, compressed: bool, report_progress=False):
-    send = ["zfs", "send"]
+    send = ["zfs", "send", "-p"]
 
     if recursive:
         send.append("-R")

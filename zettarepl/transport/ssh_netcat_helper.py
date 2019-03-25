@@ -88,7 +88,7 @@ if __name__ == "__main__":
     elif args.command == "send":
         dataset = zfs.get_object(args.dataset)
 
-        flags = []
+        flags = [libzfs.SendFlag.PROPS]
         if args.recursive:
             flags.append(libzfs.SendFlag.REPLICATE)
         if args.dedup:
