@@ -1,8 +1,12 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
+import functools
 import logging
+import threading
 
-from zettarepl.observer import notify, PeriodicSnapshotTaskStart, PeriodicSnapshotTaskSuccess, PeriodicSnapshotTaskError
+from zettarepl.dataset.relationship import is_child
+from zettarepl.observer import (notify, PeriodicSnapshotTaskStart, PeriodicSnapshotTaskSuccess,
+                                PeriodicSnapshotTaskError, ReplicationTaskScheduled)
 from zettarepl.replication.run import run_replication_tasks
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
@@ -15,7 +19,9 @@ from zettarepl.snapshot.list import *
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotOwner
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
-from zettarepl.utils.itertools import bisect, bisect_by_class, select_by_class, sortedgroupby
+from zettarepl.transport.compare import are_same_host
+from zettarepl.utils.itertools import bisect_by_class, select_by_class, sortedgroupby
+from zettarepl.utils.logging import ReplicationTaskLoggingLevelFilter
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +47,12 @@ class Zettarepl:
 
         self.tasks = []
 
-        self.shells = {}
+        self.tasks_lock = threading.Lock()
+        self.running_tasks = []
+        self.pending_tasks = []
+        self.retention_datetime = None
+        self.retention_running = False
+        self.retention_shells = {}
 
     def set_observer(self, observer):
         self.observer = observer
@@ -74,17 +85,11 @@ class Zettarepl:
             replication_tasks.extend(
                 self._replication_tasks_for_periodic_snapshot_tasks(
                     bisect_by_class(ReplicationTask, self.tasks)[0], periodic_snapshot_tasks))
-            self._run_replication_tasks(replication_tasks)
+            self._spawn_replication_tasks(replication_tasks)
 
             assert tasks == []
 
-            self._run_local_retention(scheduled.datetime.datetime)
-            self._run_remote_retention(scheduled.datetime.datetime)
-
-            for shell in self.shells.values():
-                shell.close()
-
-            self.shells = {}
+            self.retention_datetime = scheduled.datetime.datetime
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
@@ -132,17 +137,89 @@ class Zettarepl:
 
         return result
 
-    def _run_replication_tasks(self, replication_tasks):
-        for transport, replication_tasks in self._transport_for_replication_tasks(replication_tasks):
-            remote_shell = self._get_shell(transport)
+    def _spawn_replication_tasks(self, replication_tasks):
+        with self.tasks_lock:
+            for replication_task in replication_tasks:
+                if replication_task in self.pending_tasks:
+                    logger.debug("Replication task %r is already pending")
+                    continue
 
-            push_replication_tasks, replication_tasks = bisect(self._is_push_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, remote_shell, push_replication_tasks, self.observer)
+                if self._can_spawn_replication_task(replication_task):
+                    self._spawn_replication_task(replication_task)
+                else:
+                    logger.info("Replication task %r can't execute in parallel with already running tasks, "
+                                "delaying it", replication_task)
+                    notify(self.observer, ReplicationTaskScheduled(replication_task.id))
+                    self.pending_tasks.append(replication_task)
 
-            pull_replication_tasks, replication_tasks = bisect(self._is_pull_replication_task, replication_tasks)
-            run_replication_tasks(self.local_shell, transport, remote_shell, pull_replication_tasks, self.observer)
+            if not self.pending_tasks and not self.running_tasks:
+                self._spawn_retention()
 
-            assert replication_tasks == []
+    def _can_spawn_replication_task(self, replication_task: ReplicationTask):
+        if self.retention_running:
+            return False
+
+        return all(self._replication_tasks_can_run_in_parallel(replication_task, t) for t in self.running_tasks)
+
+    def _replication_tasks_can_run_in_parallel(self, t1: ReplicationTask, t2: ReplicationTask):
+        if t1.direction != t2.direction:
+            return True
+
+        if not are_same_host(t1.transport, t2.transport):
+            return True
+
+        return not is_child(t1.target_dataset, t2.target_dataset) and not is_child(t2.target_dataset, t1.target_dataset)
+
+    def _spawn_replication_task(self, replication_task):
+        self.running_tasks.append(replication_task)
+        threading.Thread(name=f"replication_task__{replication_task.id}",
+                         target=functools.partial(self._run_replication_task, replication_task)).start()
+
+    def _run_replication_task(self, replication_task: ReplicationTask):
+        try:
+            shell = replication_task.transport.shell(replication_task.transport)
+            try:
+                ReplicationTaskLoggingLevelFilter.levels[replication_task.id] = replication_task.logging_level
+                run_replication_tasks(self.local_shell, replication_task.transport, shell, [replication_task],
+                                      self.observer)
+            finally:
+                shell.close()
+        except Exception:
+            logger.error("Unhandled exception while running replication task %r", replication_task, exc_info=True)
+        finally:
+            with self.tasks_lock:
+                self.running_tasks.remove(replication_task)
+
+                self._spawn_pending_tasks()
+
+                if not self.running_tasks:
+                    self._spawn_retention()
+
+    def _spawn_pending_tasks(self):
+        for pending_task in list(self.pending_tasks):
+            if self._can_spawn_replication_task(pending_task):
+                self._spawn_replication_task(pending_task)
+                self.pending_tasks.remove(pending_task)
+
+    def _spawn_retention(self):
+        threading.Thread(name=f"retention", target=self._run_retention).start()
+
+    def _run_retention(self):
+        self.retention_running = True
+        self.retention_shells = {}
+        try:
+            try:
+                self._run_local_retention(self.retention_datetime)
+                self._run_remote_retention(self.retention_datetime)
+            finally:
+                for shell in self.retention_shells.values():
+                    shell.close()
+        except Exception:
+            logger.error("Unhandled exception while running retention", exc_info=True)
+
+        with self.tasks_lock:
+            self.retention_running = False
+            self._spawn_pending_tasks()
 
     def _transport_for_replication_tasks(self, replication_tasks):
         return sortedgroupby(replication_tasks, lambda replication_task: replication_task.transport, False)
@@ -153,11 +230,11 @@ class Zettarepl:
     def _is_pull_replication_task(self, replication_task: ReplicationTask):
         return replication_task.direction == ReplicationDirection.PULL
 
-    def _get_shell(self, transport):
-        if transport not in self.shells:
-            self.shells[transport] = transport.shell(transport)
+    def _get_retention_shell(self, transport):
+        if transport not in self.retention_shells:
+            self.retention_shells[transport] = transport.shell(transport)
 
-        return self.shells[transport]
+        return self.retention_shells[transport]
 
     def _run_local_retention(self, now: datetime):
         periodic_snapshot_tasks = select_by_class(PeriodicSnapshotTask, self.tasks)
@@ -188,12 +265,12 @@ class Zettarepl:
 
         # These are always only PUSH replication tasks
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks_that_can_hold):
-            shell = self._get_shell(transport)
+            shell = self._get_retention_shell(transport)
             owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
                                                                         replication_tasks))
 
         for transport, replication_tasks in self._transport_for_replication_tasks(pull_replications_tasks):
-            shell = self._get_shell(transport)
+            shell = self._get_retention_shell(transport)
             remote_snapshots_queries = replication_tasks_source_datasets_queries(replication_tasks)
             try:
                 remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
@@ -217,7 +294,7 @@ class Zettarepl:
         local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
             self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
-            shell = self._get_shell(transport)
+            shell = self._get_retention_shell(transport)
             remote_snapshots_queries = [
                 (replication_task.target_dataset, replication_task.recursive)
                 for replication_task in replication_tasks

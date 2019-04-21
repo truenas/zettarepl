@@ -8,7 +8,7 @@ import coloredlogs
 from .commands.create_dataset import create_dataset
 from .commands.list_datasets import list_datasets
 from .commands.run import run
-from .utils.logging import LongStringsFilter
+from .utils.logging import LongStringsFilter, ReplicationTaskLoggingLevelFilter
 
 logger = logging.getLogger(__name__)
 
@@ -74,5 +74,6 @@ def main():
         logging.getLogger(name).setLevel(level)
     for handler in logging.getLogger().handlers:
         handler.addFilter(LongStringsFilter())
+        handler.addFilter(ReplicationTaskLoggingLevelFilter())
 
     args.func(args)
