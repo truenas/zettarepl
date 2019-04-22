@@ -58,7 +58,7 @@ def test_hold_pending_snapshots(retention_policy, remains):
             target-dataset: data/dst
             naming-schema: "%Y-%m-%d_%H-%M"
             recursive: true
-            auto: true
+            auto: false
     """))
     data["replication-tasks"]["src"].update(**retention_policy)
     definition = Definition.from_data(data)

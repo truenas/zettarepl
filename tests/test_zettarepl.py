@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
 
+import pytest
 from unittest.mock import ANY, call, Mock, patch
 
 from zettarepl.replication.task.task import ReplicationTask
@@ -60,7 +61,6 @@ def test__replication_tasks_for_periodic_snapshot_tasks():
 
 def test__transport_for_replication_tasks():
     zettarepl = Zettarepl(Mock(), Mock())
-
     t1 = Mock()
     t2 = Mock()
 
@@ -72,3 +72,18 @@ def test__transport_for_replication_tasks():
         (t1, [rt1, rt3]),
         (t2, [rt2]),
     ]
+
+
+@pytest.mark.parametrize("t1,t2,can", [
+    (Mock(target_dataset="data/work"), Mock(target_dataset="data/work"), False),
+    (Mock(target_dataset="data/work"), Mock(target_dataset="tank/work"), True),
+    (Mock(target_dataset="data/work"), Mock(target_dataset="data/work/trash"), False),
+    (Mock(target_dataset="data/work/trash"), Mock(target_dataset="data/work"), False),
+])
+def test__can_run_in_parallel(t1, t2, can):
+    with patch("zettarepl.zettarepl.are_same_host", Mock(return_value=True)):
+        t1.direction = t2.direction = None
+
+        zettarepl = Zettarepl(Mock(), Mock())
+
+        assert zettarepl._replication_tasks_can_run_in_parallel(t1, t2) == can
