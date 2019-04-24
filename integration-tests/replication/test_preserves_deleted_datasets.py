@@ -10,6 +10,7 @@ from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
+from zettarepl.utils.test import wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
@@ -53,11 +54,13 @@ def test_push_replication():
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
 
-    zettarepl._run_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
 
     subprocess.check_call("zfs destroy -r data/src/child", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
-    zettarepl._run_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
 
     assert len(list_snapshots(local_shell, "data/dst/child", False)) == 1
