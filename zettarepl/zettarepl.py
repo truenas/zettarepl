@@ -75,6 +75,8 @@ class Zettarepl:
         for scheduled in self.scheduler.schedule():
             logger.debug("Scheduled: %r", scheduled)
 
+            self.retention_datetime = scheduled.datetime.datetime
+
             tasks = scheduled.tasks
             logger.info("Scheduled tasks: %r", tasks)
 
@@ -88,8 +90,6 @@ class Zettarepl:
             self._spawn_replication_tasks(replication_tasks)
 
             assert tasks == []
-
-            self.retention_datetime = scheduled.datetime.datetime
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
