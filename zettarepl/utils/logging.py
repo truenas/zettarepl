@@ -1,27 +1,11 @@
 # -*- coding=utf-8 -*-
 import logging
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LoggingLevelContext", "LongStringsFilter"]
-
-
-class LoggingLevelContext:
-    def __init__(self, level):
-        self.level = level
-        self.prev_level = None
-
-    def __enter__(self):
-        self.prev_level = logging.getLogger().level
-
-        if self.level != logging.NOTSET:
-            logger.debug("Setting new logging level: %r", self.level)
-            logging.getLogger().setLevel(self.level)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.prev_level is not None:
-            logging.getLogger().setLevel(self.prev_level)
+__all__ = ["LongStringsFilter", "ReplicationTaskLoggingLevelFilter"]
 
 
 class LongStringsFilter(logging.Filter):
@@ -62,3 +46,23 @@ class LongStringsFilter(logging.Filter):
             )
 
         return value
+
+
+class ReplicationTaskLoggingLevelFilter(logging.Filter):
+    levels = {}
+
+    def filter(self, record: logging.LogRecord):
+        m1 = re.match("replication_task__([^.]+)", record.threadName)
+        m2 = re.match("zettarepl\.paramiko\.replication_task__([^.]+)", record.name)
+        if m1 or m2:
+            if m1:
+                task_id = m1.group(1)
+            else:
+                task_id = m2.group(1)
+
+            if task_id in self.levels:
+                return record.levelno >= self.levels[task_id]
+            else:
+                logger.debug("I don't have logging level for task %r", task_id)
+
+        return True

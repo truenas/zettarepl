@@ -13,7 +13,6 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
-from zettarepl.utils.logging import LoggingLevelContext
 
 from .error import *
 from .monitor import ReplicationMonitor
@@ -80,51 +79,50 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         for replication_task in replication_tasks
     }
     for replication_task, source_dataset in replication_tasks_parts:
-        with LoggingLevelContext(replication_task.logging_level):
-            if replication_task.id in failed_replication_tasks_ids:
-                continue
+        if replication_task.id in failed_replication_tasks_ids:
+            continue
 
-            local_context = ReplicationContext(None, local_shell)
-            remote_context = ReplicationContext(transport, remote_shell)
+        local_context = ReplicationContext(None, local_shell)
+        remote_context = ReplicationContext(transport, remote_shell)
 
-            if replication_task.direction == ReplicationDirection.PUSH:
-                src_context = local_context
-                dst_context = remote_context
-            elif replication_task.direction == ReplicationDirection.PULL:
-                src_context = remote_context
-                dst_context = local_context
-            else:
-                raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
+        if replication_task.direction == ReplicationDirection.PUSH:
+            src_context = local_context
+            dst_context = remote_context
+        elif replication_task.direction == ReplicationDirection.PULL:
+            src_context = remote_context
+            dst_context = local_context
+        else:
+            raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
 
-            if replication_task.id not in started_replication_tasks_ids:
-                notify(observer, ReplicationTaskStart(replication_task.id))
-                started_replication_tasks_ids.add(replication_task.id)
-            recoverable_error = None
-            for i in range(replication_task.retries):
-                try:
-                    run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
-                    replication_tasks_parts_left[replication_task.id] -= 1
-                    if replication_tasks_parts_left[replication_task.id] == 0:
-                        notify(observer, ReplicationTaskSuccess(replication_task.id))
-                    break
-                except RecoverableReplicationError as recoverable_error:
-                    logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
-                                   i + 1, recoverable_error)
-                except ReplicationError as e:
-                    logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
-                    notify(observer, ReplicationTaskError(replication_task.id, str(e)))
-                    failed_replication_tasks_ids.add(replication_task.id)
-                    break
-                except Exception as e:
-                    logger.error("For task %r unhandled replication error %r", replication_task.id, e)
-                    notify(observer, ReplicationTaskError(replication_task.id, str(e)))
-                    failed_replication_tasks_ids.add(replication_task.id)
-                    break
-            else:
-                logger.error("Failed replication task %r after %d retries", replication_task.id,
-                             replication_task.retries)
-                notify(observer, ReplicationTaskError(replication_task.id, str(recoverable_error)))
+        if replication_task.id not in started_replication_tasks_ids:
+            notify(observer, ReplicationTaskStart(replication_task.id))
+            started_replication_tasks_ids.add(replication_task.id)
+        recoverable_error = None
+        for i in range(replication_task.retries):
+            try:
+                run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
+                replication_tasks_parts_left[replication_task.id] -= 1
+                if replication_tasks_parts_left[replication_task.id] == 0:
+                    notify(observer, ReplicationTaskSuccess(replication_task.id))
+                break
+            except RecoverableReplicationError as recoverable_error:
+                logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
+                               i + 1, recoverable_error)
+            except ReplicationError as e:
+                logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
+                notify(observer, ReplicationTaskError(replication_task.id, str(e)))
                 failed_replication_tasks_ids.add(replication_task.id)
+                break
+            except Exception as e:
+                logger.error("For task %r unhandled replication error %r", replication_task.id, e, exc_info=True)
+                notify(observer, ReplicationTaskError(replication_task.id, str(e)))
+                failed_replication_tasks_ids.add(replication_task.id)
+                break
+        else:
+            logger.error("Failed replication task %r after %d retries", replication_task.id,
+                         replication_task.retries)
+            notify(observer, ReplicationTaskError(replication_task.id, str(recoverable_error)))
+            failed_replication_tasks_ids.add(replication_task.id)
 
 
 def calculate_replication_tasks_parts(replication_tasks):

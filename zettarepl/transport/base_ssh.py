@@ -75,6 +75,9 @@ class SshTransportShell(Shell):
             self.logger.debug("Connecting...")
             hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([self.transport.hostname, self.transport.host_key]))
             client = paramiko.SSHClient()
+            if any(threading.current_thread().name.startswith(prefix)
+                   for prefix in ("replication_task__", "retention")):
+                client.set_log_channel(f"zettarepl.paramiko.{threading.current_thread().name}")
             client.get_host_keys().add(self.transport.hostname, hke.key.get_name(), hke.key)
             client.connect(
                 self.transport.hostname,
@@ -156,4 +159,9 @@ class BaseSshTransport(Transport):
         data["private_key"] = data.pop("private-key")
         data["host_key"] = data.pop("host-key")
         data["connect_timeout"] = data.pop("connect-timeout")
+
+        hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([data["hostname"], data["host_key"]]))
+        if hke is None:
+            raise ValueError("Invalid SSH host key")
+
         return data

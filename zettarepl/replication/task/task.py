@@ -103,6 +103,12 @@ class ReplicationTask:
 
             data.setdefault("also-include-naming-schema", [])
 
+            if not resolved_periodic_snapshot_tasks and not data["also-include-naming-schema"]:
+                raise ValueError(
+                    "You must at least provide either periodic-snapshot-tasks or also-include-naming-schema "
+                    "for push replication task"
+                )
+
         elif data["direction"] == ReplicationDirection.PULL:
             if "naming-schema" not in data:
                 raise ValueError("You must provide naming-schema for pull replication task")

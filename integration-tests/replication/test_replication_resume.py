@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+import logging
 import subprocess
 import textwrap
 from unittest.mock import Mock
@@ -10,11 +11,13 @@ from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
+from zettarepl.utils.test import wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
 def test_replication_resume(caplog):
     subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
     subprocess.check_call("zfs create data/src", shell=True)
@@ -54,10 +57,13 @@ def test_replication_resume(caplog):
             retention-policy: none
     """)))
 
+    caplog.set_level(logging.INFO)
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl._spawn_retention = Mock()
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
 
     assert any(
         "Resuming replication for dst_dataset" in record.message
