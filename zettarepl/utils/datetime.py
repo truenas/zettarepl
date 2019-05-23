@@ -8,4 +8,4 @@ __all__ = ["idealized_datetime"]
 
 
 def idealized_datetime(d: datetime):
-    return d.replace(minute=0, microsecond=0, tzinfo=None)
+    return d.replace(second=0, microsecond=0, tzinfo=None)
