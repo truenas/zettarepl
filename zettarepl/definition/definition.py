@@ -35,7 +35,7 @@ class Definition:
             try:
                 timezone = pytz.timezone(data["timezone"])
             except pytz.exceptions.UnknownTimeZoneError:
-                raise ValueError("Unknown timezone: {data['timezone']!r}")
+                raise ValueError("Unknown timezone: {data['timezone']!r}") from None
         else:
             timezone = tzlocal()
 
@@ -44,7 +44,7 @@ class Definition:
             try:
                 periodic_snapshot_tasks.append(PeriodicSnapshotTask.from_data(id, task))
             except ValueError as e:
-                raise ValueError(f"When parsing periodic snapshot task {id}: {e!s}")
+                raise ValueError(f"When parsing periodic snapshot task {id}: {e!s}") from None
 
         transports = data.get("transports", {})
 
@@ -54,12 +54,13 @@ class Definition:
                 try:
                     task["transport"] = transports[task["transport"]]
                 except KeyError:
-                    raise ValueError(f"When parsing replication task {id!r}: "
-                                     f"invalid transport {task['transport']!r}")
+                    raise ValueError(
+                        f"When parsing replication task {id!r}: invalid transport {task['transport']!r}"
+                    ) from None
 
             try:
                 replication_tasks.append(ReplicationTask.from_data(id, task, periodic_snapshot_tasks))
             except ValueError as e:
-                raise ValueError(f"When parsing replication task {id!r}: {e!s}")
+                raise ValueError(f"When parsing replication task {id!r}: {e!s}") from None
 
         return cls(periodic_snapshot_tasks + replication_tasks, timezone)

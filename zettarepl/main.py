@@ -24,7 +24,7 @@ class LoggingConfiguration:
                 try:
                     level = logging._nameToLevel[level_name.upper()]
                 except KeyError:
-                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}")
+                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}") from None
 
                 self.loggers.append((logger_name, level))
             else:
@@ -32,7 +32,7 @@ class LoggingConfiguration:
                 try:
                     level = logging._nameToLevel[level_name.upper()]
                 except KeyError:
-                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}")
+                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}") from None
 
                 self.default_level = level
 

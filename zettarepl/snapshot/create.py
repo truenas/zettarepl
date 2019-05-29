@@ -37,10 +37,12 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
             for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
                 errors.append((snapshot, os.strerror(int(error))))
             if errors:
-                raise CreateSnapshotError("Failed to create following snapshots:\n" +
-                                          "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors]))
+                raise CreateSnapshotError(
+                    "Failed to create following snapshots:\n" +
+                    "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
+                ) from None
             else:
-                raise CreateSnapshotError(e)
+                raise CreateSnapshotError(e) from None
     else:
         args = ["zfs", "snapshot"]
 
@@ -55,6 +57,6 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
         try:
             shell.exec(args)
         except ExecException as e:
-            raise CreateSnapshotError(e)
+            raise CreateSnapshotError(e) from None
 
     return

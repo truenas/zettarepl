@@ -50,7 +50,7 @@ class AsyncExecTee(AsyncExec):
                 event = self.queue.get(timeout=timeout)
             except queue.Empty:
                 self.async_exec.stop()
-                raise TimeoutError("Timeout in head()")
+                raise TimeoutError("Timeout in head()") from None
 
             if isinstance(event, DataEvent):
                 try:
