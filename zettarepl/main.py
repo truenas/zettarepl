@@ -67,13 +67,13 @@ def main():
     args = parser.parse_args()
 
     logging_format = "[%(asctime)s] %(levelname)-8s [%(threadName)s] [%(name)s] %(message)s"
-    logging.basicConfig(level=args.logging.default_level, format=logging_format)
+    logging.basicConfig(level=logging.DEBUG, format=logging_format)
     if sys.stdout.isatty():
-        coloredlogs.install(level=args.logging.default_level, fmt=logging_format)
+        coloredlogs.install(level=logging.DEBUG, fmt=logging_format)
     for name, level in args.logging.loggers:
         logging.getLogger(name).setLevel(level)
     for handler in logging.getLogger().handlers:
         handler.addFilter(LongStringsFilter())
-        handler.addFilter(ReplicationTaskLoggingLevelFilter())
+        handler.addFilter(ReplicationTaskLoggingLevelFilter(args.logging.default_level))
 
     args.func(args)
