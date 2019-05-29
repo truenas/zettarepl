@@ -1,7 +1,6 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
 import logging
-import os
 import queue
 import threading
 
@@ -34,13 +33,12 @@ class AsyncExecTee(AsyncExec):
         self.async_exec = None
 
     def run(self):
-        r, w = os.pipe()
-        rh = os.fdopen(r)
+        q = queue.Queue()
 
-        self.async_exec = self.shell.exec_async(self.args, self.encoding, w)
+        self.async_exec = self.shell.exec_async(self.args, self.encoding, q)
 
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.async_exec_tee.read",
-                         target=self._read, args=(rh,)).start()
+                         target=self._read, args=(q,)).start()
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.async_exec_tee.wait",
                          target=self._wait).start()
 
@@ -94,18 +92,13 @@ class AsyncExecTee(AsyncExec):
     def stop(self):
         self.async_exec.stop()
 
-    def _read(self, rh):
-        try:
-            while True:
-                data = rh.readline()
-                if not data:
-                    break
+    def _read(self, q: queue.Queue):
+        while True:
+            data = q.get()
+            if data is None:
+                break
 
-                self.queue.put(DataEvent(data))
-        except Exception as e:
-            self.queue.put(ExceptionEvent(e))
-        finally:
-            rh.close()
+            self.queue.put(DataEvent(data))
 
     def _wait(self):
         try:

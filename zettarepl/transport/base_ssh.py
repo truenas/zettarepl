@@ -47,14 +47,18 @@ class SshTransportAsyncExec(AsyncExec):
         self.logger.debug("Stopping")
         self.stdout_fd.close()
 
-    def _copy(self, file_like, descriptor):
+    def _copy(self, file_like, output_queue):
         try:
-            with os.fdopen(descriptor, "w") as f:
-                for line in file_like.readlines():
-                    f.write(line)
+            while True:
+                line = file_like.readline()
+                if not line:
+                    break
+
+                output_queue.put(line)
         except Exception as e:
-            self.logger.warning("Copying between from SSH %r to file descriptor %r failed: %r",
-                                file_like, descriptor, e)
+            self.logger.warning("Copying from SSH %r to queue %r failed: %r", file_like, output_queue, e)
+        finally:
+            output_queue.put(None)
 
 
 class SshTransportShell(Shell):
