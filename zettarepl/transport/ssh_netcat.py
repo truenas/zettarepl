@@ -27,12 +27,26 @@ class SshNetcatTransportActiveSide(enum.Enum):
     REMOTE = "remote"
 
 
+class SshNetcatExecException(ExecException):
+    def __init__(self, connect_exc, listen_exc):
+        self.connect_exc = connect_exc
+        self.listen_exc = listen_exc
+
+        super().__init__(self.connect_exc.returncode, self.connect_exc.stdout)
+
+    def __str__(self):
+        return f"{self.connect_exc} / {self.listen_exc or 'Unknown error'}"
+
+
 class SshNetcatReplicationProcess(ReplicationProcess):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.listen_exec = None
         self.connect_exec = None
+
+        self.listen_exec_error = None
+        self.listen_exec_error_event = threading.Event()
 
     def run(self):
         if self.compression is not None:
@@ -154,6 +168,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def wait(self):
         try:
             return self.connect_exec.wait()
+        except ExecException as connect_exec_error:
+            self.listen_exec_error_event.wait(5)
+            raise SshNetcatExecException(connect_exec_error, self.listen_exec_error) from None
         finally:
             self.stop()
 
@@ -168,6 +185,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def _wait_listen_exec(self):
         try:
             self.listen_exec.wait()
+        except ExecException as e:
+            self.listen_exec_error = e
+            self.listen_exec_error_event.set()
         except Exception:
             self.logger.error("listen_exec failed", exc_info=True)
 
