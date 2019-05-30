@@ -24,9 +24,9 @@ class TzClock:
         now_naive = now.replace(tzinfo=None)
         try:
             if now_naive < self.now_naive and not (utcnow < self.utcnow):
-                return TzClockDateTime(now, (self.now_naive - now_naive) + (utcnow - self.utcnow))
+                return TzClockDateTime(now_naive, (self.now_naive - now_naive) + (utcnow - self.utcnow))
 
-            return TzClockDateTime(now, None)
+            return TzClockDateTime(now_naive, None)
         finally:
             self.utcnow = utcnow
             self.now = now
