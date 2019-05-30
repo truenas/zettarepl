@@ -41,7 +41,7 @@ class SshClientCapabilities:
             executable = patched_executable
 
             result = subprocess.run([patched_executable, "-ononeenabled=yes", "-p0", "root@localhost"],
-                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf8")
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf8")
             supports_none_cipher = "Bad configuration option" not in result.stdout
 
         return SshClientCapabilities(executable, supports_none_cipher)

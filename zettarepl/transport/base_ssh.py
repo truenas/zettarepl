@@ -28,9 +28,7 @@ class SshTransportAsyncExec(AsyncExec):
         self.logger.debug("Running %r", self.args)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
             "sh -c " + shlex.quote(" ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"), timeout=10)
-        if self.stdout is not None:
-            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh.stdout_copy",
-                             target=self._copy, args=(self.stdout_fd, self.stdout)).start()
+        self._copy_stdout_from(self.stdout_fd)
 
     def wait(self):
         self.logger.debug("Waiting for exit status")
@@ -50,19 +48,6 @@ class SshTransportAsyncExec(AsyncExec):
     def stop(self):
         self.logger.debug("Stopping")
         self.stdout_fd.close()
-
-    def _copy(self, file_like, output_queue):
-        try:
-            while True:
-                line = file_like.readline()
-                if not line:
-                    break
-
-                output_queue.put(line)
-        except Exception as e:
-            self.logger.warning("Copying from SSH %r to queue %r failed: %r", file_like, output_queue, e)
-        finally:
-            output_queue.put(None)
 
 
 class SshTransportShell(Shell):

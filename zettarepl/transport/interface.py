@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import itertools
 import logging
+import threading
 
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -17,7 +18,7 @@ class AsyncExec:
     :param Shell shell: The shell to run command on
     :param [str] args: Command arguments
     :param str encoding: Encoding to decode command output
-    :param fd stdout: OS file descriptor to stream command output instead of returning it upon command completion
+    :param fd stdout: Queue to stream command output line-by-line instead of returning it upon command completion
     """
     def __init__(self, shell, args, encoding="utf8", stdout=None):
         self.shell = shell
@@ -35,6 +36,23 @@ class AsyncExec:
 
     def stop(self):
         raise NotImplementedError
+
+    def _copy_stdout_from(self, file_like):
+        def target():
+            try:
+                while True:
+                    line = file_like.readline()
+                    if not line:
+                        break
+
+                    self.stdout.put(line)
+            except Exception as e:
+                self.logger.warning("Copying stdout from %r failed: %r", file_like, e)
+            finally:
+                self.stdout.put(None)
+
+        if self.stdout is not None:
+            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.stdout_copy", target=target).start()
 
 
 class ExecException(Exception):
