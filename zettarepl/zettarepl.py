@@ -163,13 +163,38 @@ class Zettarepl:
         return all(self._replication_tasks_can_run_in_parallel(replication_task, t) for t in self.running_tasks)
 
     def _replication_tasks_can_run_in_parallel(self, t1: ReplicationTask, t2: ReplicationTask):
-        if t1.direction != t2.direction:
-            return True
+        if t1.direction == t2.direction:
+            if not are_same_host(t1.transport, t2.transport):
+                return True
 
-        if not are_same_host(t1.transport, t2.transport):
-            return True
+            return (
+                not is_child(t1.target_dataset, t2.target_dataset) and
+                not is_child(t2.target_dataset, t1.target_dataset)
+            )
+        else:
+            if t1.direction == ReplicationDirection.PULL and t2.direction == ReplicationDirection.PUSH:
+                t1, t2 = t2, t1
+            # Now t1 is PUSH, t2 is PULL
 
-        return not is_child(t1.target_dataset, t2.target_dataset) and not is_child(t2.target_dataset, t1.target_dataset)
+            return (
+                # Do not write to local dataset from which we are pushing
+                all(
+                    (
+                        not is_child(t2.target_dataset, source_dataset) and
+                        not is_child(source_dataset, t2.target_dataset)
+                    )
+                    for source_dataset in t1.source_datasets
+                ) and
+
+                # Do not write to remote dataset from which we are pulling
+                all(
+                    (
+                        not is_child(t1.target_dataset, source_dataset) and
+                        not is_child(source_dataset, t1.target_dataset)
+                    )
+                    for source_dataset in t2.source_datasets
+                )
+            )
 
     def _spawn_replication_task(self, replication_task):
         self.running_tasks.append(replication_task)
