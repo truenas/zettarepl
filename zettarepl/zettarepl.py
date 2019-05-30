@@ -78,18 +78,19 @@ class Zettarepl:
             self.retention_datetime = scheduled.datetime.datetime
 
             tasks = scheduled.tasks
-            logger.info("Scheduled tasks: %r", tasks)
+            if tasks:
+                logger.info("Scheduled tasks: %r", tasks)
 
-            periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
-            self._run_periodic_snapshot_tasks(scheduled.datetime.datetime, periodic_snapshot_tasks)
+                periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
+                self._run_periodic_snapshot_tasks(scheduled.datetime.datetime, periodic_snapshot_tasks)
 
-            replication_tasks, tasks = bisect_by_class(ReplicationTask, tasks)
-            replication_tasks.extend(
-                self._replication_tasks_for_periodic_snapshot_tasks(
-                    bisect_by_class(ReplicationTask, self.tasks)[0], periodic_snapshot_tasks))
-            self._spawn_replication_tasks(replication_tasks)
+                replication_tasks, tasks = bisect_by_class(ReplicationTask, tasks)
+                replication_tasks.extend(
+                    self._replication_tasks_for_periodic_snapshot_tasks(
+                        bisect_by_class(ReplicationTask, self.tasks)[0], periodic_snapshot_tasks))
+                self._spawn_replication_tasks(replication_tasks)
 
-            assert tasks == []
+                assert tasks == []
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
         tasks_with_snapshot_names = sorted(
