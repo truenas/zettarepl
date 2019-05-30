@@ -97,7 +97,7 @@ class Definition:
             except ValueError as e:
                 errors.append(ReplicationTaskDefinitionError(id, e))
 
-        if raise_on_error:
+        if errors and raise_on_error:
             raise DefinitionErrors(errors)
 
         return cls(periodic_snapshot_tasks + replication_tasks, timezone, errors)
