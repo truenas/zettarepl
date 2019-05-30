@@ -88,17 +88,17 @@ if __name__ == "__main__":
     elif args.command == "send":
         dataset = zfs.get_object(args.dataset)
 
-        flags = [libzfs.SendFlag.PROPS]
+        flags = {libzfs.SendFlag.PROPS}
         if args.recursive:
-            flags.append(libzfs.SendFlag.REPLICATE)
+            flags.add(libzfs.SendFlag.REPLICATE)
         if args.dedup:
-            flags.append(libzfs.SendFlag.DEDUP)
+            flags.add(libzfs.SendFlag.DEDUP)
         if args.large_block:
-            flags.append(libzfs.SendFlag.LARGEBLOCK)
+            flags.add(libzfs.SendFlag.LARGEBLOCK)
         if args.embed:
-            flags.append(libzfs.SendFlag.EMBED_DATA)
+            flags.add(libzfs.SendFlag.EMBED_DATA)
         if args.compressed:
-            flags.append(libzfs.SendFlag.COMPRESS)
+            flags.add(libzfs.SendFlag.COMPRESS)
 
         try:
             if args.receive_resume_token is None:
