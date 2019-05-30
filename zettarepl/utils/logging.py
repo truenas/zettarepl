@@ -65,7 +65,8 @@ class ReplicationTaskLoggingLevelFilter(logging.Filter):
                 task_id = m2.group(1)
 
             if task_id in self.levels:
-                return record.levelno >= self.levels[task_id]
+                if self.levels[task_id] != logging.NOTSET:
+                    return record.levelno >= self.levels[task_id]
             else:
                 logger.debug("I don't have logging level for task %r", task_id)
 
