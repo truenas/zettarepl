@@ -32,10 +32,13 @@ class SshNetcatExecException(ExecException):
         self.connect_exc = connect_exc
         self.listen_exc = listen_exc
 
-        super().__init__(self.connect_exc.returncode, self.connect_exc.stdout)
+        super().__init__(1, str(self))
 
     def __str__(self):
         return f"{self.connect_exc} / {self.listen_exc or 'Unknown error'}"
+
+    def __repr__(self):
+        return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
 
 
 class SshNetcatReplicationProcess(ReplicationProcess):

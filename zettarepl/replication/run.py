@@ -14,7 +14,7 @@ from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
 from zettarepl.snapshot.snapshot import Snapshot
-from zettarepl.transport.interface import Shell, Transport
+from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
 
@@ -202,9 +202,18 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
             receive_resume_token = get_receive_resume_token(step_template.dst_context.shell, step_template.dst_dataset)
 
             if receive_resume_token is not None:
-                logger.info("Resuming replication for dst_dataset %r", step_template.dst_dataset)
-                run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
-                resumed = True
+                logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
+                try:
+                    run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
+                except ExecException as e:
+                    if "used in the initial send no longer exists" in e.stdout:
+                        logger.warning("receive_resume_token for dataset %r references snapshot that no longer exists, "
+                                       "discarding it", step_template.dst_dataset)
+                        step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
+                    else:
+                        raise
+                else:
+                    resumed = True
 
     return resumed
 
