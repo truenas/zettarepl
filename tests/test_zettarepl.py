@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 from unittest.mock import ANY, call, Mock, patch
 
+from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.zettarepl import Zettarepl
@@ -80,10 +81,24 @@ def test__transport_for_replication_tasks():
     (Mock(target_dataset="data/work"), Mock(target_dataset="data/work/trash"), False),
     (Mock(target_dataset="data/work/trash"), Mock(target_dataset="data/work"), False),
 ])
-def test__can_run_in_parallel(t1, t2, can):
+def test__can_run_in_parallel__same_direction(t1, t2, can):
     with patch("zettarepl.zettarepl.are_same_host", Mock(return_value=True)):
         t1.direction = t2.direction = None
 
         zettarepl = Zettarepl(Mock(), Mock())
 
         assert zettarepl._replication_tasks_can_run_in_parallel(t1, t2) == can
+
+
+@pytest.mark.parametrize("t1,t2,can", [
+    (Mock(source_datasets=["src"], target_dataset="dst/work"),
+     Mock(source_datasets=["dst/games"], target_dataset="src/weekend"),
+     False),
+])
+def test__can_run_in_parallel__different_direction(t1, t2, can):
+    t1.direction = ReplicationDirection.PUSH
+    t2.direction = ReplicationDirection.PULL
+
+    zettarepl = Zettarepl(Mock(), Mock())
+
+    assert zettarepl._replication_tasks_can_run_in_parallel(t1, t2) == can

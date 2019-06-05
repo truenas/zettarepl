@@ -27,12 +27,29 @@ class SshNetcatTransportActiveSide(enum.Enum):
     REMOTE = "remote"
 
 
+class SshNetcatExecException(ExecException):
+    def __init__(self, connect_exc, listen_exc):
+        self.connect_exc = connect_exc
+        self.listen_exc = listen_exc
+
+        super().__init__(1, str(self))
+
+    def __str__(self):
+        return f"{self.connect_exc} / {self.listen_exc or 'No error'}"
+
+    def __repr__(self):
+        return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
+
+
 class SshNetcatReplicationProcess(ReplicationProcess):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.listen_exec = None
         self.connect_exec = None
+
+        self.listen_exec_error = None
+        self.listen_exec_terminated = threading.Event()
 
     def run(self):
         if self.compression is not None:
@@ -153,7 +170,17 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def wait(self):
         try:
-            return self.connect_exec.wait()
+            result = self.connect_exec.wait()
+        except ExecException as connect_exec_error:
+            if not self.listen_exec_terminated.wait(5):
+                self.logger.warning("Listen side has not terminated within 5 seconds after connect side error")
+
+            raise SshNetcatExecException(connect_exec_error, self.listen_exec_error) from None
+        else:
+            if not self.listen_exec_terminated.wait(60):
+                self.logger.warning("Listen side has not terminated within 60 seconds after connect side success")
+
+            return result
         finally:
             self.stop()
 
@@ -168,8 +195,12 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def _wait_listen_exec(self):
         try:
             self.listen_exec.wait()
+        except ExecException as e:
+            self.listen_exec_error = e
         except Exception:
             self.logger.error("listen_exec failed", exc_info=True)
+        finally:
+            self.listen_exec_terminated.set()
 
 
 class SshNetcatTransport(BaseSshTransport):

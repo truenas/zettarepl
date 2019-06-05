@@ -24,7 +24,7 @@ class LoggingConfiguration:
                 try:
                     level = logging._nameToLevel[level_name.upper()]
                 except KeyError:
-                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}")
+                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}") from None
 
                 self.loggers.append((logger_name, level))
             else:
@@ -32,7 +32,7 @@ class LoggingConfiguration:
                 try:
                     level = logging._nameToLevel[level_name.upper()]
                 except KeyError:
-                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}")
+                    raise argparse.ArgumentTypeError(f"Unknown logging level: {level_name!r}") from None
 
                 self.default_level = level
 
@@ -67,13 +67,13 @@ def main():
     args = parser.parse_args()
 
     logging_format = "[%(asctime)s] %(levelname)-8s [%(threadName)s] [%(name)s] %(message)s"
-    logging.basicConfig(level=args.logging.default_level, format=logging_format)
+    logging.basicConfig(level=logging.DEBUG, format=logging_format)
     if sys.stdout.isatty():
-        coloredlogs.install(level=args.logging.default_level, fmt=logging_format)
+        coloredlogs.install(level=logging.DEBUG, fmt=logging_format)
     for name, level in args.logging.loggers:
         logging.getLogger(name).setLevel(level)
     for handler in logging.getLogger().handlers:
         handler.addFilter(LongStringsFilter())
-        handler.addFilter(ReplicationTaskLoggingLevelFilter())
+        handler.addFilter(ReplicationTaskLoggingLevelFilter(args.logging.default_level))
 
     args.func(args)

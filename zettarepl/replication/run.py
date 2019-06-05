@@ -2,6 +2,10 @@
 from collections import OrderedDict
 from datetime import datetime
 import logging
+import socket
+import time
+
+import paramiko.ssh_exception
 
 from zettarepl.dataset.list import *
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
@@ -10,7 +14,7 @@ from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
 from zettarepl.snapshot.snapshot import Snapshot
-from zettarepl.transport.interface import Shell, Transport
+from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token
 
@@ -98,16 +102,30 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
             notify(observer, ReplicationTaskStart(replication_task.id))
             started_replication_tasks_ids.add(replication_task.id)
         recoverable_error = None
+        recoverable_sleep = 1
         for i in range(replication_task.retries):
+            if recoverable_error is not None:
+                logger.info("After recoverable error sleeping for %d seconds", recoverable_sleep)
+                time.sleep(recoverable_sleep)
+                recoverable_sleep = min(recoverable_sleep * 2, 60)
+            else:
+                recoverable_sleep = 1
+
             try:
-                run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
+                try:
+                    run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
+                except socket.timeout:
+                    raise RecoverableReplicationError("Network connection timeout") from None
+                except paramiko.ssh_exception.NoValidConnectionsError as e:
+                    raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
                 replication_tasks_parts_left[replication_task.id] -= 1
                 if replication_tasks_parts_left[replication_task.id] == 0:
                     notify(observer, ReplicationTaskSuccess(replication_task.id))
                 break
-            except RecoverableReplicationError as recoverable_error:
+            except RecoverableReplicationError as e:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
-                               i + 1, recoverable_error)
+                               i + 1, e)
+                recoverable_error = e
             except ReplicationError as e:
                 logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
                 notify(observer, ReplicationTaskError(replication_task.id, str(e)))
@@ -184,9 +202,18 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
             receive_resume_token = get_receive_resume_token(step_template.dst_context.shell, step_template.dst_dataset)
 
             if receive_resume_token is not None:
-                logger.info("Resuming replication for dst_dataset %r", step_template.dst_dataset)
-                run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
-                resumed = True
+                logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
+                try:
+                    run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
+                except ExecException as e:
+                    if "used in the initial send no longer exists" in e.stdout:
+                        logger.warning("receive_resume_token for dataset %r references snapshot that no longer exists, "
+                                       "discarding it", step_template.dst_dataset)
+                        step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
+                    else:
+                        raise
+                else:
+                    resumed = True
 
     return resumed
 

@@ -51,6 +51,10 @@ class LongStringsFilter(logging.Filter):
 class ReplicationTaskLoggingLevelFilter(logging.Filter):
     levels = {}
 
+    def __init__(self, default_level=logging.NOTSET):
+        self.default_level = default_level
+        super().__init__()
+
     def filter(self, record: logging.LogRecord):
         m1 = re.match("replication_task__([^.]+)", record.threadName)
         m2 = re.match("zettarepl\.paramiko\.replication_task__([^.]+)", record.name)
@@ -61,8 +65,9 @@ class ReplicationTaskLoggingLevelFilter(logging.Filter):
                 task_id = m2.group(1)
 
             if task_id in self.levels:
-                return record.levelno >= self.levels[task_id]
+                if self.levels[task_id] != logging.NOTSET:
+                    return record.levelno >= self.levels[task_id]
             else:
                 logger.debug("I don't have logging level for task %r", task_id)
 
-        return True
+        return record.levelno >= self.default_level

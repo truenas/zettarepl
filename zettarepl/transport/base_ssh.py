@@ -28,14 +28,16 @@ class SshTransportAsyncExec(AsyncExec):
         self.logger.debug("Running %r", self.args)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
             "sh -c " + shlex.quote(" ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"), timeout=10)
-        if self.stdout is not None:
-            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh.stdout_copy",
-                             target=self._copy, args=(self.stdout_fd, self.stdout)).start()
+        self._copy_stdout_from(self.stdout_fd)
 
     def wait(self):
         self.logger.debug("Waiting for exit status")
         exitcode = self.stdout_fd.channel.recv_exit_status()
-        stdout = self.stdout_fd.read().decode(self.encoding)
+        try:
+            stdout = self.stdout_fd.read().decode(self.encoding)
+        except IOError as e:
+            self.logger.debug("Unable to read stdout: %r", e)
+            stdout = ""
         if exitcode != 0:
             self.logger.debug("Error %r: %r", exitcode, stdout)
             raise ExecException(exitcode, stdout)
@@ -46,15 +48,6 @@ class SshTransportAsyncExec(AsyncExec):
     def stop(self):
         self.logger.debug("Stopping")
         self.stdout_fd.close()
-
-    def _copy(self, file_like, descriptor):
-        try:
-            with os.fdopen(descriptor, "w") as f:
-                for line in file_like.readlines():
-                    f.write(line)
-        except Exception as e:
-            self.logger.warning("Copying between from SSH %r to file descriptor %r failed: %r",
-                                file_like, descriptor, e)
 
 
 class SshTransportShell(Shell):
