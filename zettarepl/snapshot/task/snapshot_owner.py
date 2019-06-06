@@ -32,3 +32,6 @@ class PeriodicSnapshotTaskSnapshotOwner(SnapshotOwner):
     def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         delete_before = self.idealized_now - self.periodic_snapshot_task.lifetime
         return idealized_datetime(parsed_snapshot_name.datetime) >= delete_before
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.periodic_snapshot_task.id!r}>"
