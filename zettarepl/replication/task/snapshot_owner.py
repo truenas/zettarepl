@@ -46,6 +46,9 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
     def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
         return replication_task_should_replicate_parsed_snapshot(self.replication_task, parsed_snapshot_name)
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.replication_task.id!r}>"
+
 
 class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
     def __init__(self, replication_task: ReplicationTask, src_snapshots: {str: [str]}, dst_snapshots: {str: [str]}):
