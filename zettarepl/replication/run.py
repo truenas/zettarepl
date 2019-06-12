@@ -177,8 +177,14 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
     src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
                                                         replication_task.recursive)
-    dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset,
-                                                        replication_task.recursive)
+    try:
+        dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset,
+                                                            replication_task.recursive)
+    except ExecException as e:
+        if "dataset does not exist" in e.stdout:
+            dst_context.datasets = {}
+        else:
+            raise
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
