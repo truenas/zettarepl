@@ -118,6 +118,8 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                     raise RecoverableReplicationError("Network connection timeout") from None
                 except paramiko.ssh_exception.NoValidConnectionsError as e:
                     raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
+                except (IOError, OSError) as e:
+                    raise RecoverableReplicationError(str(e)) from None
                 replication_tasks_parts_left[replication_task.id] -= 1
                 if replication_tasks_parts_left[replication_task.id] == 0:
                     notify(observer, ReplicationTaskSuccess(replication_task.id))
