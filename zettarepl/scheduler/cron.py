@@ -35,6 +35,10 @@ class CronSchedule:
 
     def should_run(self, d: datetime):
         idealized = d.replace(second=0, microsecond=0, tzinfo=None)
-        if not (self.begin <= idealized.time() <= self.end):
-            return False
+        if self.begin < self.end:
+            if not (self.begin <= idealized.time() <= self.end):
+                return False
+        else:
+            if not (idealized.time() >= self.begin or idealized.time() <= self.end):
+                return False
         return croniter(self.expr_format, idealized - timedelta(seconds=1)).get_next(datetime) == idealized
