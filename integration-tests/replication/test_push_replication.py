@@ -3,6 +3,7 @@ import subprocess
 import textwrap
 from unittest.mock import Mock
 
+import pytest
 import yaml
 
 from zettarepl.definition.definition import Definition
@@ -10,22 +11,30 @@ from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import wait_replication_tasks_to_complete
+from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
-def test_push_replication():
+@pytest.mark.parametrize("transport,properties", sum([
+    [
+        (transport, properties)
+        for properties in [True, False]
+    ]
+    for transport in transports()
+], []))
+def test_push_replication(transport, properties):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
     subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs set test:property=test-value data/src", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
     subprocess.check_call("zfs create data/dst", shell=True)
 
-    definition = Definition.from_data(yaml.load(textwrap.dedent("""\
+    definition = yaml.load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
@@ -40,8 +49,6 @@ def test_push_replication():
         replication-tasks:
           src:
             direction: push
-            transport:
-              type: local
             source-dataset: data/src
             target-dataset: data/dst
             recursive: true
@@ -49,7 +56,11 @@ def test_push_replication():
               - src
             auto: true
             retention-policy: none
-    """)))
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"]["transport"] = transport
+    definition["replication-tasks"]["src"]["properties"] = properties
+    definition = Definition.from_data(definition)
 
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
@@ -59,6 +70,11 @@ def test_push_replication():
     wait_replication_tasks_to_complete(zettarepl)
 
     assert len(list_snapshots(local_shell, "data/dst", False)) == 2
+
+    assert (
+        ("test-value" in subprocess.check_output("zfs get test:property data/dst", shell=True, encoding="utf-8")) ==
+        properties
+    )
 
     subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
 

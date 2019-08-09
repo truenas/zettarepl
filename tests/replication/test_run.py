@@ -119,9 +119,9 @@ def test__run_replication_tasks__only_notify_success_after_last_part():
              exclude=["data/src/trash"]),
         {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [
-            ("data/src", "data/dst", False),
-            ("data/src/work", "data/dst/work", False),
-            ("data/src/work/archive", "data/dst/work/archive", False),
+            ("data/src", "data/dst"),
+            ("data/src/work", "data/dst/work"),
+            ("data/src/work/archive", "data/dst/work/archive"),
         ]
     ),
 ])

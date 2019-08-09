@@ -105,7 +105,7 @@ class ReplicationProcess:
                  local_shell: Shell, remote_shell: Shell,
                  direction: ReplicationDirection,
                  source_dataset: str, target_dataset: str,
-                 snapshot: str, recursive: bool,
+                 snapshot: str, properties: bool,
                  incremental_base: str, receive_resume_token: str,
                  compression: ReplicationCompression, speed_limit: int,
                  dedup: bool, large_block: bool, embed: bool, compressed: bool):
@@ -117,7 +117,7 @@ class ReplicationProcess:
         self.source_dataset = source_dataset
         self.target_dataset = target_dataset
         self.snapshot = snapshot
-        self.recursive = recursive
+        self.properties = properties
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
         self.compression = compression

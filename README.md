@@ -125,6 +125,11 @@ replication-tasks:
     exclude:
       - data/src/excluded
 
+    # Send dataset properties along with snapshots. Enabled by default.
+    # Disable this if you use custom mountpoints and don't want them to be
+    # replicated to remote system.
+    properties: true
+
     # You must specify at least one of the following two fields for push
     # replication:
 

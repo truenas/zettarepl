@@ -6,12 +6,9 @@ logger = logging.getLogger(__name__)
 __all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token"]
 
 
-def zfs_send(source_dataset: str, snapshot: str, recursive: bool, incremental_base: str, receive_resume_token: str,
+def zfs_send(source_dataset: str, snapshot: str, properties: bool, incremental_base: str, receive_resume_token: str,
              dedup: bool, large_block: bool, embed: bool, compressed: bool, report_progress=False):
     send = ["zfs", "send"]
-
-    if recursive:
-        send.append("-R")
 
     if dedup:
         send.append("-D")
@@ -31,7 +28,8 @@ def zfs_send(source_dataset: str, snapshot: str, recursive: bool, incremental_ba
     if receive_resume_token is None:
         assert snapshot is not None
 
-        send.append("-p")
+        if properties:
+            send.append("-p")
 
         if incremental_base is not None:
             send.extend(["-i", f"{source_dataset}@{incremental_base}"])

@@ -18,7 +18,7 @@ __all__ = ["ReplicationTask"]
 
 class ReplicationTask:
     def __init__(self, id, direction: ReplicationDirection, transport, source_datasets: [str], target_dataset: str,
-                 recursive: bool, exclude: [str], periodic_snapshot_tasks: [PeriodicSnapshotTask],
+                 recursive: bool, exclude: [str], properties: bool, periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str], auto: bool, schedule: CronSchedule, restrict_schedule: CronSchedule,
                  only_matching_schedule: bool, allow_from_scratch: bool, hold_pending_snapshots: bool,
                  retention_policy: TargetSnapshotRetentionPolicy,
@@ -32,6 +32,7 @@ class ReplicationTask:
         self.target_dataset = target_dataset
         self.recursive = recursive
         self.exclude = exclude
+        self.properties = properties
         self.periodic_snapshot_tasks = periodic_snapshot_tasks
         self.also_include_naming_schema = also_include_naming_schema
         self.auto = auto
@@ -62,6 +63,7 @@ class ReplicationTask:
                 data[k] = [data[k]]
 
         data.setdefault("exclude", [])
+        data.setdefault("properties", True)
         data.setdefault("periodic-snapshot-tasks", [])
         data.setdefault("only-matching-schedule", False)
         data.setdefault("allow-from-scratch", False)
@@ -133,7 +135,7 @@ class ReplicationTask:
                    data["direction"],
                    create_transport(data["transport"]),
                    data["source-dataset"], data["target-dataset"],
-                   data["recursive"], data["exclude"], resolved_periodic_snapshot_tasks,
+                   data["recursive"], data["exclude"], data["properties"], resolved_periodic_snapshot_tasks,
                    data["also-include-naming-schema"], data["auto"], schedule, restrict_schedule,
                    data["only-matching-schedule"], data["allow-from-scratch"], data["hold-pending-snapshots"],
                    retention_policy,

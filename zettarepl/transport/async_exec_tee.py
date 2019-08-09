@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["AsyncExecTee", "PrematureExit"]
 
 DataEvent = namedtuple("DataEvent", ["data"])
+DataDrainEvent = namedtuple("DataDrainEvent", [])
 ExitEvent = namedtuple("ExitEvent", ["returncode"])
 ExceptionEvent = namedtuple("ExceptionEvent", ["exception"])
 
@@ -73,32 +74,44 @@ class AsyncExecTee(AsyncExec):
                 raise event.exception
 
     def wait(self):
-        while True:
+        data_drained = False
+        exit_event = None
+
+        while not (data_drained and exit_event is not None):
             event = self.queue.get()
 
             if isinstance(event, DataEvent):
                 self.output += event.data
 
-            if isinstance(event, ExitEvent):
-                if event.returncode == 0:
-                    return self.output
+            if isinstance(event, DataDrainEvent):
+                data_drained = True
 
-                raise ExecException(event.returncode, self.output)
+            if isinstance(event, ExitEvent):
+                exit_event = event
 
             if isinstance(event, ExceptionEvent):
                 self.async_exec.stop()
                 raise event.exception
 
+        if exit_event.returncode == 0:
+            return self.output
+
+        self.logger.debug("Error %r: %r", exit_event.returncode, self.output)
+        raise ExecException(exit_event.returncode, self.output)
+
     def stop(self):
         self.async_exec.stop()
 
     def _read(self, q: queue.Queue):
-        while True:
-            data = q.get()
-            if data is None:
-                break
+        try:
+            while True:
+                data = q.get()
+                if data is None:
+                    break
 
-            self.queue.put(DataEvent(data))
+                self.queue.put(DataEvent(data))
+        finally:
+            self.queue.put(DataDrainEvent())
 
     def _wait(self):
         try:

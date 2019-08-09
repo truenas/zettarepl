@@ -14,6 +14,7 @@ from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .interface import *
 from .zfscli import *
+from .zfscli.exception import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class SshReplicationProcess(ReplicationProcess):
             cmd.extend([f"-p{self.transport.port}"])
             cmd.extend([f"{self.transport.username}@{self.transport.hostname}"])
 
-            send = zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
+            send = zfs_send(self.source_dataset, self.snapshot, self.properties, self.incremental_base,
                             self.receive_resume_token,
                             self.dedup, self.large_block, self.embed, self.compressed,
                             self.report_progress)
@@ -134,7 +135,8 @@ class SshReplicationProcess(ReplicationProcess):
 
     def wait(self):
         try:
-            return self.async_exec.wait()
+            with ZfsCliExceptionHandler(self):
+                return self.async_exec.wait()
         finally:
             self.private_key_file.close()
             self.host_key_file.close()

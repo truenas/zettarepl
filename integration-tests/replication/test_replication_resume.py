@@ -4,6 +4,7 @@ import subprocess
 import textwrap
 from unittest.mock import Mock
 
+import pytest
 import yaml
 
 from zettarepl.definition.definition import Definition
@@ -11,11 +12,12 @@ from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import wait_replication_tasks_to_complete
+from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
-def test_replication_resume(caplog):
+@pytest.mark.parametrize("transport", transports())
+def test_replication_resume(caplog, transport):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -31,7 +33,7 @@ def test_replication_resume(caplog):
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
                                                                  shell=True, encoding="utf-8")
 
-    definition = Definition.from_data(yaml.load(textwrap.dedent("""\
+    definition = yaml.load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
@@ -46,8 +48,6 @@ def test_replication_resume(caplog):
         replication-tasks:
           src:
             direction: push
-            transport:
-              type: local
             source-dataset: data/src
             target-dataset: data/dst
             recursive: true
@@ -55,7 +55,9 @@ def test_replication_resume(caplog):
               - src
             auto: true
             retention-policy: none
-    """)))
+    """))
+    definition["replication-tasks"]["src"]["transport"] = transport
+    definition = Definition.from_data(definition)
 
     caplog.set_level(logging.INFO)
     local_shell = LocalShell()
@@ -66,7 +68,7 @@ def test_replication_resume(caplog):
     wait_replication_tasks_to_complete(zettarepl)
 
     assert any(
-        "Resuming replication for dst_dataset" in record.message
+        "Resuming replication for destination dataset" in record.message
         for record in caplog.get_records("call")
     )
 
