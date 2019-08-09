@@ -14,6 +14,7 @@ from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .interface import *
 from .zfscli import *
+from .zfscli.exception import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,8 @@ class SshReplicationProcess(ReplicationProcess):
 
     def wait(self):
         try:
-            return self.async_exec.wait()
+            with ZfsCliExceptionHandler(self):
+                return self.async_exec.wait()
         finally:
             self.private_key_file.close()
             self.host_key_file.close()

@@ -9,6 +9,7 @@ from zettarepl.utils.shlex import pipe
 
 from .interface import *
 from .zfscli import *
+from .zfscli.exception import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,8 @@ class LocalReplicationProcess(ReplicationProcess):
         )
 
     def wait(self):
-        return self.async_exec.wait()
+        with ZfsCliExceptionHandler(self):
+            return self.async_exec.wait()
 
     def stop(self):
         return self.async_exec.stop()
