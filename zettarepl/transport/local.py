@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import subprocess
-import threading
 
 from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
@@ -29,7 +28,12 @@ class LocalAsyncExec(AsyncExec):
         self._copy_stdout_from(self.process.stdout)
 
     def wait(self):
-        stdout, stderr = self.process.communicate()
+        if self.stdout is None:
+            stdout, stderr = self.process.communicate()
+        else:
+            self.process.wait()
+            stdout = None
+
         if self.process.returncode != 0:
             self.logger.debug("Error %r: %r", self.process.returncode, stdout)
             raise ExecException(self.process.returncode, stdout)
