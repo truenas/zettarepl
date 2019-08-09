@@ -66,7 +66,7 @@ def test_replication_resume(caplog):
     wait_replication_tasks_to_complete(zettarepl)
 
     assert any(
-        "Resuming replication for dst_dataset" in record.message
+        "Resuming replication for destination dataset" in record.message
         for record in caplog.get_records("call")
     )
 
