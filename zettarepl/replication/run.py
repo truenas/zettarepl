@@ -42,18 +42,18 @@ class ReplicationContext:
 class ReplicationStepTemplate:
     def __init__(self, replication_task: ReplicationTask,
                  src_context: ReplicationContext, dst_context: ReplicationContext,
-                 src_dataset: str, dst_dataset: str, recursive: bool):
+                 src_dataset: str, dst_dataset: str):
         self.replication_task = replication_task
         self.src_context = src_context
         self.dst_context = dst_context
         self.src_dataset = src_dataset
         self.dst_dataset = dst_dataset
-        self.recursive = recursive
 
     def instantiate(self, **kwargs):
         return ReplicationStep(self.replication_task,
                                self.src_context, self.dst_context,
-                               self.src_dataset, self.dst_dataset, self.recursive, **kwargs)
+                               self.src_dataset, self.dst_dataset,
+                               **kwargs)
 
 
 class ReplicationStep(ReplicationStepTemplate):
@@ -191,7 +191,7 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
     return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
-                                    get_target_dataset(replication_task, src_dataset), False)
+                                    get_target_dataset(replication_task, src_dataset))
             for src_dataset in src_context.datasets.keys()  # Order is right because it's OrderedDict
             if replication_task_should_replicate_dataset(replication_task, src_dataset)]
 
@@ -309,9 +309,9 @@ def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base
 
 
 def run_replication_step(step: ReplicationStep, observer=None):
-    logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r recursive=%r incremental_base=%r "
+    logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r "
                 "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
-                step.src_dataset, step.dst_dataset, step.snapshot, step.recursive, step.incremental_base,
+                step.src_dataset, step.dst_dataset, step.snapshot, step.incremental_base,
                 step.receive_resume_token)
 
     if step.replication_task.direction == ReplicationDirection.PUSH:
@@ -329,7 +329,7 @@ def run_replication_step(step: ReplicationStep, observer=None):
         step.replication_task.id, transport,
         local_context.shell, remote_context.shell,
         step.replication_task.direction, step.src_dataset, step.dst_dataset,
-        step.snapshot, step.recursive, step.incremental_base, step.receive_resume_token,
+        step.snapshot, step.replication_task.properties, step.incremental_base, step.receive_resume_token,
         step.replication_task.compression, step.replication_task.speed_limit,
         step.replication_task.dedup, step.replication_task.large_block,
         step.replication_task.embed, step.replication_task.compressed)

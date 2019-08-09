@@ -15,13 +15,20 @@ from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
-@pytest.mark.parametrize("transport", transports())
-def test_push_replication(transport):
+@pytest.mark.parametrize("transport,properties", sum([
+    [
+        (transport, properties)
+        for properties in [True, False]
+    ]
+    for transport in transports()
+], []))
+def test_push_replication(transport, properties):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
     subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs set test:property=test-value data/src", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
@@ -49,8 +56,10 @@ def test_push_replication(transport):
               - src
             auto: true
             retention-policy: none
+            retries: 1
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
+    definition["replication-tasks"]["src"]["properties"] = properties
     definition = Definition.from_data(definition)
 
     local_shell = LocalShell()
@@ -61,6 +70,11 @@ def test_push_replication(transport):
     wait_replication_tasks_to_complete(zettarepl)
 
     assert len(list_snapshots(local_shell, "data/dst", False)) == 2
+
+    assert (
+        ("test-value" in subprocess.check_output("zfs get test:property data/dst", shell=True, encoding="utf-8")) ==
+        properties
+    )
 
     subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
 

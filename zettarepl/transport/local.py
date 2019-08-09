@@ -87,7 +87,7 @@ class LocalReplicationProcess(ReplicationProcess):
 
         self.async_exec = self.local_shell.exec_async(
             pipe(
-                zfs_send(self.source_dataset, self.snapshot, self.recursive, self.incremental_base,
+                zfs_send(self.source_dataset, self.snapshot, self.properties, self.incremental_base,
                          self.receive_resume_token,
                          self.dedup, self.large_block, self.embed, self.compressed),
                 zfs_recv(self.target_dataset)
