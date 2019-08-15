@@ -34,7 +34,7 @@ def test_parallel_replication():
     subprocess.check_call("zfs create data/dst/a", shell=True)
     subprocess.check_call("zfs create data/dst/b", shell=True)
 
-    definition = yaml.load(textwrap.dedent("""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:

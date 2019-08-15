@@ -33,7 +33,7 @@ def test_replication_resume(caplog, transport):
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
                                                                  shell=True, encoding="utf-8")
 
-    definition = yaml.load(textwrap.dedent("""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:

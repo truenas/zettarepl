@@ -34,7 +34,7 @@ def test_push_replication(transport, properties):
 
     subprocess.check_call("zfs create data/dst", shell=True)
 
-    definition = yaml.load(textwrap.dedent("""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
