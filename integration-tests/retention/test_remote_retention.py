@@ -46,7 +46,7 @@ def test_hold_pending_snapshots(retention_policy, remains):
     subprocess.check_call("zfs snapshot data/dst@2018-10-01_02-00", shell=True)
     subprocess.check_call("zfs snapshot data/dst@2018-10-01_03-00", shell=True)
 
-    data = yaml.load(textwrap.dedent("""\
+    data = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:

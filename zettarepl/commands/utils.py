@@ -27,7 +27,7 @@ def load_definition_raw(path):
 
 def process_definition(path, cb):
     try:
-        data = yaml.load(path)
+        data = yaml.safe_load(path)
     except yaml.YAMLError as e:
         sys.stderr.write(f"Definition syntax error: {e!s}\n")
         sys.exit(1)

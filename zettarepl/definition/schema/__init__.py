@@ -21,14 +21,14 @@ class LocalResolver(jsonschema.RefResolver):
         head, tail = os.path.split(uri)
         if head == self.base_uri_head:
             with open(os.path.join(os.path.dirname(__file__), os.path.splitext(tail)[0] + ".yaml")) as f:
-                return yaml.load(f)
+                return yaml.safe_load(f)
 
         return super().resolve_remote(uri)
 
 
 def create_validator(filename):
     with open(os.path.join(os.path.dirname(__file__), filename)) as f:
-        schema = yaml.load(f)
+        schema = yaml.safe_load(f)
 
     validator_cls = jsonschema.validators.validator_for(schema)
     validator_cls.check_schema(schema)
