@@ -18,8 +18,8 @@ setup(
     description="zettarepl is a cross-platform ZFS replication solution",
     packages=find_packages(),
     package_data={
-        "zettarepl.definition.schema": "*.yaml",
-        "zettarepl.zcp": "*.lua",
+        "zettarepl.definition.schema": ["*.yaml"],
+        "zettarepl.zcp": ["*.lua"],
     },
     include_package_data=True,
     license="BSD",
