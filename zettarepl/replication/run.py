@@ -96,7 +96,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
             src_context = remote_context
             dst_context = local_context
         else:
-            raise ValueError(f"Invalid replication direction: {replication_task.direction!r}")
+            raise ValueError(f"Invalid replication direction: {replication_task.direction!r}.")
 
         if replication_task.id not in started_replication_tasks_ids:
             notify(observer, ReplicationTaskStart(replication_task.id))
@@ -105,7 +105,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         recoverable_sleep = 1
         for i in range(replication_task.retries):
             if recoverable_error is not None:
-                logger.info("After recoverable error sleeping for %d seconds", recoverable_sleep)
+                logger.info("Recoverable error: sleeping for %d seconds", recoverable_sleep)
                 time.sleep(recoverable_sleep)
                 recoverable_sleep = min(recoverable_sleep * 2, 60)
             else:
@@ -115,7 +115,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                 try:
                     run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
                 except socket.timeout:
-                    raise RecoverableReplicationError("Network connection timeout") from None
+                    raise RecoverableReplicationError("Network connection timeout.") from None
                 except paramiko.ssh_exception.NoValidConnectionsError as e:
                     raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
                 except (IOError, OSError) as e:
@@ -244,7 +244,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             else:
                 raise NoIncrementalBaseReplicationError(
                     f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
-                    f"is not allowed"
+                    f"is not allowed."
                 )
 
         if not snapshots:
@@ -321,7 +321,7 @@ def run_replication_step(step: ReplicationStep, observer=None):
         local_context = step.dst_context
         remote_context = step.src_context
     else:
-        raise ValueError(f"Invalid replication direction: {step.replication_task.direction!r}")
+        raise ValueError(f"Invalid replication direction: {step.replication_task.direction!r}.")
 
     transport = remote_context.transport
 
