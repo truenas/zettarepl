@@ -9,7 +9,7 @@ __all__ = ["list_datasets"]
 
 
 def list_datasets(shell: Shell, dataset: str=None, recursive: bool=True):
-    args = ["zfs", "list", "-t", "filesystem", "-H", "-o", "name", "-s", "name"]
+    args = ["zfs", "list", "-t", "filesystem,volume", "-H", "-o", "name", "-s", "name"]
     if recursive:
         args.extend(["-r"])
     else:
