@@ -80,17 +80,7 @@ class SshTransportShell(Shell):
                 self.transport.hostname,
                 self.transport.port,
                 self.transport.username,
-                pkey=(
-                    {
-                        "OPENSSH": paramiko.Ed25519Key,  # Other parsers do not support new OpenSSH private key format
-                                                         # so when we see key like this we assume that it is Ed25519 key
-                        "EC": paramiko.ECDSAKey,
-                        "RSA": paramiko.RSAKey,
-                        "DSA": paramiko.DSSKey,
-                    }[
-                        re.search("BEGIN (OPENSSH|EC|RSA|DSA) PRIVATE KEY", self.transport.private_key).group(1)
-                    ].from_private_key(io.StringIO(self.transport.private_key))
-                ),
+                pkey=self._parse_private_key(self.transport.private_key),
                 timeout=self.transport.connect_timeout,
                 allow_agent=False,
                 look_for_keys=False,
@@ -100,6 +90,16 @@ class SshTransportShell(Shell):
             self._client = client
 
         return self._client
+
+    def _parse_private_key(self, private_key):
+        saved_exception = None
+        for key_class in (paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key):
+            try:
+                return key_class.from_private_key(io.StringIO(private_key))
+            except paramiko.SSHException as e:
+                saved_exception = e
+
+        raise saved_exception
 
     def get_sftp(self):
         if self._sftp is None:
