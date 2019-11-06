@@ -22,7 +22,7 @@ class ZfsCliExceptionHandler:
         if (
             self.replication_process.properties and
             isinstance(exc_val, ExecException) and
-            exc_val.stdout == (
+            exc_val.stdout.endswith(
                 f"cannot mount '{self.replication_process.target_dataset}': mountpoint or dataset is busy\n"
             )
         ):
