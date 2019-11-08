@@ -8,6 +8,7 @@ import time
 import paramiko.ssh_exception
 
 from zettarepl.dataset.list import *
+from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
                                 ReplicationTaskSnapshotSuccess, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
@@ -227,7 +228,17 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
+    ignored_roots = set()
     for step_template in step_templates:
+        ignore = False
+        for ignored_root in ignored_roots:
+            if is_child(step_template.src_dataset, ignored_root):
+                logger.debug("Not replicating dataset %r because it's ancestor %r did not have any snapshots",
+                             step_template.src_dataset, ignored_root)
+                ignore = True
+        if ignore:
+            continue
+
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
 
@@ -250,6 +261,8 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
                         step_template.src_dataset)
+            if not src_snapshots:
+                ignored_roots.add(step_template.src_dataset)
             continue
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
