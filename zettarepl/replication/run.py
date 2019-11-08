@@ -191,9 +191,14 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
+    src_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
+    if replication_task.replicate:
+        # But when replicate is on, we have no choice
+        src_datasets = [source_dataset]
+
     return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
                                     get_target_dataset(replication_task, src_dataset))
-            for src_dataset in src_context.datasets.keys()  # Order is right because it's OrderedDict
+            for src_dataset in src_datasets
             if replication_task_should_replicate_dataset(replication_task, src_dataset)]
 
 
@@ -339,13 +344,24 @@ def run_replication_step(step: ReplicationStep, observer=None):
     transport = remote_context.transport
 
     process = transport.replication_process(
-        step.replication_task.id, transport,
-        local_context.shell, remote_context.shell,
-        step.replication_task.direction, step.src_dataset, step.dst_dataset,
-        step.snapshot, step.replication_task.properties, step.incremental_base, step.receive_resume_token,
-        step.replication_task.compression, step.replication_task.speed_limit,
-        step.replication_task.dedup, step.replication_task.large_block,
-        step.replication_task.embed, step.replication_task.compressed)
+        step.replication_task.id,
+        transport,
+        local_context.shell,
+        remote_context.shell,
+        step.replication_task.direction,
+        step.src_dataset,
+        step.dst_dataset,
+        step.snapshot,
+        step.replication_task.properties,
+        step.replication_task.replicate,
+        step.incremental_base,
+        step.receive_resume_token,
+        step.replication_task.compression,
+        step.replication_task.speed_limit,
+        step.replication_task.dedup,
+        step.replication_task.large_block,
+        step.replication_task.embed,
+        step.replication_task.compressed)
     process.add_progress_observer(
         lambda snapshot, current, total:
             notify(observer, ReplicationTaskSnapshotProgress(step.replication_task.id, snapshot.split("@")[0],

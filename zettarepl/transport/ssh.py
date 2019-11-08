@@ -93,9 +93,16 @@ class SshReplicationProcess(ReplicationProcess):
             cmd.extend([f"-p{self.transport.port}"])
             cmd.extend([f"{self.transport.username}@{self.transport.hostname}"])
 
-            send = zfs_send(self.source_dataset, self.snapshot, self.properties, self.incremental_base,
+            send = zfs_send(self.source_dataset,
+                            self.snapshot,
+                            self.properties,
+                            self.replicate,
+                            self.incremental_base,
                             self.receive_resume_token,
-                            self.dedup, self.large_block, self.embed, self.compressed,
+                            self.dedup,
+                            self.large_block,
+                            self.embed,
+                            self.compressed,
                             self.report_progress)
 
             recv = zfs_recv(self.target_dataset)

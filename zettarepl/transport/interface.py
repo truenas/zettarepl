@@ -101,14 +101,25 @@ class Shell:
 
 
 class ReplicationProcess:
-    def __init__(self, replication_task_id, transport,
-                 local_shell: Shell, remote_shell: Shell,
+    def __init__(self,
+                 replication_task_id,
+                 transport,
+                 local_shell: Shell,
+                 remote_shell: Shell,
                  direction: ReplicationDirection,
-                 source_dataset: str, target_dataset: str,
-                 snapshot: str, properties: bool,
-                 incremental_base: str, receive_resume_token: str,
-                 compression: ReplicationCompression, speed_limit: int,
-                 dedup: bool, large_block: bool, embed: bool, compressed: bool):
+                 source_dataset: str,
+                 target_dataset: str,
+                 snapshot: str,
+                 properties: bool,
+                 replicate: bool,
+                 incremental_base: str,
+                 receive_resume_token: str,
+                 compression: ReplicationCompression,
+                 speed_limit: int,
+                 dedup: bool,
+                 large_block: bool,
+                 embed: bool,
+                 compressed: bool):
         self.replication_task_id = replication_task_id
         self.transport = transport
         self.local_shell = local_shell
@@ -118,6 +129,7 @@ class ReplicationProcess:
         self.target_dataset = target_dataset
         self.snapshot = snapshot
         self.properties = properties
+        self.replicate = replicate
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
         self.compression = compression

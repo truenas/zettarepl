@@ -24,6 +24,7 @@ if __name__ == "__main__":
     send_parser = subparsers.add_parser("send")
     send_parser.set_defaults(command="send")
     send_parser.add_argument("dataset")
+    send_parser.add_argument("--replicate", action="store_true")
     send_parser.add_argument("--properties", action="store_true")
     send_parser.add_argument("--dedup", action="store_true")
     send_parser.add_argument("--large-block", action="store_true")
@@ -89,6 +90,8 @@ if __name__ == "__main__":
         dataset = zfs.get_object(args.dataset)
 
         flags = set()
+        if args.replicate:
+            flags.add(libzfs.SendFlag.REPLICATE)
         if args.properties:
             flags.add(libzfs.SendFlag.PROPS)
         if args.dedup:

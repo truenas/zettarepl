@@ -68,8 +68,11 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                        "--listen-max-port", str(self.transport.active_side_max_port)]
 
         send_args = ["send", self.source_dataset]
-        if self.properties:
-            send_args.append("--properties")
+        if self.replicate:
+            send_args.append("--replicate")
+        else:
+            if self.properties:
+                send_args.append("--properties")
         if self.dedup:
             send_args.append("--dedup")
         if self.large_block:
