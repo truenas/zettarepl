@@ -116,6 +116,7 @@ def test__run_replication_tasks__only_notify_success_after_last_part():
         Mock(source_datasets=["data/src"],
              target_dataset="data/dst",
              recursive=True,
+             replicate=False,
              exclude=["data/src/trash"]),
         {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [

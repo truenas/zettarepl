@@ -130,6 +130,11 @@ replication-tasks:
     # replicated to remote system.
     properties: true
 
+    # Send a replication stream package, which will replicate the specified filesystem, and all descendent file systems.
+    # When received, all properties, snapshots, descendent file systems, and clones are preserved.
+    # You must have recursive set to true, exclude to empty list, properties to true. Disabled by default.
+    replicate: false
+
     # You must specify at least one of the following two fields for push
     # replication:
 

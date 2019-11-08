@@ -17,14 +17,32 @@ __all__ = ["ReplicationTask"]
 
 
 class ReplicationTask:
-    def __init__(self, id, direction: ReplicationDirection, transport, source_datasets: [str], target_dataset: str,
-                 recursive: bool, exclude: [str], properties: bool, periodic_snapshot_tasks: [PeriodicSnapshotTask],
-                 also_include_naming_schema: [str], auto: bool, schedule: CronSchedule, restrict_schedule: CronSchedule,
-                 only_matching_schedule: bool, allow_from_scratch: bool, hold_pending_snapshots: bool,
+    def __init__(self,
+                 id,
+                 direction: ReplicationDirection,
+                 transport, source_datasets: [str],
+                 target_dataset: str,
+                 recursive: bool,
+                 exclude: [str],
+                 properties: bool,
+                 replicate: bool,
+                 periodic_snapshot_tasks: [PeriodicSnapshotTask],
+                 also_include_naming_schema: [str],
+                 auto: bool,
+                 schedule: CronSchedule,
+                 restrict_schedule: CronSchedule,
+                 only_matching_schedule: bool,
+                 allow_from_scratch: bool,
+                 hold_pending_snapshots: bool,
                  retention_policy: TargetSnapshotRetentionPolicy,
-                 compression: ReplicationCompression, speed_limit: int,
-                 dedup: bool, large_block: bool, embed: bool, compressed: bool,
-                 retries: int, logging_level: int):
+                 compression: ReplicationCompression,
+                 speed_limit: int,
+                 dedup: bool,
+                 large_block: bool,
+                 embed: bool,
+                 compressed: bool,
+                 retries: int,
+                 logging_level: int):
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -33,6 +51,7 @@ class ReplicationTask:
         self.recursive = recursive
         self.exclude = exclude
         self.properties = properties
+        self.replicate = replicate
         self.periodic_snapshot_tasks = periodic_snapshot_tasks
         self.also_include_naming_schema = also_include_naming_schema
         self.auto = auto
@@ -64,6 +83,7 @@ class ReplicationTask:
 
         data.setdefault("exclude", [])
         data.setdefault("properties", True)
+        data.setdefault("replicate", False)
         data.setdefault("periodic-snapshot-tasks", [])
         data.setdefault("only-matching-schedule", False)
         data.setdefault("allow-from-scratch", False)
@@ -96,6 +116,20 @@ class ReplicationTask:
                                     "Replication tasks should exclude everything their periodic snapshot tasks exclude "
                                     f"(task does not exclude {exclude!r} from periodic snapshot task "
                                     f"{periodic_snapshot_task.id!r})")
+
+        if data["replicate"]:
+            if not data["recursive"]:
+                raise ValueError(
+                    "Replication tasks that replicate entire filesystem should be recursive"
+                )
+            if data["exclude"]:
+                raise ValueError(
+                    "Replication tasks that replicate entire filesystem can't exclude datasets"
+                )
+            if not data["properties"]:
+                raise ValueError(
+                    "Replication tasks that replicate entire filesystem can't exclude properties"
+                )
 
         data["direction"] = ReplicationDirection(data["direction"])
 
@@ -134,14 +168,28 @@ class ReplicationTask:
         return cls(id,
                    data["direction"],
                    create_transport(data["transport"]),
-                   data["source-dataset"], data["target-dataset"],
-                   data["recursive"], data["exclude"], data["properties"], resolved_periodic_snapshot_tasks,
-                   data["also-include-naming-schema"], data["auto"], schedule, restrict_schedule,
-                   data["only-matching-schedule"], data["allow-from-scratch"], data["hold-pending-snapshots"],
+                   data["source-dataset"],
+                   data["target-dataset"],
+                   data["recursive"],
+                   data["exclude"],
+                   data["properties"],
+                   data["replicate"],
+                   resolved_periodic_snapshot_tasks,
+                   data["also-include-naming-schema"],
+                   data["auto"],
+                   schedule,
+                   restrict_schedule,
+                   data["only-matching-schedule"],
+                   data["allow-from-scratch"],
+                   data["hold-pending-snapshots"],
                    retention_policy,
                    compression, data["speed-limit"],
-                   data["dedup"], data["large-block"], data["embed"], data["compressed"],
-                   data["retries"], logging._nameToLevel[data["logging-level"].upper()])
+                   data["dedup"],
+                   data["large-block"],
+                   data["embed"],
+                   data["compressed"],
+                   data["retries"],
+                   logging._nameToLevel[data["logging-level"].upper()])
 
     @classmethod
     def _parse_schedules(cls, data):

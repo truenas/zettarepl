@@ -8,6 +8,7 @@ import time
 import paramiko.ssh_exception
 
 from zettarepl.dataset.list import *
+from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
                                 ReplicationTaskSnapshotSuccess, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
@@ -190,9 +191,14 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
+    src_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
+    if replication_task.replicate:
+        # But when replicate is on, we have no choice
+        src_datasets = [source_dataset]
+
     return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
                                     get_target_dataset(replication_task, src_dataset))
-            for src_dataset in src_context.datasets.keys()  # Order is right because it's OrderedDict
+            for src_dataset in src_datasets
             if replication_task_should_replicate_dataset(replication_task, src_dataset)]
 
 
@@ -227,7 +233,17 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
+    ignored_roots = set()
     for step_template in step_templates:
+        ignore = False
+        for ignored_root in ignored_roots:
+            if is_child(step_template.src_dataset, ignored_root):
+                logger.debug("Not replicating dataset %r because it's ancestor %r did not have any snapshots",
+                             step_template.src_dataset, ignored_root)
+                ignore = True
+        if ignore:
+            continue
+
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
 
@@ -250,6 +266,8 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
                         step_template.src_dataset)
+            if not src_snapshots:
+                ignored_roots.add(step_template.src_dataset)
             continue
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
@@ -326,13 +344,24 @@ def run_replication_step(step: ReplicationStep, observer=None):
     transport = remote_context.transport
 
     process = transport.replication_process(
-        step.replication_task.id, transport,
-        local_context.shell, remote_context.shell,
-        step.replication_task.direction, step.src_dataset, step.dst_dataset,
-        step.snapshot, step.replication_task.properties, step.incremental_base, step.receive_resume_token,
-        step.replication_task.compression, step.replication_task.speed_limit,
-        step.replication_task.dedup, step.replication_task.large_block,
-        step.replication_task.embed, step.replication_task.compressed)
+        step.replication_task.id,
+        transport,
+        local_context.shell,
+        remote_context.shell,
+        step.replication_task.direction,
+        step.src_dataset,
+        step.dst_dataset,
+        step.snapshot,
+        step.replication_task.properties,
+        step.replication_task.replicate,
+        step.incremental_base,
+        step.receive_resume_token,
+        step.replication_task.compression,
+        step.replication_task.speed_limit,
+        step.replication_task.dedup,
+        step.replication_task.large_block,
+        step.replication_task.embed,
+        step.replication_task.compressed)
     process.add_progress_observer(
         lambda snapshot, current, total:
             notify(observer, ReplicationTaskSnapshotProgress(step.replication_task.id, snapshot.split("@")[0],
