@@ -15,14 +15,10 @@ from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
-@pytest.mark.parametrize("transport,properties", sum([
-    [
-        (transport, properties)
-        for properties in [True, False]
-    ]
-    for transport in transports()
-], []))
-def test_push_replication(transport, properties):
+@pytest.mark.parametrize("dst_exists", [True, False])
+@pytest.mark.parametrize("transport", transports())
+@pytest.mark.parametrize("properties", [True, False])
+def test_push_replication(dst_exists, transport, properties):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -32,7 +28,8 @@ def test_push_replication(transport, properties):
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
+    if dst_exists:
+        subprocess.check_call("zfs create data/dst", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
