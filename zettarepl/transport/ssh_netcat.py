@@ -35,7 +35,7 @@ class SshNetcatExecException(ExecException):
         super().__init__(1, str(self))
 
     def __str__(self):
-        return f"{self.connect_exc} / {self.listen_exc or 'No error'}"
+        return f"{self.connect_exc}\n{self.listen_exc or 'No error'}"
 
     def __repr__(self):
         return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
