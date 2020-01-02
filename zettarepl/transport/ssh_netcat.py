@@ -183,6 +183,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             if not self.listen_exec_terminated.wait(60):
                 self.logger.warning("Listen side has not terminated within 60 seconds after connect side success")
 
+            if self.listen_exec_error is not None:
+                raise SshNetcatExecException(None, self.listen_exec_error)
+
             return result
         finally:
             self.stop()
