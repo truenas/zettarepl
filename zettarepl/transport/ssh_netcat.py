@@ -12,6 +12,7 @@ from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .interface import *
 from .utils import put_file
+from .zfscli.exception import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class SshNetcatExecException(ExecException):
         super().__init__(1, str(self))
 
     def __str__(self):
-        return f"{self.connect_exc} / {self.listen_exc or 'No error'}"
+        return f"{self.connect_exc}\n{self.listen_exc or 'No error'}"
 
     def __repr__(self):
         return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
@@ -173,7 +174,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def wait(self):
         try:
-            result = self.connect_exec.wait()
+            with ZfsCliExceptionHandler(self):
+                result = self.connect_exec.wait()
         except ExecException as connect_exec_error:
             if not self.listen_exec_terminated.wait(5):
                 self.logger.warning("Listen side has not terminated within 5 seconds after connect side error")
@@ -182,6 +184,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         else:
             if not self.listen_exec_terminated.wait(60):
                 self.logger.warning("Listen side has not terminated within 60 seconds after connect side success")
+
+            if self.listen_exec_error is not None:
+                raise SshNetcatExecException(None, self.listen_exec_error)
 
             return result
         finally:
@@ -197,7 +202,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def _wait_listen_exec(self):
         try:
-            self.listen_exec.wait()
+            with ZfsCliExceptionHandler(self):
+                self.listen_exec.wait()
         except ExecException as e:
             self.listen_exec_error = e
         except Exception:

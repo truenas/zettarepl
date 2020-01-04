@@ -1,5 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
+import re
+import textwrap
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
@@ -58,3 +60,23 @@ class ZfsCliExceptionHandler:
                 snapshot,
             )
             return True
+
+        if (
+            self.replication_process.incremental_base and
+            isinstance(exc_val, ExecException)
+        ):
+            m = re.search(r"could not send (?P<snapshot>.+):\s*"
+                          r"incremental source \((?P<incremental_base>.+)\) is not earlier than it",
+                          exc_val.stdout)
+            if m:
+                text = textwrap.dedent(f"""\
+                    Replication cannot continue because existing snapshot
+                    {m.group('incremental_base')} is newer than
+                    {m.group('snapshot')}, but has an older date
+                    in the snapshot name. To resolve the error, rename
+                    {m.group('snapshot')} with a date that is older than
+                    {m.group('incremental_base')} or delete snapshot
+                    {m.group('snapshot')} from both the source and destination.
+                """)
+                exc_val.stdout = exc_val.stdout.replace(m.group(0), m.group(0) + f"\n{text.rstrip()}")
+                return
