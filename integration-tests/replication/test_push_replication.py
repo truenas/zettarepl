@@ -18,7 +18,11 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("dst_exists", [True, False])
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("properties", [True, False])
-def test_push_replication(dst_exists, transport, properties):
+@pytest.mark.parametrize("compression", [None, "pigz", "plzip", "lz4", "xz"])
+def test_push_replication(dst_exists, transport, properties, compression):
+    if transport["type"] != "ssh" and compression:
+        return
+
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -57,6 +61,8 @@ def test_push_replication(dst_exists, transport, properties):
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["properties"] = properties
+    if compression:
+        definition["replication-tasks"]["src"]["compression"] = compression
     definition = Definition.from_data(definition)
 
     local_shell = LocalShell()
