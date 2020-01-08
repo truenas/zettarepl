@@ -34,7 +34,7 @@ class ReplicationProcessRunner:
 
     def _wait_process(self):
         try:
-            return self.replication_process.wait()
+            self.replication_process.wait()
         except Exception as e:
             self.process_exception = e
         finally:

@@ -175,7 +175,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def wait(self):
         try:
             with ZfsCliExceptionHandler(self):
-                result = self.connect_exec.wait()
+                self.connect_exec.wait()
         except ExecException as connect_exec_error:
             if not self.listen_exec_terminated.wait(5):
                 self.logger.warning("Listen side has not terminated within 5 seconds after connect side error")
@@ -187,8 +187,6 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
             if self.listen_exec_error is not None:
                 raise SshNetcatExecException(None, self.listen_exec_error)
-
-            return result
         finally:
             self.stop()
 

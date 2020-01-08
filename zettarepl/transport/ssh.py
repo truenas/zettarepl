@@ -143,7 +143,7 @@ class SshReplicationProcess(ReplicationProcess):
     def wait(self):
         try:
             with ZfsCliExceptionHandler(self):
-                return self.async_exec.wait()
+                self.async_exec.wait()
         finally:
             self.private_key_file.close()
             self.host_key_file.close()

@@ -103,7 +103,7 @@ class LocalReplicationProcess(ReplicationProcess):
 
     def wait(self):
         with ZfsCliExceptionHandler(self):
-            return self.async_exec.wait()
+            self.async_exec.wait()
 
     def stop(self):
         return self.async_exec.stop()
