@@ -7,6 +7,7 @@ from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.transport.interface import ExecException, ReplicationProcess
+from zettarepl.utils.re import re_search_to
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,35 @@ class ZfsCliExceptionHandler:
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        m = {}
+        valid_errors = ("failed to create mountpoint", "mountpoint or dataset is busy")
+        valid_pylibzfs_errors = ("failed to create mountpoint",)
         if (
-            self.replication_process.properties and
             isinstance(exc_val, ExecException) and
-            exc_val.stdout.endswith(
-                f"cannot mount '{self.replication_process.target_dataset}': mountpoint or dataset is busy\n"
+            (
+                # Regular zfs CLI
+                (
+                    re_search_to(
+                        m,
+                        f"cannot mount '(?P<dataset>.+)': (?P<error>({'|'.join(valid_errors)}))\n",
+                        exc_val.stdout,
+                    ) and (
+                        m["dataset"] == self.replication_process.target_dataset or
+                        (
+                            m["error"] == "failed to create mountpoint" and
+                            m["dataset"].endswith(f"/{self.replication_process.target_dataset}")
+                        )
+                    )
+                # py-libzfs
+                ) or (
+                    re_search_to(
+                        m,
+                        f"(?P<error>({'|'.join(valid_pylibzfs_errors)}))\n",
+                        exc_val.stdout,
+                    )
+                )
+            ) and (
+                self.replication_process.properties if m["error"] == "mountpoint or dataset is busy" else True
             )
         ):
             if self.replication_process.direction == ReplicationDirection.PUSH:
@@ -37,8 +62,9 @@ class ZfsCliExceptionHandler:
                 snapshots = list_snapshots(dst_shell, self.replication_process.target_dataset, False)
             except Exception as e:
                 logger.warning(
-                    "Caught 'mountpoint or dataset is busy' and was not able to list snapshots on destination side: "
-                    "%r. Assuming replication failure.",
+                    "Caught %r and was not able to list snapshots on destination side: %r. Assuming replication "
+                    "failure.",
+                    m["error"],
                     e
                 )
                 return
@@ -46,8 +72,8 @@ class ZfsCliExceptionHandler:
             snapshot = Snapshot(self.replication_process.target_dataset, self.replication_process.snapshot)
             if snapshot not in snapshots:
                 logger.warning(
-                    "Caught 'mountpoint or dataset is busy' and %r does not exist on destination side. "
-                    "Assuming replication failure.",
+                    "Caught %r and %r does not exist on destination side. Assuming replication failure.",
+                    m["error"],
                     snapshot,
                 )
                 return
@@ -55,8 +81,8 @@ class ZfsCliExceptionHandler:
             # It's ok, snapshot was transferred successfully, just were not able to mount dataset on specified
             # mountpoint
             logger.info(
-                "Caught 'mountpoint or dataset is busy' but %r is present on remote side. "
-                "Assuming replication success.",
+                "Caught %r but %r is present on remote side. Assuming replication success.",
+                m["error"],
                 snapshot,
             )
             return True
