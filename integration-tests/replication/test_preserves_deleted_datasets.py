@@ -52,6 +52,7 @@ def test_push_replication():
 
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl._spawn_retention = Mock()
     zettarepl.set_tasks(definition.tasks)
 
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
