@@ -2,8 +2,6 @@
 import errno
 import logging
 import io
-import os
-import re
 import shlex
 import threading
 
@@ -70,12 +68,12 @@ class SshTransportShell(Shell):
     def get_client(self):
         if self._client is None:
             self.logger.debug("Connecting...")
-            hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([self.transport.hostname, self.transport.host_key]))
+            hke = paramiko.hostkeys.HostKeyEntry.from_line(self.transport.get_host_key_entry())
             client = paramiko.SSHClient()
             if any(threading.current_thread().name.startswith(prefix)
                    for prefix in ("replication_task__", "retention")):
                 client.set_log_channel(f"zettarepl.paramiko.{threading.current_thread().name}")
-            client.get_host_keys().add(self.transport.hostname, hke.key.get_name(), hke.key)
+            client.get_host_keys().add(hke.hostnames[0], hke.key.get_name(), hke.key)
             client.connect(
                 self.transport.hostname,
                 self.transport.port,
@@ -157,8 +155,20 @@ class BaseSshTransport(Transport):
         data["host_key"] = data.pop("host-key")
         data["connect_timeout"] = data.pop("connect-timeout")
 
-        hke = paramiko.hostkeys.HostKeyEntry.from_line(" ".join([data["hostname"], data["host_key"]]))
+        hke = paramiko.hostkeys.HostKeyEntry.from_line(
+            get_host_key_entry(data["hostname"], data["port"], data["host_key"])
+        )
         if hke is None:
             raise ValueError("Invalid SSH host key")
 
         return data
+
+    def get_host_key_entry(self):
+        return get_host_key_entry(self.hostname, self.port, self.host_key)
+
+
+def get_host_key_entry(hostname, port, host_key):
+    if port == 22:
+        return f"{hostname} {host_key}"
+    else:
+        return f"[{hostname}]:{port} {host_key}"
