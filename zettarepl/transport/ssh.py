@@ -70,7 +70,7 @@ class SshReplicationProcess(ReplicationProcess):
 
         self.host_key_file = tempfile.NamedTemporaryFile("w")
         os.chmod(self.host_key_file.name, 0o600)
-        self.host_key_file.write(f"{self.transport.hostname} {self.transport.host_key}")
+        self.host_key_file.write(self.transport.get_host_key_entry())
         self.host_key_file.flush()
 
         try:
