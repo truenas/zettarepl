@@ -118,7 +118,7 @@ class SshReplicationProcess(ReplicationProcess):
                 send = pipe(send, ["throttle", "-B", str(self.speed_limit)])
 
             if self.direction == ReplicationDirection.PUSH:
-                commands = [send, cmd + [implode(recv)]]
+                commands = [send, cmd + pipe(["mbuffer", "-m", "1.9G", "-T", "/root/buffer"], recv)]
             elif self.direction == ReplicationDirection.PULL:
                 commands = [cmd + [implode(send)], recv]
             else:
