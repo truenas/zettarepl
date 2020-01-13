@@ -15,7 +15,7 @@ def test__replication_monitor__ok():
             event = Mock()
             event.wait.side_effect = [False, False, False, False, False, False, True]
             Event.return_value = event
-            assert ReplicationMonitor(Mock(), Mock()).run() == True
+            assert ReplicationMonitor(Mock(), Mock(), 60.0, 5).run() == True
 
 
 def test__replication_monitor__not_ok():
@@ -28,4 +28,4 @@ def test__replication_monitor__not_ok():
             event = Mock()
             event.wait.side_effect = [False, False, False, False, False, False, False, True]
             Event.return_value = event
-            assert ReplicationMonitor(Mock(), Mock()).run() == False
+            assert ReplicationMonitor(Mock(), Mock(), 60.0, 5).run() == False

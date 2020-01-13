@@ -1,7 +1,10 @@
 # -*- coding=utf-8 -*-
+import atexit
+import contextlib
 import logging
 import os
 import shutil
+import signal
 import subprocess
 
 from zettarepl.replication.error import ReplicationConfigurationError
@@ -21,11 +24,18 @@ class LocalAsyncExec(AsyncExec):
         super().__init__(*args, **kwargs)
 
         self.process = None
+        self.pgid = None
 
     def run(self):
         self.logger.debug("Running %r", self.args)
         self.process = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                        encoding=self.encoding)
+                                        encoding=self.encoding, preexec_fn=os.setsid)
+        try:
+            self.pgid = os.getpgid(self.process.pid)
+        except ProcessLookupError:
+            pass
+        else:
+            atexit.register(self._atexit)
         self._copy_stdout_from(self.process.stdout)
 
     def wait(self):
@@ -44,12 +54,24 @@ class LocalAsyncExec(AsyncExec):
 
     def stop(self):
         self.logger.debug("Stopping")
-        self.process.terminate()
+        if self.pgid is not None:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(self.pgid, signal.SIGTERM)
+        with contextlib.suppress(ProcessLookupError):
+            self.process.terminate()
         try:
             self.process.wait(10)
         except subprocess.TimeoutExpired:
             logger.warning("Timeout waiting for process to terminate properly, killing process")
-            self.process.kill()
+            if self.pgid is not None:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(self.pgid, signal.SIGKILL)
+            with contextlib.suppress(ProcessLookupError):
+                self.process.kill()
+
+    def _atexit(self):
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(self.pgid, signal.SIGTERM)
 
 
 class LocalShell(Shell):
