@@ -224,6 +224,10 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                         logger.warning("receive_resume_token for dataset %r references snapshot that no longer exists, "
                                        "discarding it", step_template.dst_dataset)
                         step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
+                    elif "destination has snapshots" in e.stdout:
+                        logger.warning("receive_resume_token for dataset %r is outdated, discarding it",
+                                       step_template.dst_dataset)
+                        step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
                     else:
                         raise
                 else:
