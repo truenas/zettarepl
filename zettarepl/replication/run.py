@@ -180,26 +180,37 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
     src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
                                                         replication_task.recursive)
-    try:
-        dst_context.datasets = list_datasets_with_snapshots(dst_context.shell, replication_task.target_dataset,
-                                                            replication_task.recursive)
-    except ExecException as e:
-        if "dataset does not exist" in e.stdout:
-            dst_context.datasets = {}
-        else:
-            raise
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
-    src_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
+    source_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
     if replication_task.replicate:
         # But when replicate is on, we have no choice
-        src_datasets = [source_dataset]
+        source_datasets = [source_dataset]
 
-    return [ReplicationStepTemplate(replication_task, src_context, dst_context, src_dataset,
-                                    get_target_dataset(replication_task, src_dataset))
-            for src_dataset in src_datasets
-            if replication_task_should_replicate_dataset(replication_task, src_dataset)]
+    dst_context.datasets = {}
+    templates = []
+    for source_dataset in source_datasets:
+        if not replication_task_should_replicate_dataset(replication_task, source_dataset):
+            continue
+
+        target_dataset = get_target_dataset(replication_task, source_dataset)
+
+        try:
+            dst_context.datasets.update(
+                list_datasets_with_snapshots(dst_context.shell, target_dataset, replication_task.recursive)
+            )
+        except ExecException as e:
+            if "dataset does not exist" in e.stdout:
+                pass
+            else:
+                raise
+
+        templates.append(
+            ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset)
+        )
+
+    return templates
 
 
 def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
