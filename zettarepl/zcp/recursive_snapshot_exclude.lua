@@ -11,26 +11,29 @@ for i = 3, #args["argv"] do
 end
 
 snapshots_to_create = {}
-table.insert(snapshots_to_create, dataset .. "@" .. snapshot_name)
+function populate_snapshots_to_create(dataset)
+    table.insert(snapshots_to_create, dataset .. "@" .. snapshot_name)
 
-iterator = zfs.list.children(dataset)
-while true do
-    local child = iterator()
-    if child == nil then
-        break
-    end
-
-    local include = true
-    for _, excl in ipairs(exclude) do
-        if child == excl or starts_with(child, excl .. "/") then
-            include = false
+    local iterator = zfs.list.children(dataset)
+    while true do
+        local child = iterator()
+        if child == nil then
             break
         end
-    end
-    if include then
-        table.insert(snapshots_to_create, child .. "@" .. snapshot_name)
+
+        local include = true
+        for _, excl in ipairs(exclude) do
+            if child == excl then
+                include = false
+                break
+            end
+        end
+        if include then
+            populate_snapshots_to_create(child)
+        end
     end
 end
+populate_snapshots_to_create(dataset)
 
 errors = {}
 for _, snapshot in ipairs(snapshots_to_create) do
