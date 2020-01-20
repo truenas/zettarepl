@@ -17,7 +17,8 @@ from zettarepl.zettarepl import Zettarepl
 
 
 @pytest.mark.parametrize("transport", transports())
-def test_replication_resume(caplog, transport):
+@pytest.mark.parametrize("dedup", [False, True])
+def test_replication_resume(caplog, transport, dedup):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -57,6 +58,7 @@ def test_replication_resume(caplog, transport):
             retention-policy: none
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
+    definition["replication-tasks"]["src"]["dedup"] = dedup
     definition = Definition.from_data(definition)
 
     caplog.set_level(logging.INFO)

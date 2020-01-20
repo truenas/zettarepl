@@ -19,17 +19,8 @@ def zfs_send(source_dataset: str,
              report_progress=False):
     send = ["zfs", "send"]
 
-    if dedup:
-        send.append("-D")
-
-    if large_block:
-        send.append("-L")
-
     if embed:
         send.append("-e")
-
-    if compressed:
-        send.append("-c")
 
     if report_progress:
         send.append("-V")
@@ -45,6 +36,15 @@ def zfs_send(source_dataset: str,
 
         if incremental_base is not None:
             send.extend(["-i", f"{source_dataset}@{incremental_base}"])
+
+        if dedup:
+            send.append("-D")
+
+        if large_block:
+            send.append("-L")
+
+        if compressed:
+            send.append("-c")
 
         send.append(f"{source_dataset}@{snapshot}")
     else:
