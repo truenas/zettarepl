@@ -18,28 +18,28 @@ def pipe(*cmds):
 
     # We'll generate some shell code and eval it. `eval` evaluates what's in the stdout,
     # so we'll redirect stdout to 3 in subshells and redirect 3 to stdout in parent shell.
-    command = "exec 3>&1\n"
+    command = "exec 3>&1; "
 
     # What's inside will print text like:
     #   pipestatus0=1
     #   pipestatus1=0
     #   pipestatus2=0
     # We'll eval that to get these variables in our scope
-    command += "eval $(\n"
+    command += "eval $("
 
     # We'll print 'pipestatusX=Y' to 4, and we'll to pass it to eval through stdout
     # We'll redirect real stdout to 3, parent shell will print it back to stdout
     # We'll close fd 3 because we don't need it
-    command += "exec 4>&1 >&3 3>&-\n"
+    command += "exec 4>&1 >&3 3>&-; "
 
-    command += " | ".join([f"{{\n{implode(args)} 4>&-; echo \"pipestatus{i}=$?;\" >&4\n}}"
-                           for i, args in enumerate(cmds)]) + "\n"
+    command += " | ".join([f"{{ {implode(args)} 4>&-; echo \"pipestatus{i}=$?;\" >&4; }}"
+                           for i, args in enumerate(cmds)])
 
     # close eval
-    command += ")\n"
+    command += "); "
 
     # Fail with exit code of the first failed command
-    command += "\n".join([f"[ $pipestatus{i} -ne 0 ] && exit $pipestatus{i}" for i in range(len(cmds))]) + "\n"
+    command += "; ".join([f"[ $pipestatus{i} -ne 0 ] && exit $pipestatus{i}" for i in range(len(cmds))]) + "; "
 
     # No command failed
     command += "exit 0"
