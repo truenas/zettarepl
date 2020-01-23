@@ -2,11 +2,13 @@
 from collections import OrderedDict
 from datetime import datetime
 import logging
+import os
 import socket
 import time
 
 import paramiko.ssh_exception
 
+from zettarepl.dataset.create import create_dataset
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
@@ -267,7 +269,9 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
     ignored_roots = set()
-    for step_template in step_templates:
+    for i, step_template in enumerate(step_templates):
+        is_immediate_target_dataset = i == 0
+
         ignore = False
         for ignored_root in ignored_roots:
             if is_child(step_template.src_dataset, ignored_root):
@@ -300,7 +304,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     )
             else:
                 if not step_template.replication_task.allow_from_scratch:
-                    if step_template.src_dataset in step_template.replication_task.source_datasets:
+                    if is_immediate_target_dataset:
                         # We are only interested in checking target datasets, not their children
                         try:
                             dst_used = get_property(
@@ -323,6 +327,12 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if not src_snapshots:
                 ignored_roots.add(step_template.src_dataset)
             continue
+
+        if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:
+            # Target dataset does not exist, there is a chance that intermediate datasets also do not exist
+            parent = os.path.dirname(step_template.dst_dataset)
+            if "/" in parent:
+                create_dataset(step_template.dst_context.shell, parent)
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
 
