@@ -3,7 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_property"]
+__all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_properties", "get_property"]
 
 
 def zfs_send(source_dataset: str,
@@ -64,6 +64,13 @@ def get_receive_resume_token(shell, dataset):
     return get_property(shell, dataset, "receive_resume_token")
 
 
+def get_properties(shell, dataset, properties: {str: type}):
+    result = {}
+    for line in shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset]).strip().split("\n"):
+        name, property, value, source = line.split("\t", 3)
+        result[property] = None if value == "-" else properties[property](value)
+    return result
+
+
 def get_property(shell, dataset, property, type=str):
-    value = shell.exec(["zfs", "get", "-H", "-p", property, dataset]).split("\t")[2]
-    return None if value == "-" else type(value)
+    return get_properties(shell, dataset, {property: type})[property]

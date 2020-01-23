@@ -19,7 +19,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_receive_resume_token, get_property
+from zettarepl.transport.zfscli import get_receive_resume_token, get_properties, get_property
 
 from .error import *
 from .monitor import ReplicationMonitor
@@ -307,29 +307,33 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     if is_immediate_target_dataset:
                         # We are only interested in checking target datasets, not their children
                         try:
-                            dst_type = get_property(step_template.dst_context.shell, step_template.dst_dataset, "type")
+                            dst_properties = get_properties(
+                                step_template.dst_context.shell, step_template.dst_dataset, {
+                                    "type": str,
+                                    "referenced": int,
+                                    "used": int,
+                                }
+                            )
                         except ExecException as e:
                             if not ("dataset does not exist" in e.stdout):
                                 raise
                         else:
-                            if dst_type == "filesystem":
+                            if dst_properties["type"] == "filesystem":
                                 used_property = "used"
                                 used_threshold = 102400  # empty dataset takes 88K with ashift=12
-                            elif dst_type == "volume":
+                            elif dst_properties["type"] == "volume":
                                 used_property = "referenced"
                                 used_threshold = 61440  # empty zvol takes 56K with ashift=12
                             else:
                                 raise ReplicationError(
-                                    f"Target dataset {step_template.dst_dataset!r} has invalid type {dst_type!r}"
+                                    f"Target dataset {step_template.dst_dataset!r} has invalid type "
+                                    f"{dst_properties['type']!r}"
                                 )
-                            dst_used = get_property(
-                                step_template.dst_context.shell, step_template.dst_dataset, used_property, int
-                            )
-                            if dst_used > used_threshold:
+                            if dst_properties[used_property] > used_threshold:
                                 raise ReplicationError(
                                     f"Target dataset {step_template.dst_dataset!r} does not have snapshots but has "
-                                    f"data ({dst_used} bytes used) and replication from scratch is not allowed. "
-                                    f"Refusing to overwrite existing data."
+                                    f"data ({dst_properties[used_property]} bytes used) and replication from scratch "
+                                    f"is not allowed. Refusing to overwrite existing data."
                                 )
 
         if not snapshots:
