@@ -2,11 +2,13 @@
 from collections import OrderedDict
 from datetime import datetime
 import logging
+import os
 import socket
 import time
 
 import paramiko.ssh_exception
 
+from zettarepl.dataset.create import create_dataset
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
@@ -17,7 +19,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_receive_resume_token
+from zettarepl.transport.zfscli import get_receive_resume_token, get_properties, get_property
 
 from .error import *
 from .monitor import ReplicationMonitor
@@ -165,6 +167,8 @@ def calculate_replication_tasks_parts(replication_tasks):
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
                               src_context: ReplicationContext, dst_context: ReplicationContext, observer=None):
+    check_target_type(replication_task, source_dataset, src_context, dst_context)
+
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
 
@@ -174,6 +178,22 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
                                                               src_context, dst_context)
 
     run_replication_steps(step_templates, observer)
+
+
+def check_target_type(replication_task: ReplicationTask, source_dataset: str,
+                      src_context: ReplicationContext, dst_context: ReplicationContext):
+    target_dataset = get_target_dataset(replication_task, source_dataset)
+
+    source_dataset_type = get_property(src_context.shell, source_dataset, "type")
+    try:
+        target_dataset_type = get_property(dst_context.shell, target_dataset, "type")
+    except ExecException as e:
+        if not ("dataset does not exist" in e.stdout):
+            raise
+    else:
+        if source_dataset_type != target_dataset_type:
+            raise ReplicationError(f"Source {source_dataset!r} is a {source_dataset_type}, but target "
+                                   f"{target_dataset!r} already exists and is a {target_dataset_type}")
 
 
 def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,
@@ -249,7 +269,9 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
     ignored_roots = set()
-    for step_template in step_templates:
+    for i, step_template in enumerate(step_templates):
+        is_immediate_target_dataset = i == 0
+
         ignore = False
         for ignored_root in ignored_roots:
             if is_child(step_template.src_dataset, ignored_root):
@@ -264,19 +286,55 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
 
         incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots,
                                                             step_template.replication_task)
-        if incremental_base is None and dst_snapshots:
-            if step_template.replication_task.allow_from_scratch:
-                logger.warning("No incremental base for replication task %r on dataset %r, destroying all destination "
-                               "snapshots", step_template.replication_task.id, step_template.src_dataset)
-                destroy_snapshots(
-                    step_template.dst_context.shell,
-                    [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
-                )
+        if incremental_base is None:
+            if dst_snapshots:
+                if step_template.replication_task.allow_from_scratch:
+                    logger.warning(
+                        "No incremental base for replication task %r on dataset %r, destroying all destination "
+                        "snapshots", step_template.replication_task.id, step_template.src_dataset,
+                    )
+                    destroy_snapshots(
+                        step_template.dst_context.shell,
+                        [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
+                    )
+                else:
+                    raise NoIncrementalBaseReplicationError(
+                        f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
+                        f"is not allowed"
+                    )
             else:
-                raise NoIncrementalBaseReplicationError(
-                    f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
-                    f"is not allowed"
-                )
+                if not step_template.replication_task.allow_from_scratch:
+                    if is_immediate_target_dataset:
+                        # We are only interested in checking target datasets, not their children
+                        try:
+                            dst_properties = get_properties(
+                                step_template.dst_context.shell, step_template.dst_dataset, {
+                                    "type": str,
+                                    "referenced": int,
+                                    "used": int,
+                                }
+                            )
+                        except ExecException as e:
+                            if not ("dataset does not exist" in e.stdout):
+                                raise
+                        else:
+                            if dst_properties["type"] == "filesystem":
+                                used_property = "used"
+                                used_threshold = 102400  # empty dataset takes 88K with ashift=12
+                            elif dst_properties["type"] == "volume":
+                                used_property = "referenced"
+                                used_threshold = 61440  # empty zvol takes 56K with ashift=12
+                            else:
+                                raise ReplicationError(
+                                    f"Target dataset {step_template.dst_dataset!r} has invalid type "
+                                    f"{dst_properties['type']!r}"
+                                )
+                            if dst_properties[used_property] > used_threshold:
+                                raise ReplicationError(
+                                    f"Target dataset {step_template.dst_dataset!r} does not have snapshots but has "
+                                    f"data ({dst_properties[used_property]} bytes used) and replication from scratch "
+                                    f"is not allowed. Refusing to overwrite existing data."
+                                )
 
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
@@ -284,6 +342,12 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if not src_snapshots:
                 ignored_roots.add(step_template.src_dataset)
             continue
+
+        if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:
+            # Target dataset does not exist, there is a chance that intermediate datasets also do not exist
+            parent = os.path.dirname(step_template.dst_dataset)
+            if "/" in parent:
+                create_dataset(step_template.dst_context.shell, parent)
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
 

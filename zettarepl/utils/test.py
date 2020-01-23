@@ -2,16 +2,49 @@
 import logging
 import subprocess
 import time
-from unittest.mock import PropertyMock
+from unittest.mock import Mock, PropertyMock
+
+from zettarepl.definition.definition import Definition
+from zettarepl.observer import ReplicationTaskError, ReplicationTaskSuccess
+from zettarepl.replication.task.task import ReplicationTask
+from zettarepl.transport.local import LocalShell
+from zettarepl.utils.itertools import select_by_class
+from zettarepl.zettarepl import Zettarepl
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["mock_name", "set_localhost_transport_options", "transports", "wait_replication_tasks_to_complete"]
+__all__ = ["create_zettarepl", "mock_name", "run_replication_test", "set_localhost_transport_options", "transports",
+           "wait_replication_tasks_to_complete"]
+
+
+def create_zettarepl(definition):
+    local_shell = LocalShell()
+    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl._spawn_retention = Mock()
+    observer = Mock()
+    zettarepl.set_observer(observer)
+    zettarepl.set_tasks(definition.tasks)
+    return zettarepl
 
 
 def mock_name(mock, name):
     type(mock).name = PropertyMock(return_value=name)
     return mock
+
+
+def run_replication_test(definition, success=True):
+    definition = Definition.from_data(definition)
+    zettarepl = create_zettarepl(definition)
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
+
+    if success:
+        success = zettarepl.observer.call_args_list[-1][0][0]
+        assert isinstance(success, ReplicationTaskSuccess), success
+    else:
+        error = zettarepl.observer.call_args_list[-1][0][0]
+        assert isinstance(error, ReplicationTaskError), error
+        return error
 
 
 def set_localhost_transport_options(transport):
