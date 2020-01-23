@@ -17,7 +17,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_receive_resume_token
+from zettarepl.transport.zfscli import get_receive_resume_token, get_property
 
 from .error import *
 from .monitor import ReplicationMonitor
@@ -165,6 +165,8 @@ def calculate_replication_tasks_parts(replication_tasks):
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
                               src_context: ReplicationContext, dst_context: ReplicationContext, observer=None):
+    check_target_type(replication_task, source_dataset, src_context, dst_context)
+
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
 
@@ -174,6 +176,22 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
                                                               src_context, dst_context)
 
     run_replication_steps(step_templates, observer)
+
+
+def check_target_type(replication_task: ReplicationTask, source_dataset: str,
+                      src_context: ReplicationContext, dst_context: ReplicationContext):
+    target_dataset = get_target_dataset(replication_task, source_dataset)
+
+    source_dataset_type = get_property(src_context.shell, source_dataset, "type")
+    try:
+        target_dataset_type = get_property(dst_context.shell, target_dataset, "type")
+    except ExecException as e:
+        if not ("dataset does not exist" in e.stdout):
+            raise
+    else:
+        if source_dataset_type != target_dataset_type:
+            raise ReplicationError(f"Source {source_dataset!r} is a {source_dataset_type}, but target "
+                                   f"{target_dataset!r} already exists and is a {target_dataset_type}")
 
 
 def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,
