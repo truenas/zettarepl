@@ -282,19 +282,40 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
 
         incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots,
                                                             step_template.replication_task)
-        if incremental_base is None and dst_snapshots:
-            if step_template.replication_task.allow_from_scratch:
-                logger.warning("No incremental base for replication task %r on dataset %r, destroying all destination "
-                               "snapshots", step_template.replication_task.id, step_template.src_dataset)
-                destroy_snapshots(
-                    step_template.dst_context.shell,
-                    [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
-                )
+        if incremental_base is None:
+            if dst_snapshots:
+                if step_template.replication_task.allow_from_scratch:
+                    logger.warning(
+                        "No incremental base for replication task %r on dataset %r, destroying all destination "
+                        "snapshots", step_template.replication_task.id, step_template.src_dataset,
+                    )
+                    destroy_snapshots(
+                        step_template.dst_context.shell,
+                        [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
+                    )
+                else:
+                    raise NoIncrementalBaseReplicationError(
+                        f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
+                        f"is not allowed"
+                    )
             else:
-                raise NoIncrementalBaseReplicationError(
-                    f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
-                    f"is not allowed"
-                )
+                if not step_template.replication_task.allow_from_scratch:
+                    if step_template.src_dataset in step_template.replication_task.source_datasets:
+                        # We are only interested in checking target datasets, not their children
+                        try:
+                            dst_used = get_property(
+                                step_template.dst_context.shell, step_template.dst_dataset, "used", int
+                            )
+                        except ExecException as e:
+                            if not ("dataset does not exist" in e.stdout):
+                                raise
+                        else:
+                            if dst_used > 102400:  # empty dataset takes 88K
+                                raise ReplicationError(
+                                    f"Target dataset {step_template.dst_dataset!r} does not have snapshots but has data "
+                                    f"({dst_used} bytes used) and replication from scratch is not allowed. Refusing to "
+                                    f"overwrite existing data."
+                                )
 
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,

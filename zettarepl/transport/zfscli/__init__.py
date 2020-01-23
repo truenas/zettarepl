@@ -64,6 +64,6 @@ def get_receive_resume_token(shell, dataset):
     return get_property(shell, dataset, "receive_resume_token")
 
 
-def get_property(shell, dataset, property):
-    value = shell.exec(["zfs", "get", "-H", property, dataset]).split("\t")[2]
-    return None if value == "-" else value
+def get_property(shell, dataset, property, type=str):
+    value = shell.exec(["zfs", "get", "-H", "-p", property, dataset]).split("\t")[2]
+    return None if value == "-" else type(value)
