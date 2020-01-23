@@ -307,18 +307,29 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     if is_immediate_target_dataset:
                         # We are only interested in checking target datasets, not their children
                         try:
-                            dst_used = get_property(
-                                step_template.dst_context.shell, step_template.dst_dataset, "used", int
-                            )
+                            dst_type = get_property(step_template.dst_context.shell, step_template.dst_dataset, "type")
                         except ExecException as e:
                             if not ("dataset does not exist" in e.stdout):
                                 raise
                         else:
-                            if dst_used > 102400:  # empty dataset takes 88K
+                            if dst_type == "filesystem":
+                                used_property = "used"
+                                used_threshold = 102400  # empty dataset takes 88K with ashift=12
+                            elif dst_type == "volume":
+                                used_property = "referenced"
+                                used_threshold = 61440  # empty zvol takes 56K with ashift=12
+                            else:
                                 raise ReplicationError(
-                                    f"Target dataset {step_template.dst_dataset!r} does not have snapshots but has data "
-                                    f"({dst_used} bytes used) and replication from scratch is not allowed. Refusing to "
-                                    f"overwrite existing data."
+                                    f"Target dataset {step_template.dst_dataset!r} has invalid type {dst_type!r}"
+                                )
+                            dst_used = get_property(
+                                step_template.dst_context.shell, step_template.dst_dataset, used_property, int
+                            )
+                            if dst_used > used_threshold:
+                                raise ReplicationError(
+                                    f"Target dataset {step_template.dst_dataset!r} does not have snapshots but has "
+                                    f"data ({dst_used} bytes used) and replication from scratch is not allowed. "
+                                    f"Refusing to overwrite existing data."
                                 )
 
         if not snapshots:
