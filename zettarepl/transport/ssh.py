@@ -183,7 +183,7 @@ class SshReplicationProcess(ReplicationProcess):
             s = send_shell.exec(["/bin/ps", "-axww", "-o", "command", "-p", str(pid)])
             m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
             if m:
-                self.notify_progress_observer(m.group("snapshot"), int(m.group("current")), int(m.group("total")))
+                self.notify_progress_observer(int(m.group("current")), int(m.group("total")))
             else:
                 logger.debug("Unable to find ZFS send progress in %r", s)
 

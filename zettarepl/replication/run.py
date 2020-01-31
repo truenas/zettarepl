@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 import logging
 import os
@@ -11,8 +11,8 @@ import paramiko.ssh_exception
 from zettarepl.dataset.create import create_dataset
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
-from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotProgress,
-                                ReplicationTaskSnapshotSuccess, ReplicationTaskError)
+from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
+                                ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -35,8 +35,23 @@ logger = logging.getLogger(__name__)
 __all__ = ["run_replication_tasks"]
 
 
+class GlobalReplicationContext:
+    def __init__(self):
+        self.snapshots_sent_by_replication_step_template = {}
+        self.snapshots_total_by_replication_step_template = {}
+
+    @property
+    def snapshots_sent(self):
+        return sum(self.snapshots_sent_by_replication_step_template.values())
+
+    @property
+    def snapshots_total(self):
+        return sum(self.snapshots_total_by_replication_step_template.values())
+
+
 class ReplicationContext:
-    def __init__(self, transport: Transport, shell: Shell):
+    def __init__(self, context: GlobalReplicationContext, transport: Transport, shell: Shell):
+        self.context = context
         self.transport = transport
         self.shell = shell
         self.datasets = None
@@ -53,14 +68,17 @@ class ReplicationStepTemplate:
         self.dst_dataset = dst_dataset
 
     def instantiate(self, **kwargs):
-        return ReplicationStep(self.replication_task,
+        return ReplicationStep(self,
+                               self.replication_task,
                                self.src_context, self.dst_context,
                                self.src_dataset, self.dst_dataset,
                                **kwargs)
 
 
 class ReplicationStep(ReplicationStepTemplate):
-    def __init__(self, *args, snapshot=None, incremental_base=None, receive_resume_token=None):
+    def __init__(self, template, *args, snapshot=None, incremental_base=None, receive_resume_token=None):
+        self.template = template
+
         super().__init__(*args)
 
         self.snapshot = snapshot
@@ -75,6 +93,8 @@ class ReplicationStep(ReplicationStepTemplate):
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
                           replication_tasks: [ReplicationTask], observer=None):
+    contexts = defaultdict(GlobalReplicationContext)
+
     replication_tasks_parts = calculate_replication_tasks_parts(replication_tasks)
 
     started_replication_tasks_ids = set()
@@ -89,8 +109,8 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
         if replication_task.id in failed_replication_tasks_ids:
             continue
 
-        local_context = ReplicationContext(None, local_shell)
-        remote_context = ReplicationContext(transport, remote_shell)
+        local_context = ReplicationContext(contexts[replication_task], None, local_shell)
+        remote_context = ReplicationContext(contexts[replication_task], transport, remote_shell)
 
         if replication_task.direction == ReplicationDirection.PUSH:
             src_context = local_context
@@ -400,6 +420,9 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
 
 
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, observer=None):
+    step_template.src_context.context.snapshots_sent_by_replication_step_template[step_template] = 0
+    step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
+
     for snapshot in snapshots:
         run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot), observer)
         incremental_base = snapshot
@@ -410,6 +433,11 @@ def run_replication_step(step: ReplicationStep, observer=None):
                 "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
                 step.src_dataset, step.dst_dataset, step.snapshot, step.incremental_base,
                 step.receive_resume_token)
+
+    notify(observer, ReplicationTaskSnapshotStart(
+        step.replication_task.id, step.src_dataset, step.snapshot,
+        step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
+    ))
 
     if step.replication_task.direction == ReplicationDirection.PUSH:
         local_context = step.src_context
@@ -442,10 +470,18 @@ def run_replication_step(step: ReplicationStep, observer=None):
         step.replication_task.embed,
         step.replication_task.compressed)
     process.add_progress_observer(
-        lambda snapshot, current, total:
-            notify(observer, ReplicationTaskSnapshotProgress(step.replication_task.id, snapshot.split("@")[0],
-                                                             snapshot.split("@")[1], current, total)))
+        lambda bytes_sent, bytes_total:
+            notify(observer, ReplicationTaskSnapshotProgress(
+                step.replication_task.id, step.src_dataset, step.snapshot,
+                step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
+                bytes_sent, bytes_total,
+            ))
+    )
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()
 
-    notify(observer, ReplicationTaskSnapshotSuccess(step.replication_task.id, step.src_dataset, step.snapshot))
+    step.template.src_context.context.snapshots_sent_by_replication_step_template[step.template] += 1
+    notify(observer, ReplicationTaskSnapshotSuccess(
+        step.replication_task.id, step.src_dataset, step.snapshot,
+        step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
+    ))
