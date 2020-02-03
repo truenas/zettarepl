@@ -146,10 +146,10 @@ class ReplicationProcess:
     def add_progress_observer(self, progress_observer):
         self.progress_observers.append(progress_observer)
 
-    def notify_progress_observer(self, snapshot, current, total):
+    def notify_progress_observer(self, bytes_sent, bytes_total):
         for progress_observer in self.progress_observers:
             try:
-                progress_observer(snapshot, current, total)
+                progress_observer(bytes_sent, bytes_total)
             except Exception:
                 self.logger.warning("Error notifying replication progress observer %r", progress_observer,
                                     exc_info=True)

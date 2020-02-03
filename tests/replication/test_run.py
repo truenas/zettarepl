@@ -246,6 +246,8 @@ def test__replicate_snapshots():
         ("snap-5", "snap-6"): step1,
         ("snap-6", "snap-7"): step2,
     }[incremental_base, snapshot]))
+    step_template.src_context.context = Mock(snapshots_sent_by_replication_step_template={},
+                                             snapshots_total_by_replication_step_template={})
 
     with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
         replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"])
