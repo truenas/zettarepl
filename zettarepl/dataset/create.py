@@ -9,4 +9,4 @@ __all__ = ["create_dataset"]
 
 
 def create_dataset(shell: Shell, dataset: str):
-    shell.exec(["zfs", "create", dataset])
+    shell.exec(["zfs", "create", "-p", dataset])

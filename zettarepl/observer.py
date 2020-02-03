@@ -4,8 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ["notify", "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess", "PeriodicSnapshotTaskError",
-           "ReplicationTaskScheduled", "ReplicationTaskStart", "ReplicationTaskSnapshotProgress",
-           "ReplicationTaskSnapshotSuccess", "ReplicationTaskSuccess", "ReplicationTaskError"]
+           "ReplicationTaskScheduled", "ReplicationTaskStart", "ReplicationTaskSnapshotStart",
+           "ReplicationTaskSnapshotProgress", "ReplicationTaskSnapshotSuccess", "ReplicationTaskSuccess",
+           "ReplicationTaskError"]
 
 
 def notify(observer, message):
@@ -59,20 +60,33 @@ class ReplicationTaskStart(ObserverMessage):
         self.task_id = task_id
 
 
-class ReplicationTaskSnapshotProgress(ObserverMessage):
-    def __init__(self, task_id, dataset, snapshot, current, total):
+class ReplicationTaskSnapshotStart(ObserverMessage):
+    def __init__(self, task_id, dataset, snapshot, snapshots_sent, snapshots_total):
         self.task_id = task_id
         self.dataset = dataset
         self.snapshot = snapshot
-        self.current = current
-        self.total = total
+        self.snapshots_sent = snapshots_sent
+        self.snapshots_total = snapshots_total
+
+
+class ReplicationTaskSnapshotProgress(ObserverMessage):
+    def __init__(self, task_id, dataset, snapshot, snapshots_sent, snapshots_total, bytes_sent, bytes_total):
+        self.task_id = task_id
+        self.dataset = dataset
+        self.snapshot = snapshot
+        self.snapshots_sent = snapshots_sent
+        self.snapshots_total = snapshots_total
+        self.bytes_sent = bytes_sent
+        self.bytes_total = bytes_total
 
 
 class ReplicationTaskSnapshotSuccess(ObserverMessage):
-    def __init__(self, task_id, dataset, snapshot):
+    def __init__(self, task_id, dataset, snapshot, snapshots_sent, snapshots_total):
         self.task_id = task_id
         self.dataset = dataset
         self.snapshot = snapshot
+        self.snapshots_sent = snapshots_sent
+        self.snapshots_total = snapshots_total
 
 
 class ReplicationTaskSuccess(ObserverMessage):
