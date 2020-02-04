@@ -153,7 +153,7 @@ class Zettarepl:
                     notify(self.observer, ReplicationTaskScheduled(replication_task.id))
                     self.pending_tasks.append(replication_task)
 
-            if not self.pending_tasks and not self.running_tasks:
+            if not self.pending_tasks and not self.running_tasks and not self.retention_running:
                 self._spawn_retention()
 
     def _can_spawn_replication_task(self, replication_task: ReplicationTask):
@@ -218,7 +218,7 @@ class Zettarepl:
 
                 self._spawn_pending_tasks()
 
-                if not self.running_tasks:
+                if not self.running_tasks and not self.retention_running:
                     self._spawn_retention()
 
     def _spawn_pending_tasks(self):
@@ -228,10 +228,10 @@ class Zettarepl:
                 self.pending_tasks.remove(pending_task)
 
     def _spawn_retention(self):
+        self.retention_running = True
         threading.Thread(name=f"retention", target=self._run_retention).start()
 
     def _run_retention(self):
-        self.retention_running = True
         self.retention_shells = {}
         try:
             try:
