@@ -8,6 +8,7 @@ Build-Depends: debhelper-compat (= 12),
                python3-croniter,
                python3-isodate,
                python3-jsonschema,
+               python3-paramiko,
                python3-setuptools,
                python3-yaml,
 Standards-Version: 4.4.0
