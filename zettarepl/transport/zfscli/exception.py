@@ -5,6 +5,7 @@ import textwrap
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
+from zettarepl.replication.error import RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.transport.interface import ExecException, ReplicationProcess
 from zettarepl.utils.re import re_search_to
@@ -106,3 +107,12 @@ class ZfsCliExceptionHandler:
                 """)
                 exc_val.stdout = exc_val.stdout.replace(m.group(0), m.group(0) + f"\n{text.rstrip()}")
                 return
+
+        if (
+            isinstance(exc_val, ExecException) and
+            (
+                re.search(r"cannot send .+:\s*signal received", exc_val.stdout) or
+                "cannot receive new filesystem stream: checksum mismatch or incomplete stream" in exc_val.stdout
+            )
+        ):
+            raise RecoverableReplicationError(str(exc_val)) from None
