@@ -1,0 +1,87 @@
+# -*- coding=utf-8 -*-
+import logging
+import subprocess
+import textwrap
+import time
+from unittest.mock import Mock
+
+import pytest
+import yaml
+
+from zettarepl.definition.definition import Definition
+from zettarepl.snapshot.list import list_snapshots
+from zettarepl.replication.task.task import ReplicationTask
+from zettarepl.transport.local import LocalShell
+from zettarepl.utils.itertools import select_by_class
+from zettarepl.utils.test import set_localhost_transport_options, wait_replication_tasks_to_complete
+from zettarepl.zettarepl import Zettarepl
+
+
+@pytest.mark.parametrize("direction", ["push", "pull"])
+def test_replication_retry(caplog, direction):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          src:
+            dataset: data/src
+            recursive: true
+            lifetime: PT1H
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "0"
+
+        replication-tasks:
+          src:
+            transport:
+              type: ssh
+              hostname: localhost
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            auto: false
+            retention-policy: none
+            speed-limit: 200000
+            retries: 2
+    """))
+    definition["replication-tasks"]["src"]["direction"] = direction
+    if direction == "push":
+        definition["replication-tasks"]["src"]["periodic-snapshot-tasks"] = ["src"]
+    else:
+        definition["replication-tasks"]["src"]["naming-schema"] = ["%Y-%m-%d_%H-%M"]
+    set_localhost_transport_options(definition["replication-tasks"]["src"]["transport"])
+    definition = Definition.from_data(definition)
+
+    caplog.set_level(logging.INFO)
+    local_shell = LocalShell()
+    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl._spawn_retention = Mock()
+    zettarepl.set_tasks(definition.tasks)
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+
+    time.sleep(2)
+    if direction == "push":
+        subprocess.check_output("kill $(pgrep -f '^zfs recv')", shell=True)
+    else:
+        subprocess.check_output("kill $(pgrep -f '^(zfs send|zfs: sending)')", shell=True)
+
+    wait_replication_tasks_to_complete(zettarepl)
+
+    assert any(
+        " recoverable replication error" in record.message
+        for record in caplog.get_records("call")
+    )
+    assert any(
+        "Resuming replication for destination dataset" in record.message
+        for record in caplog.get_records("call")
+    )
+
+    assert len(list_snapshots(local_shell, "data/dst", False)) == 1
