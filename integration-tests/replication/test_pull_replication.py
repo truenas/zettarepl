@@ -1,17 +1,12 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import yaml
 
-from zettarepl.definition.definition import Definition
 from zettarepl.snapshot.list import list_snapshots
-from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import run_replication_test
 
 
 def test_pull_replication():
@@ -25,7 +20,7 @@ def test_pull_replication():
 
     subprocess.check_call("zfs create data/dst", shell=True)
 
-    definition = Definition.from_data(yaml.safe_load(textwrap.dedent("""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:
@@ -40,13 +35,9 @@ def test_pull_replication():
               - "%Y-%m-%d_%H-%M"
             auto: false
             retention-policy: none
-    """)))
+    """))
+
+    run_replication_test(definition)
 
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
-    wait_replication_tasks_to_complete(zettarepl)
-
     assert len(list_snapshots(local_shell, "data/dst", False)) == 2

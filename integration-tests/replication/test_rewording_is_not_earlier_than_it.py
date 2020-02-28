@@ -1,18 +1,11 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import pytest
 import yaml
 
-from zettarepl.definition.definition import Definition
-from zettarepl.observer import ReplicationTaskError
-from zettarepl.replication.task.task import ReplicationTask
-from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import run_replication_test, transports
 
 
 @pytest.mark.parametrize("transport", transports())
@@ -45,20 +38,9 @@ def test_rewording_is_not_earlier_than_it(transport, direction):
         definition["replication-tasks"]["src"]["also-include-naming-schema"] = "%Y-%m-%d_%H-%M"
     else:
         definition["replication-tasks"]["src"]["naming-schema"] = "%Y-%m-%d_%H-%M"
-    definition = Definition.from_data(definition)
 
-    local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    observer = Mock()
-    zettarepl.set_observer(observer)
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
-    wait_replication_tasks_to_complete(zettarepl)
-
-    error = observer.call_args_list[-1][0][0]
-    assert isinstance(error, ReplicationTaskError)
+    error = run_replication_test(definition, False)
     assert (
         "is newer than" in error.error and
-        "but has an older date"  in error.error
+        "but has an older date" in error.error
     )
