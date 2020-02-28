@@ -11,8 +11,8 @@ from zettarepl.utils.test import run_replication_test
 
 def test_creates_intermediate_datasets():
     subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs receive -A data/deeply", shell=True)
+    subprocess.call("zfs destroy -r data/deeply", shell=True)
 
     subprocess.check_call("zfs create -V 1M data/src", shell=True)
     subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
