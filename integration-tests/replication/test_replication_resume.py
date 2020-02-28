@@ -2,18 +2,13 @@
 import logging
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import pytest
 import yaml
 
-from zettarepl.definition.definition import Definition
 from zettarepl.snapshot.list import list_snapshots
-from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import run_replication_test, transports
 
 
 @pytest.mark.parametrize("transport", transports())
@@ -59,19 +54,14 @@ def test_replication_resume(caplog, transport, dedup):
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["dedup"] = dedup
-    definition = Definition.from_data(definition)
 
     caplog.set_level(logging.INFO)
-    local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
-    wait_replication_tasks_to_complete(zettarepl)
+    run_replication_test(definition)
 
     assert any(
         "Resuming replication for destination dataset" in record.message
         for record in caplog.get_records("call")
     )
 
+    local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/dst", False)) == 1

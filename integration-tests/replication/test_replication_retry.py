@@ -3,18 +3,17 @@ import logging
 import subprocess
 import textwrap
 import time
-from unittest.mock import Mock
 
 import pytest
 import yaml
 
 from zettarepl.definition.definition import Definition
+from zettarepl.observer import ReplicationTaskSuccess
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import set_localhost_transport_options, wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import create_zettarepl, set_localhost_transport_options, wait_replication_tasks_to_complete
 
 
 @pytest.mark.parametrize("direction", ["push", "pull"])
@@ -61,10 +60,7 @@ def test_replication_retry(caplog, direction):
     definition = Definition.from_data(definition)
 
     caplog.set_level(logging.INFO)
-    local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
+    zettarepl = create_zettarepl(definition)
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
 
     time.sleep(2)
@@ -84,4 +80,8 @@ def test_replication_retry(caplog, direction):
         for record in caplog.get_records("call")
     )
 
+    success = zettarepl.observer.call_args_list[-1][0][0]
+    assert isinstance(success, ReplicationTaskSuccess), success
+
+    local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/dst", False)) == 1

@@ -7,12 +7,12 @@ from unittest.mock import Mock
 import yaml
 
 from zettarepl.definition.definition import Definition
+from zettarepl.observer import ReplicationTaskSuccess
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import set_localhost_transport_options, wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import create_zettarepl, set_localhost_transport_options, wait_replication_tasks_to_complete
 
 
 def test_parallel_replication():
@@ -86,9 +86,7 @@ def test_parallel_replication():
     definition = Definition.from_data(definition)
 
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
+    zettarepl = create_zettarepl(definition)
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
 
     start = time.monotonic()
@@ -97,6 +95,8 @@ def test_parallel_replication():
     assert 10 <= end - start <= 15
 
     zettarepl._spawn_retention.assert_called_once()
+
+    assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 2
 
     assert len(list_snapshots(local_shell, "data/dst/a", False)) == 1
     assert len(list_snapshots(local_shell, "data/dst/b", False)) == 1
@@ -113,6 +113,8 @@ def test_parallel_replication():
     wait_replication_tasks_to_complete(zettarepl)
     end = time.monotonic()
     assert 20 <= end - start <= 25
+
+    assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 4
 
     assert len(list_snapshots(local_shell, "data/dst/a", False)) == 1
     assert len(list_snapshots(local_shell, "data/dst/b", False)) == 1
