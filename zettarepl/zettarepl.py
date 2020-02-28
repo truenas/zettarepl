@@ -109,6 +109,7 @@ class Zettarepl:
         for task, snapshot_name in tasks_with_snapshot_names:
             snapshot = Snapshot(task.dataset, snapshot_name)
             if snapshot in created_snapshots:
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
                 continue
 
             options = notify(self.observer, PeriodicSnapshotTaskStart(task.id))
