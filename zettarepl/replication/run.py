@@ -37,8 +37,8 @@ __all__ = ["run_replication_tasks"]
 
 class GlobalReplicationContext:
     def __init__(self):
-        self.snapshots_sent_by_replication_step_template = {}
-        self.snapshots_total_by_replication_step_template = {}
+        self.snapshots_sent_by_replication_step_template = defaultdict(lambda: 0)
+        self.snapshots_total_by_replication_step_template = defaultdict(lambda: 0)
 
     @property
     def snapshots_sent(self):
@@ -268,6 +268,7 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
             if receive_resume_token is not None:
                 logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
+                step_template.src_context.context.snapshots_sent_by_replication_step_template[step_template] += 1
                 try:
                     run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
                 except ExecException as e:
@@ -420,8 +421,7 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
 
 
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, observer=None):
-    step_template.src_context.context.snapshots_sent_by_replication_step_template[step_template] = 0
-    step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
+    step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
 
     for snapshot in snapshots:
         run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot), observer)
