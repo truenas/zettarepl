@@ -94,4 +94,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, propert
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
+    error = observer.call_args_list[-1][0][0]
+    assert isinstance(error, ReplicationTaskSuccess), error
+
     assert len(list_snapshots(local_shell, "data/dst_parent/dst", False)) == 3

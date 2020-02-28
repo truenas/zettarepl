@@ -1,17 +1,12 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import yaml
 
-from zettarepl.definition.definition import Definition
 from zettarepl.snapshot.list import list_snapshots
-from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import wait_replication_tasks_to_complete
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import run_replication_test
 
 
 def test_multiple_source_datasets():
@@ -52,14 +47,9 @@ def test_multiple_source_datasets():
             retention-policy: none
             retries: 1
     """))
-    definition = Definition.from_data(definition)
+
+    run_replication_test(definition)
 
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
-    wait_replication_tasks_to_complete(zettarepl)
-
     assert len(list_snapshots(local_shell, "data/dst/core/tsaukpaetra/Apps", False)) == 2
     assert len(list_snapshots(local_shell, "data/dst/core/tsaukpaetra/ISO", False)) == 2

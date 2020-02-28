@@ -9,7 +9,7 @@ from zettarepl.definition.definition import Definition
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import wait_replication_tasks_to_complete
+from zettarepl.utils.test import run_replication_test
 from zettarepl.zettarepl import Zettarepl
 
 
@@ -63,14 +63,8 @@ def test_preserves_clone_origin():
             retention-policy: none
             retries: 1
     """))
-    definition = Definition.from_data(definition)
 
-    local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
-    wait_replication_tasks_to_complete(zettarepl)
+    run_replication_test(definition)
 
     assert (
         subprocess.check_output(
