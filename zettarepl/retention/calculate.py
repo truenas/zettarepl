@@ -43,7 +43,11 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
                 owner.owns_snapshot(parsed_snapshot_name)
             )
         ]
-        if snapshot_owners and not any(owner.should_retain(dataset, parsed_snapshot_name) for owner in snapshot_owners):
+        if (
+                snapshot_owners and
+                any(owner.wants_to_delete() for owner in snapshot_owners) and
+                not any(owner.should_retain(dataset, parsed_snapshot_name) for owner in snapshot_owners)
+        ):
             logger.debug("No one of %r retains snapshot %r", snapshot_owners, parsed_snapshot_name.name)
             result.append(parsed_snapshot_name.name)
 

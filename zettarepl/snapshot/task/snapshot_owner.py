@@ -29,6 +29,9 @@ class PeriodicSnapshotTaskSnapshotOwner(SnapshotOwner):
     def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
         return self.periodic_snapshot_task.schedule.should_run(parsed_snapshot_name.datetime)
 
+    def wants_to_delete(self):
+        return True
+
     def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         delete_before = self.idealized_now - self.periodic_snapshot_task.lifetime
         return idealized_datetime(parsed_snapshot_name.datetime) >= delete_before
