@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections import defaultdict
 from datetime import time
 from unittest.mock import ANY, call, Mock, patch
 
@@ -153,10 +154,12 @@ def test__get_target_dataset__2():
 
 
 def test__resume_replications__resume():
+    context = Mock(snapshots_sent_by_replication_step_template=defaultdict(lambda: 0))
+    src_context = Mock(context=context)
     dst_context = Mock(datasets=["data/dst", "data/dst/work"])
-    dst = Mock(dst_context=dst_context, dst_dataset="data/dst")
-    dst_work = Mock(dst_context=dst_context, dst_dataset="data/dst/work")
-    dst_zzzz = Mock(dst_context=dst_context, dst_dataset="data/dst/zzz")
+    dst = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst")
+    dst_work = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst/work")
+    dst_zzzz = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst/zzz")
     with patch("zettarepl.replication.run.get_receive_resume_token") as get_receive_resume_token:
         get_receive_resume_token.side_effect = lambda _, dataset: {"data/dst/work": "token"}.get(dataset)
 
@@ -246,8 +249,8 @@ def test__replicate_snapshots():
         ("snap-5", "snap-6"): step1,
         ("snap-6", "snap-7"): step2,
     }[incremental_base, snapshot]))
-    step_template.src_context.context = Mock(snapshots_sent_by_replication_step_template={},
-                                             snapshots_total_by_replication_step_template={})
+    step_template.src_context.context = Mock(snapshots_sent_by_replication_step_template=defaultdict(lambda: 0),
+                                             snapshots_total_by_replication_step_template=defaultdict(lambda: 0))
 
     with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
         replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"])
