@@ -58,6 +58,9 @@ class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
         self.src_snapshots = src_snapshots
         self.dst_snapshots = dst_snapshots
 
+    def wants_to_delete(self):
+        return False
+
     def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         target_dataset = get_target_dataset(self.replication_task, dataset)
         return (
@@ -115,6 +118,9 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
             for dst_dataset in self.dst_snapshots.keys()
         }
 
+    def wants_to_delete(self):
+        return True
+
     def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         return (
             self.owns_dataset(dataset) and
@@ -123,7 +129,7 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
 
 
 def executed_pull_replication_task_snapshot_owner(now: datetime, replication_task: ReplicationTask,
-                                                         remote_snapshots: {str: [str]}, local_snapshots: {str: [str]}):
+                                                  remote_snapshots: {str: [str]}, local_snapshots: {str: [str]}):
     return ExecutedReplicationTaskSnapshotOwner(
         now, replication_task, remote_snapshots,
         {
