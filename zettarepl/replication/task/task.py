@@ -9,6 +9,7 @@ from zettarepl.transport.create import create_transport
 
 from .compression import *
 from .direction import ReplicationDirection
+from .readonly_behavior import ReadOnlyBehavior
 from .retention_policy import *
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ class ReplicationTask:
                  schedule: CronSchedule,
                  restrict_schedule: CronSchedule,
                  only_matching_schedule: bool,
+                 readonly: ReadOnlyBehavior,
                  allow_from_scratch: bool,
                  hold_pending_snapshots: bool,
                  retention_policy: TargetSnapshotRetentionPolicy,
@@ -58,6 +60,7 @@ class ReplicationTask:
         self.schedule = schedule
         self.restrict_schedule = restrict_schedule
         self.only_matching_schedule = only_matching_schedule
+        self.readonly = readonly
         self.allow_from_scratch = allow_from_scratch
         self.hold_pending_snapshots = hold_pending_snapshots
         self.retention_policy = retention_policy
@@ -86,6 +89,7 @@ class ReplicationTask:
         data.setdefault("replicate", False)
         data.setdefault("periodic-snapshot-tasks", [])
         data.setdefault("only-matching-schedule", False)
+        data.setdefault("readonly", "ignore")
         data.setdefault("allow-from-scratch", False)
         data.setdefault("hold-pending-snapshots", False)
         data.setdefault("compression", None)
@@ -180,6 +184,7 @@ class ReplicationTask:
                    schedule,
                    restrict_schedule,
                    data["only-matching-schedule"],
+                   ReadOnlyBehavior(data["readonly"]),
                    data["allow-from-scratch"],
                    data["hold-pending-snapshots"],
                    retention_policy,

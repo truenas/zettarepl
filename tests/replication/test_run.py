@@ -129,14 +129,19 @@ def test__run_replication_tasks__only_notify_success_after_last_part():
 ])
 def test__calculate_replication_step_templates(replication_task, src_datasets, replication_step_templates):
     with patch("zettarepl.replication.run.list_datasets_with_snapshots") as list_datasets_with_snapshots:
-        list_datasets_with_snapshots.return_value = src_datasets
+        with patch("zettarepl.replication.run.list_datasets_with_properties", Mock(return_value=[])):
+            with patch("zettarepl.replication.run.list_snapshots_for_datasets") as list_snapshots_for_datasets:
+                list_datasets_with_snapshots.return_value = src_datasets
+                list_snapshots_for_datasets.return_value = src_datasets
 
-        with patch("zettarepl.replication.run.ReplicationStepTemplate") as ReplicationStepTemplate:
-            calculate_replication_step_templates(replication_task, replication_task.source_datasets[0],
-                                                 Mock(datasets=src_datasets), Mock())
+                with patch("zettarepl.replication.run.ReplicationStepTemplate") as ReplicationStepTemplate:
+                    calculate_replication_step_templates(replication_task, replication_task.source_datasets[0],
+                                                         Mock(datasets=src_datasets), Mock())
 
-            assert ReplicationStepTemplate.mock_calls == [call(replication_task, ANY, ANY, *replication_step_template)
-                                                          for replication_step_template in replication_step_templates]
+                    assert ReplicationStepTemplate.mock_calls == [
+                        call(replication_task, ANY, ANY, *replication_step_template)
+                        for replication_step_template in replication_step_templates
+                    ]
 
 
 def test__get_target_dataset__1():

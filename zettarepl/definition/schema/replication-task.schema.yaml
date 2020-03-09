@@ -61,6 +61,12 @@ properties:
     $ref: http://freenas.org/zettarepl/schedule.schema.json
   only-matching-schedule:
     type: boolean
+  readonly:
+    type: string
+    enum:
+    - ignore
+    - set
+    - require
   allow-from-scratch:
     type: boolean
   hold-pending-snapshots:
