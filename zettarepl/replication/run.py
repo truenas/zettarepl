@@ -20,6 +20,7 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_receive_resume_token, get_properties, get_property
+from zettarepl.transport.zfscli.parse import zfs_bool
 
 from .error import *
 from .monitor import ReplicationMonitor
@@ -27,6 +28,7 @@ from .process_runner import ReplicationProcessRunner
 from .task.dataset import get_target_dataset
 from .task.direction import ReplicationDirection
 from .task.naming_schema import replication_task_naming_schemas
+from .task.readonly_behavior import ReadOnlyBehavior
 from .task.should_replicate import *
 from .task.task import ReplicationTask
 
@@ -55,6 +57,7 @@ class ReplicationContext:
         self.transport = transport
         self.shell = shell
         self.datasets = None
+        self.datasets_readonly = None
 
 
 class ReplicationStepTemplate:
@@ -229,6 +232,7 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
         source_datasets = [source_dataset]
 
     dst_context.datasets = {}
+    dst_context.datasets_readonly = {}
     templates = []
     for source_dataset in source_datasets:
         if not replication_task_should_replicate_dataset(replication_task, source_dataset):
@@ -237,14 +241,20 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
         target_dataset = get_target_dataset(replication_task, source_dataset)
 
         try:
-            dst_context.datasets.update(
-                list_datasets_with_snapshots(dst_context.shell, target_dataset, replication_task.recursive)
-            )
+            datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
+                                                     ["readonly"])
         except ExecException as e:
             if "dataset does not exist" in e.stdout:
                 pass
             else:
                 raise
+        else:
+            dst_context.datasets.update(
+                list_snapshots_for_datasets(dst_context.shell, target_dataset, replication_task.recursive,
+                                            [dataset["name"] for dataset in datasets])
+            )
+            dst_context.datasets_readonly.update(**{dataset["name"]: zfs_bool(dataset["readonly"])
+                                                    for dataset in datasets})
 
         templates.append(
             ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset)
@@ -255,6 +265,10 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
 def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
     datasets = list_datasets(shell, dataset, recursive)
+    return list_snapshots_for_datasets(shell, dataset, recursive, datasets)
+
+
+def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool, datasets: [str]) -> {str: [str]}:
     datasets_from_snapshots = group_snapshots_by_datasets(list_snapshots(shell, dataset, recursive))
     datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
     return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
@@ -289,6 +303,14 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
 
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
+    for step_template in step_templates:
+        if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
+            if not step_template.dst_context.datasets_readonly.get(step_template.dst_dataset, True):
+                raise ReplicationError(
+                    f"Target dataset {step_template.dst_dataset!r} exists and does hot have readonly=on property, "
+                    "but replication task is set up to require this property. Refusing to replicate."
+                )
+
     ignored_roots = set()
     for i, step_template in enumerate(step_templates):
         is_immediate_target_dataset = i == 0
@@ -369,8 +391,10 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             parent = os.path.dirname(step_template.dst_dataset)
             if "/" in parent:
                 create_dataset(step_template.dst_context.shell, parent)
+                handle_readonly(step_template)
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
+        handle_readonly(step_template)
 
 
 def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
@@ -485,3 +509,26 @@ def run_replication_step(step: ReplicationStep, observer=None):
         step.replication_task.id, step.src_dataset, step.snapshot,
         step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
     ))
+
+    if step.incremental_base is None:
+        # Might have created dataset, need to set it to readonly
+        handle_readonly(step.template)
+
+
+def handle_readonly(step_template: ReplicationStepTemplate):
+    if step_template.replication_task.readonly in (ReadOnlyBehavior.SET, ReadOnlyBehavior.REQUIRE):
+        # We only want to inherit if dataset is a child of some replicated dataset
+        parent = os.path.dirname(step_template.dst_dataset)
+        if (
+            parent in step_template.dst_context.datasets_readonly and
+            step_template.dst_context.datasets_readonly.get(step_template.dst_dataset) is False
+        ):
+            # Parent should be `readonly=on` by now which means for this dataset `readonly=off` was set explicitly
+            # Let's reset it
+            step_template.dst_context.shell.exec(["zfs", "inherit", "readonly", step_template.dst_dataset])
+
+        step_template.dst_context.datasets_readonly[step_template.dst_dataset] = True
+
+        # We only set value is there is no parent that already has this value set
+        if not step_template.dst_context.datasets_readonly.get(parent, False):
+            step_template.dst_context.shell.exec(["zfs", "set", "readonly=on", step_template.dst_dataset])

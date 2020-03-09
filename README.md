@@ -185,6 +185,13 @@ There are also a few additional options that you can use:
     # (or in addition to it)
     only-matching-schedule: true
 
+    # Set it to "set" to set all destination datasets to readonly=on
+    # after finishing the replication.
+    # Set it to "require" to require all existing destination datasets
+    # to have readonly=on property.
+    # Set it to "ignore" to avoid this kind of behavior (default).
+    readonly: ignore
+
     # By default, if there are snapshots on target dataset but none of them
     # matches any of source snapshot, replication is aborted. This is done
     # to prevent misconfigured replication from destroying snapshots on
