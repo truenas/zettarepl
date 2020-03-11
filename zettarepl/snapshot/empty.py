@@ -17,18 +17,21 @@ __all__ = ["get_empty_snapshots_for_deletion"]
 def get_empty_snapshots_for_deletion(shell: Shell, tasks_with_snapshot_names: [(PeriodicSnapshotTask, str)]):
     datasets = list_datasets(shell)
 
-    snapshots = defaultdict(list)
+    datasets__allow_empty = defaultdict(list)
+    datasets__snapshots = defaultdict(list)
     for task, snapshot_name in tasks_with_snapshot_names:
         for snapshot in get_task_snapshots(datasets, task, snapshot_name):
-            snapshots[snapshot].append(task.allow_empty)
+            datasets__allow_empty[snapshot.dataset].append(task.allow_empty)
+            datasets__snapshots[snapshot.dataset].append(snapshot)
 
     empty_snapshots = []
-    for snapshot in [snapshot for snapshot, allow_empty in snapshots.items() if not any(allow_empty)]:
+    for dataset in [dataset for dataset, allow_empty in datasets__allow_empty.items() if not any(allow_empty)]:
         try:
-            if is_empty_snapshot(shell, snapshot):
-                empty_snapshots.append(snapshot)
+            if all(is_empty_snapshot(shell, snapshot) for snapshot in datasets__snapshots[dataset]):
+                empty_snapshots.extend(datasets__snapshots[dataset])
         except ExecException as e:
-            logger.warning("Failed to check if snapshot %r is empty, assuming it is not. Error: %r", snapshot, e)
+            logger.warning("Failed to check if snapshots for dataset %r are empty, assuming they are is not. Error: %r",
+                           dataset, e)
 
     return empty_snapshots
 
