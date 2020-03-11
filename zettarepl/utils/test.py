@@ -5,8 +5,9 @@ import time
 from unittest.mock import Mock, PropertyMock
 
 from zettarepl.definition.definition import Definition
-from zettarepl.observer import ReplicationTaskError, ReplicationTaskSuccess
+from zettarepl.observer import *
 from zettarepl.replication.task.task import ReplicationTask
+from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
 from zettarepl.zettarepl import Zettarepl
@@ -21,7 +22,7 @@ def create_zettarepl(definition):
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl._spawn_retention = Mock()
-    observer = Mock()
+    observer = Mock(return_value=None)
     zettarepl.set_observer(observer)
     zettarepl.set_tasks(definition.tasks)
     return zettarepl
@@ -30,6 +31,18 @@ def create_zettarepl(definition):
 def mock_name(mock, name):
     type(mock).name = PropertyMock(return_value=name)
     return mock
+
+
+def run_periodic_snapshot_test(definition, now, success=True):
+    definition = Definition.from_data(definition)
+    zettarepl = create_zettarepl(definition)
+    zettarepl._run_periodic_snapshot_tasks(now, select_by_class(PeriodicSnapshotTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
+
+    if success:
+        for call in zettarepl.observer.call_args_list:
+            call = call[0][0]
+            assert not isinstance(call, PeriodicSnapshotTaskError), success
 
 
 def run_replication_test(definition, success=True):
