@@ -2,16 +2,12 @@
 from datetime import datetime
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import yaml
 
-from zettarepl.definition.definition import Definition
 from zettarepl.snapshot.list import list_snapshots
-from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.utils.test import run_periodic_snapshot_test
 
 
 def test_snapshot_exclude():
@@ -41,17 +37,10 @@ def test_snapshot_exclude():
               begin: "06:00"
               end: "18:00"
     """))
-    definition = Definition.from_data(definition)
+
+    run_periodic_snapshot_test(definition, datetime(2020, 1, 17, 6, 0))
 
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
-    zettarepl._spawn_retention = Mock()
-    zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_periodic_snapshot_tasks(
-        datetime(2020, 1, 17, 6, 0),
-        select_by_class(PeriodicSnapshotTask, definition.tasks),
-    )
-
     assert len(list_snapshots(local_shell, "data/src", False)) == 1
     assert len(list_snapshots(local_shell, "data/src/DISK1/Apps", False)) == 1
     assert len(list_snapshots(local_shell, "data/src/DISK1/ISO", False)) == 1
