@@ -7,4 +7,10 @@ __all__ = ["zfs_bool"]
 
 
 def zfs_bool(v):
-    return {"off": False, "on": True}[v]
+    return {
+        "off": False,
+        "on": True,
+
+        "no": False,
+        "yes": True,
+    }[v]

@@ -1,6 +1,8 @@
 # -*- coding=utf-8 -*-
 import logging
 
+from .parse import zfs_bool
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_properties", "get_property"]
@@ -65,6 +67,10 @@ def get_receive_resume_token(shell, dataset):
 
 
 def get_properties(shell, dataset, properties: {str: type}):
+    for k, v in properties.items():
+        if v == bool:
+            properties[k] = zfs_bool
+
     result = {}
     for line in shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset]).strip().split("\n"):
         name, property, value, source = line.split("\t", 3)
