@@ -15,7 +15,7 @@ from zettarepl.utils.test import transports, create_zettarepl, wait_replication_
 
 
 @pytest.mark.parametrize("transport", transports())
-def test_push_replication(transport):
+def test_replication_progress(transport):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
@@ -101,5 +101,72 @@ def test_push_replication(transport):
 
             assert 0.8 <= bytes_sent_1 / bytes_sent_2 <= 1.2
             assert 0.8 <= bytes_total_1 / bytes_total_2 <= 1.2
+
+        assert d1 == d2
+
+
+def test_replication_progress_resume():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_04-00", shell=True)
+
+    subprocess.check_call("zfs create data/dst", shell=True)
+    subprocess.check_call("zfs send data/src@2018-10-01_01-00 | zfs recv -s -F data/dst", shell=True)
+    subprocess.check_call("(zfs send -i data/src@2018-10-01_01-00 data/src@2018-10-01_02-00 | "
+                          " throttle -b 102400 | zfs recv -s -F data/dst) & "
+                          "sleep 1; killall zfs", shell=True)
+
+    assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
+                                                                 shell=True, encoding="utf-8")
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            also-include-naming-schema:
+            - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+
+    definition = Definition.from_data(definition)
+    zettarepl = create_zettarepl(definition)
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
+
+    result = [
+        ReplicationTaskStart("src"),
+        ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_02-00", 0, 3),
+        ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_02-00", 1, 3),
+        ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_03-00", 1, 3),
+        ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_03-00", 2, 3),
+        ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_04-00", 2, 3),
+        ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_04-00", 3, 3),
+        ReplicationTaskSuccess("src"),
+    ]
+
+    for i, message in enumerate(result):
+        call = zettarepl.observer.call_args_list[i]
+
+        assert call[0][0].__class__ == message.__class__
+
+        d1 = call[0][0].__dict__
+        d2 = message.__dict__
 
         assert d1 == d2
