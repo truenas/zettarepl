@@ -278,26 +278,46 @@ def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool, dat
 def resume_replications(step_templates: [ReplicationStepTemplate], observer=None):
     resumed = False
     for step_template in step_templates:
+        context = step_template.src_context.context
+
         if step_template.dst_dataset in step_template.dst_context.datasets:
             receive_resume_token = get_receive_resume_token(step_template.dst_context.shell, step_template.dst_dataset)
 
             if receive_resume_token is not None:
                 logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
-                step_template.src_context.context.snapshots_sent_by_replication_step_template[step_template] += 1
+
+                src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
+                dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
+
+                incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots,
+                                                                    step_template.replication_task)
+                if snapshots:
+                    resumed_snapshot = snapshots[0]
+                    context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
+                else:
+                    logger.warning("Had receive_resume_token, but there are no snapshots to send")
+                    resumed_snapshot = "unknown snapshot"
+                    context.snapshots_total_by_replication_step_template[step_template] = 1
+
                 try:
-                    run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer)
+                    run_replication_step(step_template.instantiate(receive_resume_token=receive_resume_token), observer,
+                                         observer_snapshot=resumed_snapshot)
                 except ExecException as e:
                     if "used in the initial send no longer exists" in e.stdout:
                         logger.warning("receive_resume_token for dataset %r references snapshot that no longer exists, "
                                        "discarding it", step_template.dst_dataset)
                         step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
+                        context.snapshots_total_by_replication_step_template[step_template] = 0
                     elif "destination has snapshots" in e.stdout:
                         logger.warning("receive_resume_token for dataset %r is outdated, discarding it",
                                        step_template.dst_dataset)
                         step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
+                        context.snapshots_total_by_replication_step_template[step_template] = 0
                     else:
                         raise
                 else:
+                    context.snapshots_sent_by_replication_step_template[step_template] = 1
+                    context.snapshots_total_by_replication_step_template[step_template] = 1
                     resumed = True
 
     return resumed
@@ -425,14 +445,16 @@ def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base
         incremental_base = snapshot
 
 
-def run_replication_step(step: ReplicationStep, observer=None):
+def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot=None):
     logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r "
                 "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
                 step.src_dataset, step.dst_dataset, step.snapshot, step.incremental_base,
                 step.receive_resume_token)
 
+    observer_snapshot = observer_snapshot or step.snapshot
+
     notify(observer, ReplicationTaskSnapshotStart(
-        step.replication_task.id, step.src_dataset, step.snapshot,
+        step.replication_task.id, step.src_dataset, observer_snapshot,
         step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
     ))
 
@@ -469,7 +491,7 @@ def run_replication_step(step: ReplicationStep, observer=None):
     process.add_progress_observer(
         lambda bytes_sent, bytes_total:
             notify(observer, ReplicationTaskSnapshotProgress(
-                step.replication_task.id, step.src_dataset, step.snapshot,
+                step.replication_task.id, step.src_dataset, observer_snapshot,
                 step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
                 bytes_sent, bytes_total,
             ))
@@ -479,7 +501,7 @@ def run_replication_step(step: ReplicationStep, observer=None):
 
     step.template.src_context.context.snapshots_sent_by_replication_step_template[step.template] += 1
     notify(observer, ReplicationTaskSnapshotSuccess(
-        step.replication_task.id, step.src_dataset, step.snapshot,
+        step.replication_task.id, step.src_dataset, observer_snapshot,
         step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
     ))
 
