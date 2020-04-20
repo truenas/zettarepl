@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections import namedtuple
 from datetime import datetime
 import functools
 import logging
@@ -16,6 +17,7 @@ from zettarepl.snapshot.create import *
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.empty import get_empty_snapshots_for_deletion
 from zettarepl.snapshot.list import *
+from zettarepl.snapshot.name import get_snapshot_name, parse_snapshot_name, parsed_snapshot_sort_key
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotOwner
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
@@ -26,6 +28,10 @@ from zettarepl.utils.logging import ReplicationTaskLoggingLevelFilter
 logger = logging.getLogger(__name__)
 
 __all__ = ["Zettarepl"]
+
+ScheduledPeriodicSnapshotTask = namedtuple("ScheduledPeriodicSnapshotTask", [
+    "task", "snapshot_name", "parsed_snapshot_name",
+])
 
 
 def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
@@ -82,7 +88,7 @@ class Zettarepl:
                 logger.info("Scheduled tasks: %r", tasks)
 
                 periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
-                self._run_periodic_snapshot_tasks(scheduled.datetime.datetime, periodic_snapshot_tasks)
+                self._run_periodic_snapshot_tasks(scheduled.datetime.offset_aware_datetime, periodic_snapshot_tasks)
 
                 replication_tasks, tasks = bisect_by_class(ReplicationTask, tasks)
                 replication_tasks.extend(
@@ -93,17 +99,46 @@ class Zettarepl:
                 assert tasks == []
 
     def _run_periodic_snapshot_tasks(self, now, tasks):
-        tasks_with_snapshot_names = sorted(
-            [(task, now.strftime(task.naming_schema)) for task in tasks],
-            key=lambda task_with_snapshot_name: (
-                # Lexicographically less snapshots should go first
-                task_with_snapshot_name[1],
-                # Recursive snapshot with same name as non-recursive should go first
-                0 if task_with_snapshot_name[0].recursive else 1,
-                # Recursive snapshots without exclude should go first
-                0 if not task_with_snapshot_name[0].exclude else 1,
-            )
-        )
+        scheduled_tasks = []
+        for task in tasks:
+            snapshot_name = get_snapshot_name(now, task.naming_schema)
+
+            try:
+                parsed_snapshot_name = parse_snapshot_name(snapshot_name, task.naming_schema)
+            except ValueError as e:
+                logger.warning(
+                    "Unable to parse snapshot name %r with naming schema %r: %s. Skipping task %r",
+                    snapshot_name,
+                    task.naming_schema,
+                    str(e),
+                    task,
+                )
+
+                notify(self.observer, PeriodicSnapshotTaskError(task.id, "Unable to parse snapshot name %r: %s" % (
+                    snapshot_name,
+                    str(e),
+                )))
+                continue
+
+            scheduled_tasks.append(ScheduledPeriodicSnapshotTask(
+                task,
+                snapshot_name,
+                parsed_snapshot_name,
+            ))
+
+        scheduled_tasks = sorted(scheduled_tasks, key=lambda scheduled_task: (
+            # Common sorting order
+            parsed_snapshot_sort_key(scheduled_task.parsed_snapshot_name),
+            # Recursive snapshot with same name as non-recursive should go first
+            0 if scheduled_task.task.recursive else 1,
+            # Recursive snapshots without exclude should go first
+            0 if not scheduled_task.task.exclude else 1,
+        ))
+
+        tasks_with_snapshot_names = [
+            (scheduled_task.task, scheduled_task.snapshot_name)
+            for scheduled_task in scheduled_tasks
+        ]
 
         created_snapshots = set()
         for task, snapshot_name in tasks_with_snapshot_names:
