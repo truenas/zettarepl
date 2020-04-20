@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
 import pytest
 
-from zettarepl.snapshot.task.naming_schema import *
+from zettarepl.snapshot.name import *
 
 
 def test__validate_snapshot_naming_schema__ok():

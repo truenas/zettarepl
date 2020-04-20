@@ -6,8 +6,7 @@ import isodate
 
 from zettarepl.definition.schema import periodic_snapshot_task_validator
 from zettarepl.scheduler.cron import CronSchedule
-
-from .naming_schema import validate_snapshot_naming_schema
+from zettarepl.snapshot.name import validate_snapshot_naming_schema
 
 logger = logging.getLogger(__name__)
 
