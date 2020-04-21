@@ -27,7 +27,8 @@ def get_empty_snapshots_for_deletion(shell: Shell, tasks_with_snapshot_names: [(
     empty_snapshots = []
     for dataset in [dataset for dataset, allow_empty in datasets__allow_empty.items() if not any(allow_empty)]:
         try:
-            if all(is_empty_snapshot(shell, snapshot) for snapshot in datasets__snapshots[dataset]):
+            if all(all(is_empty_snapshot(shell, snapshot) for snapshot in datasets__snapshots[ds])
+                   for ds in datasets if ds == dataset or is_child(ds, dataset)):
                 empty_snapshots.extend(datasets__snapshots[dataset])
         except ExecException as e:
             logger.warning("Failed to check if snapshots for dataset %r are empty, assuming they are is not. Error: %r",
