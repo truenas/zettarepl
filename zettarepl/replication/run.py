@@ -413,13 +413,10 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
             (
                 parsed_incremental_base is None or
                 # is newer than incremental base
-                (
-                    parsed_snapshot.datetime == parsed_incremental_base.datetime and
-                    parsed_snapshot.name > parsed_incremental_base.name
-                ) or
-                (
-                    parsed_snapshot.datetime > parsed_incremental_base.datetime
-                )
+                parsed_snapshot != parsed_incremental_base and sorted(
+                    [parsed_snapshot, parsed_incremental_base],
+                    key=parsed_snapshot_sort_key
+                )[0] == parsed_incremental_base
             ) and
             replication_task_should_replicate_parsed_snapshot(replication_task, parsed_snapshot)
         )
