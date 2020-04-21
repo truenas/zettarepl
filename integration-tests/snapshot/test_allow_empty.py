@@ -91,3 +91,39 @@ def test_subsequent_snapshots():
 
     local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/src", False)) == 3
+
+
+def test_parent_is_empty_child_is_not():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create data/src/child", shell=True)
+    subprocess.check_call("zfs create data/src/child/grandchild", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/file_1 bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2020-04-21-20-27", shell=True)
+
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/child/grandchild/file_1 bs=1M count=1", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          internal:
+            dataset: data/src
+            recursive: true
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "*"
+              hour: "*"
+              day-of-month: "*"
+              month: "*"
+              day-of-week: "*"
+            allow-empty: false
+    """))
+
+    run_periodic_snapshot_test(definition, datetime(2020, 4, 21, 20, 28))
+
+    local_shell = LocalShell()
+    assert len(list_snapshots(local_shell, "data/src", False)) == 2
+    assert len(list_snapshots(local_shell, "data/src/child", False)) == 2
+    assert len(list_snapshots(local_shell, "data/src/child/grandchild", False)) == 2
