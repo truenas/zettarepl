@@ -1,7 +1,8 @@
 # -*- coding=utf-8 -*-
+import re
 import logging
 
-from zettarepl.transport.interface import Shell
+from zettarepl.transport.interface import ExecException, Shell
 from zettarepl.utils.itertools import sortedgroupby
 
 from .snapshot import Snapshot
@@ -16,6 +17,17 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
         names = [snapshot.name for snapshot in snapshots]
 
         logger.info("On %r for dataset %r destroying snapshots %r", shell, dataset, names)
-        args = ["zfs", "destroy", f"{dataset}@" + ",".join(names)]
 
-        shell.exec(args)
+        while names:
+            args = ["zfs", "destroy", f"{dataset}@" + ",".join(names)]
+            try:
+                shell.exec(args)
+                return
+            except ExecException as e:
+                m = re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout)
+                if m is None:
+                    raise
+
+                name = m.group(1)
+                logger.info("Snapshot %r on dataset %r is busy, skipping", name, dataset)
+                names.remove(name)
