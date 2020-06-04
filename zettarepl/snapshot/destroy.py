@@ -22,7 +22,7 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
             args = ["zfs", "destroy", f"{dataset}@" + ",".join(names)]
             try:
                 shell.exec(args)
-                return
+                break
             except ExecException as e:
                 m = re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout)
                 if m is None:
