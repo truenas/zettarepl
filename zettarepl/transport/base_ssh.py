@@ -29,8 +29,7 @@ class SshTransportAsyncExec(AsyncExec):
         self._copy_stdout_from(self.stdout_fd)
 
     def wait(self):
-        self.logger.debug("Waiting for exit status")
-        exitcode = self.stdout_fd.channel.recv_exit_status()
+        self.logger.debug("Reading stdout")
         if self.stdout is None:
             try:
                 stdout = self.stdout_fd.read().decode(self.encoding)
@@ -39,6 +38,9 @@ class SshTransportAsyncExec(AsyncExec):
                 stdout = ""
         else:
             stdout = None
+
+        self.logger.debug("Waiting for exit status")
+        exitcode = self.stdout_fd.channel.recv_exit_status()
 
         if exitcode != 0:
             self.logger.debug("Error %r: %r", exitcode, stdout)
