@@ -7,12 +7,12 @@ import pytest
 import yaml
 
 from zettarepl.definition.definition import Definition
-from zettarepl.observer import ReplicationTaskSuccess
+from zettarepl.observer import ReplicationTaskSuccess, ReplicationTaskError
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import transports, wait_replication_tasks_to_complete
+from zettarepl.utils.test import transports, create_dataset, wait_replication_tasks_to_complete
 from zettarepl.zettarepl import Zettarepl
 
 
@@ -21,14 +21,15 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("properties", [True, False])
 @pytest.mark.parametrize("compression", [None, "pigz", "plzip", "lz4", "xz"])
-def test_push_replication(dst_parent_is_readonly, dst_exists, transport, properties, compression):
+@pytest.mark.parametrize("encrypted", [True, False])
+def test_push_replication(dst_parent_is_readonly, dst_exists, transport, properties, compression, encrypted):
     if transport["type"] != "ssh" and compression:
         return
 
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst_parent", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    create_dataset("data/src", encrypted)
     subprocess.check_call("zfs set test:property=test-value data/src", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
@@ -77,6 +78,13 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, propert
     zettarepl.set_tasks(definition.tasks)
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
+
+    if dst_exists and properties and encrypted:
+        error = observer.call_args_list[-1][0][0]
+        assert isinstance(error, ReplicationTaskError), error
+        assert error.error == ("Unable to send encrypted dataset 'data/src' to existing unencrypted or unrelated "
+                               "dataset 'data/dst_parent/dst'")
+        return
 
     error = observer.call_args_list[-1][0][0]
     assert isinstance(error, ReplicationTaskSuccess), error

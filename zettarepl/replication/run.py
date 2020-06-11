@@ -58,6 +58,7 @@ class ReplicationContext:
         self.transport = transport
         self.shell = shell
         self.datasets = None
+        self.datasets_encrypted = None
         self.datasets_readonly = None
 
 
@@ -224,6 +225,17 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
     src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
                                                         replication_task.recursive)
+    if replication_task.properties:
+        try:
+            src_context.datasets_encrypted = {
+                dataset["name"]: dataset["encryption"] != "off"
+                for dataset in list_datasets_with_properties(src_context.shell, source_dataset,
+                                                             replication_task.recursive,
+                                                             ["encryption"])
+            }
+        except ExecException as e:
+            logger.debug("Encryption not supported: %r (exit code = %d)", e.stdout.split("\n")[0], e.returncode)
+            src_context.datasets_encrypted = defaultdict(lambda: False)
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
@@ -484,7 +496,9 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.replication_task.dedup,
         step.replication_task.large_block,
         step.replication_task.embed,
-        step.replication_task.compressed)
+        step.replication_task.compressed,
+        step.replication_task.properties and step.src_context.datasets_encrypted[step.src_dataset],
+    )
     process.add_progress_observer(
         lambda bytes_sent, bytes_total:
             notify(observer, ReplicationTaskSnapshotProgress(

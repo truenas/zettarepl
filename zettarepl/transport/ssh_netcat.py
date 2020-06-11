@@ -5,7 +5,7 @@ import json
 import logging
 import threading
 
-from zettarepl.replication.error import ReplicationConfigurationError, RecoverableReplicationError
+from zettarepl.replication.error import ReplicationError, ReplicationConfigurationError
 from zettarepl.replication.task.direction import ReplicationDirection
 
 from .async_exec_tee import AsyncExecTee
@@ -74,6 +74,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         else:
             if self.properties:
                 send_args.append("--properties")
+            if self.raw:
+                send_args.append("--raw")
         if self.dedup:
             send_args.append("--dedup")
         if self.large_block:
@@ -180,7 +182,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             if not self.listen_exec_terminated.wait(5):
                 self.logger.warning("Listen side has not terminated within 5 seconds after connect side error")
 
-            if isinstance(self.listen_exec_error, RecoverableReplicationError):
+            if isinstance(self.listen_exec_error, ReplicationError):
                 raise self.listen_exec_error from None
 
             raise SshNetcatExecException(connect_exec_error, self.listen_exec_error) from None
@@ -188,7 +190,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             if not self.listen_exec_terminated.wait(60):
                 self.logger.warning("Listen side has not terminated within 60 seconds after connect side success")
 
-            if isinstance(self.listen_exec_error, RecoverableReplicationError):
+            if isinstance(self.listen_exec_error, ReplicationError):
                 raise self.listen_exec_error from None
 
             if self.listen_exec_error is not None:
@@ -208,7 +210,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         try:
             with ZfsCliExceptionHandler(self):
                 self.listen_exec.wait()
-        except (ExecException, RecoverableReplicationError) as e:
+        except (ExecException, ReplicationError) as e:
             self.listen_exec_error = e
         except Exception:
             self.logger.error("listen_exec failed", exc_info=True)

@@ -3,28 +3,37 @@ import logging
 import subprocess
 import textwrap
 
+import libzfs
 import pytest
 import yaml
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.test import run_replication_test, transports
+from zettarepl.utils.test import create_dataset, run_replication_test, transports
 
 
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("dedup", [False, True])
-def test_replication_resume(caplog, transport, dedup):
+@pytest.mark.parametrize("encrypted", [True, False])
+def test_replication_resume(caplog, transport, dedup, encrypted):
+    if dedup and not hasattr(libzfs.SendFlags, "DEDUP"):
+        return
+
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    create_dataset("data/src", encrypted)
     subprocess.check_call("dd if=/dev/zero of=/mnt/data/src/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
-    subprocess.check_call("(zfs send data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
-                          "sleep 1; killall zfs", shell=True)
+    if encrypted:
+        subprocess.check_call("(zfs send -p -w data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
+                              "sleep 1; killall zfs", shell=True)
+    else:
+        subprocess.check_call("zfs create data/dst", shell=True)
+        subprocess.check_call("(zfs send data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
+                              "sleep 1; killall zfs", shell=True)
 
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
                                                                  shell=True, encoding="utf-8")
@@ -54,6 +63,8 @@ def test_replication_resume(caplog, transport, dedup):
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["dedup"] = dedup
+    if encrypted:
+        definition["replication-tasks"]["src"]["properties"] = True
 
     caplog.set_level(logging.INFO)
     run_replication_test(definition)
