@@ -23,19 +23,21 @@ snapshots = [
     [0, 1, 2, 3],
 ])
 def test_zfs_hold(hold):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    for snapshot in snapshots:
-        subprocess.call(f"zfs release keep {snapshot.dataset}@{snapshot.name}", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    try:
+        subprocess.call("zfs destroy -r data/src", shell=True)
+        subprocess.call("zfs destroy -r data/dst", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
-    for snapshot in snapshots:
-        subprocess.check_call(f"zfs snapshot {snapshot.dataset}@{snapshot.name}", shell=True)
-    for i in hold:
-        snapshot = snapshots[i]
-        subprocess.check_call(f"zfs hold keep {snapshot.dataset}@{snapshot.name}", shell=True)
+        subprocess.check_call("zfs create data/dst", shell=True)
+        for snapshot in snapshots:
+            subprocess.check_call(f"zfs snapshot {snapshot.dataset}@{snapshot.name}", shell=True)
+        for i in hold:
+            snapshot = snapshots[i]
+            subprocess.check_call(f"zfs hold keep {snapshot.dataset}@{snapshot.name}", shell=True)
 
-    local_shell = LocalShell()
-    destroy_snapshots(local_shell, snapshots)
+        local_shell = LocalShell()
+        destroy_snapshots(local_shell, snapshots)
 
-    assert list_snapshots(local_shell, "data/dst", False) == [snapshots[i] for i in hold]
+        assert list_snapshots(local_shell, "data/dst", False) == [snapshots[i] for i in hold]
+    finally:
+        for snapshot in snapshots:
+            subprocess.call(f"zfs release keep {snapshot.dataset}@{snapshot.name}", shell=True)
