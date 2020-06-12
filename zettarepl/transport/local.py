@@ -118,7 +118,8 @@ class LocalReplicationProcess(ReplicationProcess):
                          self.dedup,
                          self.large_block,
                          self.embed,
-                         self.compressed),
+                         self.compressed,
+                         self.raw),
                 zfs_recv(self.target_dataset)
             )
         )

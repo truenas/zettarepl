@@ -119,7 +119,8 @@ class ReplicationProcess:
                  dedup: bool,
                  large_block: bool,
                  embed: bool,
-                 compressed: bool):
+                 compressed: bool,
+                 raw: bool):
         self.replication_task_id = replication_task_id
         self.transport = transport
         self.local_shell = local_shell
@@ -138,6 +139,7 @@ class ReplicationProcess:
         self.large_block = large_block
         self.embed = embed
         self.compressed = compressed
+        self.raw = raw
 
         self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
 

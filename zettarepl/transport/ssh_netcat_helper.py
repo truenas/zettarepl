@@ -30,6 +30,7 @@ if __name__ == "__main__":
     send_parser.add_argument("--large-block", action="store_true")
     send_parser.add_argument("--embed", action="store_true")
     send_parser.add_argument("--compressed", action="store_true")
+    send_parser.add_argument("--raw", action="store_true")
     send_parser.add_argument("--snapshot")
     send_parser.add_argument("--incremental-base")
     send_parser.add_argument("--receive-resume-token")
@@ -102,6 +103,8 @@ if __name__ == "__main__":
             flags.add(libzfs.SendFlag.EMBED_DATA)
         if args.compressed:
             flags.add(libzfs.SendFlag.COMPRESS)
+        if args.raw:
+            flags.add(libzfs.SendFlag.RAW)
 
         try:
             if args.receive_resume_token is None:

@@ -5,7 +5,7 @@ import textwrap
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
-from zettarepl.replication.error import RecoverableReplicationError
+from zettarepl.replication.error import ReplicationError, RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.transport.interface import ExecException, ReplicationProcess
 from zettarepl.utils.re import re_search_to
@@ -122,3 +122,12 @@ class ZfsCliExceptionHandler:
             re.search(r"cannot send .+: snapshot .+ does not exist", exc_val.stdout)
         ):
             raise RecoverableReplicationError(str(exc_val)) from None
+
+        if (
+            isinstance(exc_val, ExecException) and
+            "zfs receive -F cannot be used to destroy an encrypted filesystem" in exc_val.stdout.strip()
+        ):
+            raise ReplicationError(
+                f"Unable to send encrypted dataset {self.replication_process.source_dataset!r} to existing "
+                f"unencrypted or unrelated dataset {self.replication_process.target_dataset!r}"
+            ) from None

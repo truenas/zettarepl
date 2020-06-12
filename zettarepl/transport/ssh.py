@@ -103,6 +103,7 @@ class SshReplicationProcess(ReplicationProcess):
                             self.large_block,
                             self.embed,
                             self.compressed,
+                            self.raw,
                             self.report_progress)
 
             recv = zfs_recv(self.target_dataset)

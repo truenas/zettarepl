@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 import subprocess
+import tempfile
 import time
 from unittest.mock import Mock, PropertyMock
 
@@ -14,8 +15,22 @@ from zettarepl.zettarepl import Zettarepl
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["create_zettarepl", "mock_name", "run_replication_test", "set_localhost_transport_options", "transports",
-           "wait_replication_tasks_to_complete"]
+__all__ = ["create_dataset", "create_zettarepl", "mock_name", "run_replication_test", "set_localhost_transport_options",
+           "transports", "wait_replication_tasks_to_complete"]
+
+
+def create_dataset(name, encrypted):
+    if encrypted:
+        with tempfile.NamedTemporaryFile("w+") as f:
+            f.write("0" * 32)
+            f.flush()
+
+            subprocess.check_call(
+                f"zfs create -o encryption=on -o keyformat=raw -o keylocation=file://{f.name} {name}",
+                shell=True,
+            )
+    else:
+        subprocess.check_call(f"zfs create {name}", shell=True)
 
 
 def create_zettarepl(definition):
