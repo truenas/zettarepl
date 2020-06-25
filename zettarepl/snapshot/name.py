@@ -13,7 +13,9 @@ __all__ = ["ParsedSnapshotName", "get_snapshot_name", "parse_snapshot_name", "pa
            "parse_snapshots_names_with_multiple_schemas", "parsed_snapshot_sort_key",
            "naming_schema_has_utcoffset", "validate_snapshot_naming_schema"]
 
-ParsedSnapshotName = namedtuple("ParsedSnapshotName", ["naming_schema", "name", "datetime", "tzinfo"])
+ParsedSnapshotName = namedtuple(
+    "ParsedSnapshotName", ["naming_schema", "name", "parsed_datetime", "datetime", "tzinfo"]
+)
 
 
 def get_snapshot_name(now: datetime, naming_schema: str) -> str:
@@ -26,7 +28,7 @@ def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
         strptime_name = strptime_name.replace(":", "+")
 
     d = datetime.strptime(strptime_name, naming_schema)
-    return ParsedSnapshotName(naming_schema, name, d.replace(tzinfo=None), d.tzinfo)
+    return ParsedSnapshotName(naming_schema, name, d, d.replace(tzinfo=None), d.tzinfo)
 
 
 def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSnapshotName]:

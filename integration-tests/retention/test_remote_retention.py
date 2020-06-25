@@ -31,7 +31,7 @@ from zettarepl.zettarepl import Zettarepl
         Snapshot("data/dst", "2018-10-01_03-00")
     ]),
 ])
-def test_hold_pending_snapshots(retention_policy, remains):
+def test_push_remote_retention(retention_policy, remains):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 

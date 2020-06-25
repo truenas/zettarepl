@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections import defaultdict
 import logging
 
 from zettarepl.snapshot.list import group_snapshots_by_datasets
@@ -33,6 +34,22 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
         logger.warning("Error parsing snapshot names for dataset %r: %r", dataset, e)
         return []
 
+    newest_snapshot_for_naming_schema = {}
+    for parsed_snapshot_name in parsed_snapshot_names:
+        if (
+                parsed_snapshot_name.naming_schema not in newest_snapshot_for_naming_schema or
+                (
+                    newest_snapshot_for_naming_schema[parsed_snapshot_name.naming_schema].parsed_datetime <
+                    parsed_snapshot_name.parsed_datetime
+                )
+        ):
+            newest_snapshot_for_naming_schema[parsed_snapshot_name.naming_schema] = parsed_snapshot_name
+    newest_snapshot_for_naming_schema = {k: v.name for k, v in newest_snapshot_for_naming_schema.items()}
+
+    snapshots_left_for_naming_schema = defaultdict(set)
+    for parsed_snapshot_name in parsed_snapshot_names:
+        snapshots_left_for_naming_schema[parsed_snapshot_name.naming_schema].add(parsed_snapshot_name.name)
+
     result = []
     for parsed_snapshot_name in parsed_snapshot_names:
         snapshot_owners = [
@@ -49,6 +66,14 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
                 not any(owner.should_retain(dataset, parsed_snapshot_name) for owner in snapshot_owners)
         ):
             logger.debug("No one of %r retains snapshot %r", snapshot_owners, parsed_snapshot_name.name)
+            snapshots_left_for_naming_schema[parsed_snapshot_name.naming_schema].discard(parsed_snapshot_name.name)
             result.append(parsed_snapshot_name.name)
+
+    for naming_schema, snapshots_left in snapshots_left_for_naming_schema.items():
+        if not snapshots_left:
+            newest_snapshot = newest_snapshot_for_naming_schema[naming_schema]
+            logger.info("Not destroying %r as it is the only snapshot left for naming schema %r",
+                        newest_snapshot, naming_schema)
+            result.remove(newest_snapshot)
 
     return result
