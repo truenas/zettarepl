@@ -458,6 +458,13 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.src_context.context.snapshots_sent, step.src_context.context.snapshots_total,
     ))
 
+    # Umount target dataset because we will be overwriting its contents and children mountpoints
+    # will become dangling. ZFS will mount entire directory structure again after receiving.
+    try:
+        step.dst_context.shell.exec(["zfs", "umount", step.dst_dataset])
+    except ExecException:
+        pass
+
     if step.replication_task.direction == ReplicationDirection.PUSH:
         local_context = step.src_context
         remote_context = step.dst_context
