@@ -28,7 +28,7 @@ def test__calculate_snapshots_to_remove():
                      naming_schema="snap%d%m%Y%H%M")
             ),
         ],
-        [Snapshot("dst/work", "snap300520191856")]
+        [Snapshot("dst/work", "snap300520191856"), Snapshot("dst/work", "snap300520191857")]
     ) == [Snapshot("dst/work", "snap300520191856")]
 
 

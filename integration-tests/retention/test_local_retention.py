@@ -31,7 +31,7 @@ from zettarepl.zettarepl import Zettarepl
         Snapshot("data/dst", "2018-10-01_03-00")
     ]),
 ])
-def test_hold_pending_snapshots(retention_policy, remains):
+def test_pull_local_retention(retention_policy, remains):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
@@ -69,3 +69,36 @@ def test_hold_pending_snapshots(retention_policy, remains):
     zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0))
 
     assert list_snapshots(local_shell, "data/dst", False) == remains
+
+
+def test_does_not_remove_the_last_snapshot_left():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2020-05-07_00-00", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2020-05-23_00-00", shell=True)
+
+    data = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          src:
+            dataset: data/src
+            recursive: false
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "*"
+              hour: "*"
+              day-of-month: "*"
+              month: "*"
+              day-of-week: "*"
+            lifetime: P30D
+    """))
+    definition = Definition.from_data(data)
+
+    local_shell = LocalShell()
+    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl.set_tasks(definition.tasks)
+    zettarepl._run_local_retention(datetime(2020, 6, 25, 0, 0))
+
+    assert list_snapshots(local_shell, "data/src", False) == [Snapshot("data/src", "2020-05-23_00-00")]
