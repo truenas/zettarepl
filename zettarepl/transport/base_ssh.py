@@ -3,6 +3,7 @@ import errno
 import logging
 import io
 import shlex
+import socket
 import threading
 
 import paramiko
@@ -29,15 +30,7 @@ class SshTransportAsyncExec(AsyncExec):
         self._copy_stdout_from(self.stdout_fd)
 
     def wait(self):
-        self.logger.debug("Reading stdout")
-        if self.stdout is None:
-            try:
-                stdout = self.stdout_fd.read().decode(self.encoding)
-            except IOError as e:
-                self.logger.debug("Unable to read stdout: %r", e)
-                stdout = ""
-        else:
-            stdout = None
+        stdout = self._read_stdout()
 
         self.logger.debug("Waiting for exit status")
         exitcode = self.stdout_fd.channel.recv_exit_status()
@@ -48,6 +41,28 @@ class SshTransportAsyncExec(AsyncExec):
 
         self.logger.debug("Success: %r", stdout)
         return stdout
+
+    def _read_stdout(self):
+        if self.stdout is None:
+            self.logger.debug("Reading stdout")
+
+            stdout = b""
+            while True:
+                try:
+                    read = self.stdout_fd.read(8192)
+                    if not read:
+                        break
+                    stdout += read
+                except socket.timeout:
+                    if self.stdout_fd.channel.exit_status_ready():
+                        break
+                    else:
+                        continue
+                except IOError as e:
+                    self.logger.debug("Unable to read stdout: %r", e)
+                    return None
+
+            return stdout.decode(self.encoding)
 
     def stop(self):
         self.logger.debug("Stopping")
@@ -92,7 +107,6 @@ class SshTransportShell(Shell):
         return self._client
 
     def _parse_private_key(self, private_key):
-        saved_exception = None
         for key_class in (paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key):
             try:
                 return key_class.from_private_key(io.StringIO(private_key))
