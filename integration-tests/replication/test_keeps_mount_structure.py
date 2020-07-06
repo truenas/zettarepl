@@ -5,8 +5,6 @@ import textwrap
 
 import yaml
 
-from zettarepl.snapshot.list import list_snapshots
-from zettarepl.transport.local import LocalShell
 from zettarepl.utils.test import run_replication_test
 
 
