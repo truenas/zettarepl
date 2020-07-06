@@ -65,7 +65,7 @@ def test__run_replication_tasks__do_not_try_second_part_if_first_has_failed():
     task2 = Mock(direction=ReplicationDirection.PUSH, source_datasets=["data", "data/work/ix"], recursive=False,
                  retries=1)
 
-    def run_replication_task_part__side_effect(replication_task, source_dataset, src_context, dst_context):
+    def run_replication_task_part__side_effect(replication_task, source_dataset, src_context, dst_context, observer):
         if replication_task == task2:
             if source_dataset == "data":
                 raise ReplicationError("This should fail")
@@ -156,27 +156,6 @@ def test__get_target_dataset__2():
         Mock(source_datasets=["data/src"], target_dataset="data/dst"),
         "data/src/a/b"
     ) == "data/dst/a/b"
-
-
-def test__resume_replications__resume():
-    context = Mock(snapshots_sent_by_replication_step_template=defaultdict(lambda: 0))
-    src_context = Mock(context=context)
-    dst_context = Mock(datasets=["data/dst", "data/dst/work"])
-    dst = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst")
-    dst_work = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst/work")
-    dst_zzzz = Mock(src_context=src_context, dst_context=dst_context, dst_dataset="data/dst/zzz")
-    with patch("zettarepl.replication.run.get_receive_resume_token") as get_receive_resume_token:
-        get_receive_resume_token.side_effect = lambda _, dataset: {"data/dst/work": "token"}.get(dataset)
-
-        step = Mock()
-        dst_work.instantiate.return_value = step
-        with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-            result = resume_replications([dst, dst_work, dst_zzzz])
-
-            dst_work.instantiate.assert_called_once_with(receive_resume_token="token")
-            run_replication_step.assert_called_once_with(step, None)
-
-            assert result is True
 
 
 def test__resume_replications__no_resume():
