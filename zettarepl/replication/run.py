@@ -396,7 +396,6 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             parent = os.path.dirname(step_template.dst_dataset)
             if "/" in parent:
                 create_dataset(step_template.dst_context.shell, parent)
-                handle_readonly(step_template)
 
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
         handle_readonly(step_template)
