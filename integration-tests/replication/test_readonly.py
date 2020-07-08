@@ -82,3 +82,48 @@ def test_readonly(readonly, dataset_ops):
             assert subprocess.check_output(
                 "zfs get -H -o value,source readonly data/dst/sub1", shell=True, encoding="utf-8"
             ) == "on\tinherited from data/dst\n"
+
+
+@pytest.mark.parametrize("readonly", ["ignore", "set", "require"])
+def test_readonly_dst_does_not_exist(readonly):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create data/src/sub1", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-02_01-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst/child
+            recursive: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"]["readonly"] = readonly
+
+    run_replication_test(definition)
+
+    if readonly == "ignore":
+        assert subprocess.check_output(
+            "zfs get -H -o value readonly data/dst/child/sub1", shell=True, encoding="utf-8"
+        ) == "off\n"
+    else:
+        assert subprocess.check_output(
+            "zfs get -H -o value,source readonly data/dst/child", shell=True, encoding="utf-8"
+        ) == "on\tlocal\n"
+        assert subprocess.check_output(
+            "zfs get -H -o value,source readonly data/dst/child/sub1", shell=True, encoding="utf-8"
+        ) == "on\tinherited from data/dst/child\n"
