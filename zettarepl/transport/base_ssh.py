@@ -12,7 +12,7 @@ from .interface import *
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["SshTransport"]
+__all__ = ["SshTransportAsyncExec", "SshTransportShell", "BaseSshTransport"]
 
 
 class SshTransportAsyncExec(AsyncExec):
@@ -81,6 +81,10 @@ class SshTransportShell(Shell):
     def close(self):
         if self._client is not None:
             self._client.close()
+            self._client = None
+        if self._sftp is not None:
+            self._sftp.close()
+            self._sftp = None
 
     def get_client(self):
         if self._client is None:

@@ -153,6 +153,9 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                                       paramiko.ssh_exception.ConfigParseError)):
                         raise ReplicationError(str(e).replace("[Errno None] ", "")) from None
                     else:
+                        # It might be an SSH error that leaves paramiko connection in an invalid state
+                        # Let's reset remote shell just in case
+                        remote_shell.close()
                         raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
                 except (IOError, OSError) as e:
                     raise RecoverableReplicationError(str(e)) from None
