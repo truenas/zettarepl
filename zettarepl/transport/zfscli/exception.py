@@ -92,18 +92,33 @@ class ZfsCliExceptionHandler:
             self.replication_process.incremental_base and
             isinstance(exc_val, ExecException)
         ):
+            snapshot = None
+            incremental_base = None
+
+            # OpenZFS
             m = re.search(r"could not send (?P<snapshot>.+):\s*"
                           r"incremental source \((?P<incremental_base>.+)\) is not earlier than it",
                           exc_val.stdout)
             if m:
+                snapshot = m.group("snapshot")
+                incremental_base = m.group("incremental_base")
+
+            # ZoL
+            m = re.search(r"warning: cannot send (?P<snapshot>.+): not an earlier snapshot from the same fs",
+                          exc_val.stdout)
+            if m:
+                snapshot = m.group("snapshot")
+                incremental_base = self.replication_process.incremental_base
+
+            if snapshot is not None:
                 text = textwrap.dedent(f"""\
                     Replication cannot continue because existing snapshot
-                    {m.group('incremental_base')} is newer than
-                    {m.group('snapshot')}, but has an older date
+                    {incremental_base} is newer than
+                    {snapshot}, but has an older date
                     in the snapshot name. To resolve the error, rename
-                    {m.group('snapshot')} with a date that is older than
-                    {m.group('incremental_base')} or delete snapshot
-                    {m.group('snapshot')} from both the source and destination.
+                    {snapshot} with a date that is older than
+                    {incremental_base} or delete snapshot
+                    {snapshot} from both the source and destination.
                 """)
                 exc_val.stdout = exc_val.stdout.replace(m.group(0), m.group(0) + f"\n{text.rstrip()}")
                 return
@@ -119,7 +134,12 @@ class ZfsCliExceptionHandler:
 
         if (
             isinstance(exc_val, ExecException) and
-            re.search(r"cannot send .+: snapshot .+ does not exist", exc_val.stdout)
+            (
+                # OpenZFS
+                re.search(r"cannot send .+: snapshot .+ does not exist", exc_val.stdout) or
+                # ZoL
+                re.search(r"cannot open '.+@.+': dataset does not exist", exc_val.stdout)
+            )
         ):
             raise RecoverableReplicationError(str(exc_val)) from None
 
