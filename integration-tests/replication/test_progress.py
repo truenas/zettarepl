@@ -1,7 +1,6 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -81,7 +80,7 @@ def test_replication_progress(transport):
     if transport["type"] == "ssh":
         result.insert(4, ReplicationTaskSnapshotProgress("src", "data/src/src1", "2018-10-01_02-00", 1, 3,
                                                          10240 * 9 * 10,    # We poll for progress every 10 seconds so
-                                                                            # we would have transfered 10x speed limit
+                                                                            # we would have transferred 10x speed limit
                                                          2162784            # Empirical value
         ))
 
@@ -158,6 +157,71 @@ def test_replication_progress_resume():
         ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_03-00", 2, 3),
         ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_04-00", 2, 3),
         ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_04-00", 3, 3),
+        ReplicationTaskSuccess("src"),
+    ]
+
+    for i, message in enumerate(result):
+        call = zettarepl.observer.call_args_list[i]
+
+        assert call[0][0].__class__ == message.__class__
+
+        d1 = call[0][0].__dict__
+        d2 = message.__dict__
+
+        assert d1 == d2
+
+
+def test_replication_progress_pre_calculate():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create data/src/alice", shell=True)
+    subprocess.check_call("zfs create data/src/bob", shell=True)
+    subprocess.check_call("zfs create data/src/charlie", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+
+    subprocess.check_call("zfs create data/dst", shell=True)
+    subprocess.check_call("zfs send -R data/src@2018-10-01_01-00 | zfs recv -s -F data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src/dave", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_02-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            also-include-naming-schema:
+            - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+
+    definition = Definition.from_data(definition)
+    zettarepl = create_zettarepl(definition)
+    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    wait_replication_tasks_to_complete(zettarepl)
+
+    result = [
+        ReplicationTaskStart("src"),
+        ReplicationTaskSnapshotStart("src",     "data/src",         "2018-10-01_02-00", 0, 5),
+        ReplicationTaskSnapshotSuccess("src",   "data/src",         "2018-10-01_02-00", 1, 5),
+        ReplicationTaskSnapshotStart("src",     "data/src/alice",   "2018-10-01_02-00", 1, 5),
+        ReplicationTaskSnapshotSuccess("src",   "data/src/alice",   "2018-10-01_02-00", 2, 5),
+        ReplicationTaskSnapshotStart("src",     "data/src/bob",     "2018-10-01_02-00", 2, 5),
+        ReplicationTaskSnapshotSuccess("src",   "data/src/bob",     "2018-10-01_02-00", 3, 5),
+        ReplicationTaskSnapshotStart("src",     "data/src/charlie", "2018-10-01_02-00", 3, 5),
+        ReplicationTaskSnapshotSuccess("src",   "data/src/charlie", "2018-10-01_02-00", 4, 5),
+        ReplicationTaskSnapshotStart("src",     "data/src/dave",    "2018-10-01_02-00", 4, 5),
+        ReplicationTaskSnapshotSuccess("src",   "data/src/dave",    "2018-10-01_02-00", 5, 5),
         ReplicationTaskSuccess("src"),
     ]
 

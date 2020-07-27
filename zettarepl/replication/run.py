@@ -355,6 +355,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                     "but replication task is set up to require this property. Refusing to replicate."
                 )
 
+    plan = []
     ignored_roots = set()
     for i, step_template in enumerate(step_templates):
         is_immediate_target_dataset = i == 0
@@ -408,6 +409,10 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if "/" in parent:
                 create_dataset(step_template.dst_context.shell, parent)
 
+        step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
+        plan.append((step_template, incremental_base, snapshots, observer))
+
+    for step_template, incremental_base, snapshots, observer in plan:
         replicate_snapshots(step_template, incremental_base, snapshots, observer)
         handle_readonly(step_template)
 
@@ -457,8 +462,6 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
 
 
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, observer=None):
-    step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
-
     for snapshot in snapshots:
         run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot), observer)
         incremental_base = snapshot
