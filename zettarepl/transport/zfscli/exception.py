@@ -92,6 +92,7 @@ class ZfsCliExceptionHandler:
             self.replication_process.incremental_base and
             isinstance(exc_val, ExecException)
         ):
+            match = None
             snapshot = None
             incremental_base = None
 
@@ -100,6 +101,7 @@ class ZfsCliExceptionHandler:
                           r"incremental source \((?P<incremental_base>.+)\) is not earlier than it",
                           exc_val.stdout)
             if m:
+                match = m.group(0)
                 snapshot = m.group("snapshot")
                 incremental_base = m.group("incremental_base")
 
@@ -107,10 +109,11 @@ class ZfsCliExceptionHandler:
             m = re.search(r"warning: cannot send (?P<snapshot>.+): not an earlier snapshot from the same fs",
                           exc_val.stdout)
             if m:
+                match = m.group(0)
                 snapshot = m.group("snapshot")
                 incremental_base = self.replication_process.incremental_base
 
-            if snapshot is not None:
+            if match is not None:
                 text = textwrap.dedent(f"""\
                     Replication cannot continue because existing snapshot
                     {incremental_base} is newer than
@@ -120,7 +123,7 @@ class ZfsCliExceptionHandler:
                     {incremental_base} or delete snapshot
                     {snapshot} from both the source and destination.
                 """)
-                exc_val.stdout = exc_val.stdout.replace(m.group(0), m.group(0) + f"\n{text.rstrip()}")
+                exc_val.stdout = exc_val.stdout.replace(match, match + f"\n{text.rstrip()}")
                 return
 
         if (
