@@ -43,6 +43,7 @@ class LocalAsyncExec(AsyncExec):
             stdout, stderr = self.process.communicate()
         else:
             self.process.wait()
+            self.process.stdout.close()
             stdout = None
 
         if self.process.returncode != 0:
