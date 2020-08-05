@@ -37,8 +37,8 @@ def zfs_send(source_dataset: str,
             if properties:
                 send.append("-p")
 
-            if raw:
-                send.append("-w")
+        if raw:
+            send.append("-w")
 
         if incremental_base is not None:
             send.extend(["-i", f"{source_dataset}@{incremental_base}"])

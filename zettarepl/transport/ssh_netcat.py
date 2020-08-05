@@ -74,8 +74,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         else:
             if self.properties:
                 send_args.append("--properties")
-            if self.raw:
-                send_args.append("--raw")
+        if self.raw:
+            send_args.append("--raw")
         if self.dedup:
             send_args.append("--dedup")
         if self.large_block:
