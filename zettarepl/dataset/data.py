@@ -7,10 +7,53 @@ from zettarepl.transport.zfscli import get_properties
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ensure_has_no_data"]
+__all__ = ["DatasetIsNotMounted", "list_data", "ensure_has_no_data"]
+
+
+class DatasetIsNotMounted(Exception):
+    pass
+
+
+def list_data(shell: Shell, dataset: str):
+    index, dst_properties = inspect_data(shell, dataset)
+
+    if index is None:
+        raise DatasetIsNotMounted()
+
+    return index
 
 
 def ensure_has_no_data(shell: Shell, dataset: str):
+    index, dst_properties = inspect_data(shell, dataset)
+
+    if index is not None:
+        if index:
+            raise ReplicationError(
+                f"Target dataset {dataset!r} does not have snapshots but has data (e.g. {index[0]!r} and "
+                f"replication from scratch is not allowed. Refusing to overwrite existing data."
+            )
+
+        return
+
+    if dst_properties is None:
+        return
+
+    if dst_properties["type"] == "filesystem":
+        used_property = "used"
+    elif dst_properties["type"] == "volume":
+        used_property = "referenced"
+    else:
+        raise ReplicationError(f"Target dataset {dataset!r} has invalid type {dst_properties['type']!r}")
+
+    # Empty datasets on large pool configurations can have really big size
+    if dst_properties[used_property] > 1024 * 1024 * 10:
+        raise ReplicationError(
+            f"Target dataset {dataset!r} does not have snapshots but has data ({dst_properties[used_property]} "
+            f"bytes used) and replication from scratch is not allowed. Refusing to overwrite existing data."
+        )
+
+
+def inspect_data(shell: Shell, dataset: str):
     try:
         dst_properties = get_properties(shell, dataset, {
             "type": str,
@@ -21,8 +64,10 @@ def ensure_has_no_data(shell: Shell, dataset: str):
             "used": int,
         })
     except ExecException as e:
-        if not ("dataset does not exist" in e.stdout):
-            raise
+        if "dataset does not exist" in e.stdout:
+            return None, None
+
+        raise
     else:
         if (
                 dst_properties["type"] == "filesystem" and
@@ -40,24 +85,6 @@ def ensure_has_no_data(shell: Shell, dataset: str):
                 if dst_properties["snapdir"] == "visible" and ".zfs" in index:
                     index.remove(".zfs")
 
-                if index:
-                    raise ReplicationError(
-                        f"Target dataset {dataset!r} does not have snapshots but has data (e.g. {index[0]!r} and "
-                        f"replication from scratch is not allowed. Refusing to overwrite existing data."
-                    )
+                return index, dst_properties
 
-                return
-
-        if dst_properties["type"] == "filesystem":
-            used_property = "used"
-        elif dst_properties["type"] == "volume":
-            used_property = "referenced"
-        else:
-            raise ReplicationError(f"Target dataset {dataset!r} has invalid type {dst_properties['type']!r}")
-
-        # Empty datasets on large pool configurations can have really big size
-        if dst_properties[used_property] > 1024 * 1024 * 10:
-            raise ReplicationError(
-                f"Target dataset {dataset!r} does not have snapshots but has data ({dst_properties[used_property]} "
-                f"bytes used) and replication from scratch is not allowed. Refusing to overwrite existing data."
-            )
+        return None, dst_properties

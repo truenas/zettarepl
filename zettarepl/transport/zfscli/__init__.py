@@ -70,7 +70,7 @@ def get_receive_resume_token(shell, dataset):
     return get_property(shell, dataset, "receive_resume_token")
 
 
-def get_properties(shell, dataset, properties: {str: type}):
+def get_properties(shell, dataset, properties: {str: type}, include_source: bool = False):
     for k, v in properties.items():
         if v == bool:
             properties[k] = zfs_bool
@@ -79,8 +79,10 @@ def get_properties(shell, dataset, properties: {str: type}):
     for line in shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset]).strip().split("\n"):
         name, property, value, source = line.split("\t", 3)
         result[property] = None if value == "-" else properties[property](value)
+        if include_source:
+            result[property] = result[property], source
     return result
 
 
-def get_property(shell, dataset, property, type=str):
-    return get_properties(shell, dataset, {property: type})[property]
+def get_property(shell, dataset, property, type=str, include_source: bool = False):
+    return get_properties(shell, dataset, {property: type}, include_source)[property]
