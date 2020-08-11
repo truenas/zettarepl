@@ -19,7 +19,7 @@ __all__ = ["create_dataset", "create_zettarepl", "mock_name", "run_replication_t
            "transports", "wait_replication_tasks_to_complete"]
 
 
-def create_dataset(name, encrypted):
+def create_dataset(name, encrypted=False):
     if encrypted:
         with tempfile.NamedTemporaryFile("w+") as f:
             f.write("0" * 32)

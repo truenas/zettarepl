@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+import os
 import subprocess
 import textwrap
 
@@ -11,6 +12,12 @@ from zettarepl.utils.test import run_replication_test, transports
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("direction", ["push", "pull"])
 def test_rewording_is_not_earlier_than_it(transport, direction):
+    if transport["type"] == "ssh+netcat":
+        uname = os.uname()
+        if uname.sysname == "FreeBSD" and uname.release.startswith("12"):
+            # FIXME: https://jira.ixsystems.com/browse/NAS-106452
+            return
+
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)

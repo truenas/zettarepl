@@ -9,7 +9,7 @@ import time
 import paramiko.ssh_exception
 
 from zettarepl.dataset.create import create_dataset
-from zettarepl.dataset.data import ensure_has_no_data
+from zettarepl.dataset.data import DatasetIsNotMounted, list_data, ensure_has_no_data
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
@@ -20,7 +20,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_receive_resume_token, get_property
+from zettarepl.transport.zfscli import get_receive_resume_token, get_properties, get_property
 from zettarepl.transport.zfscli.parse import zfs_bool
 
 from .error import *
@@ -60,6 +60,7 @@ class ReplicationContext:
         self.datasets = None
         self.datasets_encrypted = None
         self.datasets_readonly = None
+        self.datasets_receive_resume_tokens = None
 
 
 class ReplicationStepTemplate:
@@ -208,6 +209,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
 
+    destroy_empty_encrypted_target(replication_task, source_dataset, dst_context)
+
     resumed = resume_replications(step_templates, observer)
     if resumed:
         step_templates = calculate_replication_step_templates(replication_task, source_dataset,
@@ -232,21 +235,54 @@ def check_target_type(replication_task: ReplicationTask, source_dataset: str,
                                    f"{target_dataset!r} already exists and is a {target_dataset_type}")
 
 
+def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dataset: str,
+                                   dst_context: ReplicationContext):
+    dst_dataset = get_target_dataset(replication_task, source_dataset)
+
+    if dst_dataset not in dst_context.datasets:
+        return
+
+    if dst_context.datasets[dst_dataset]:
+        return
+
+    if dst_context.datasets_receive_resume_tokens.get(dst_dataset) is not None:
+        return
+
+    try:
+        properties = get_properties(dst_context.shell, dst_dataset, {"encryption": str, "encryptionroot": str})
+    except ExecException as e:
+        logger.debug("Encryption not supported on shell %r: %r (exit code = %d)", dst_context.shell,
+                     e.stdout.split("\n")[0], e.returncode)
+        return
+
+    if properties["encryption"] == "off":
+        return
+
+    if properties["encryptionroot"] == dst_dataset:
+        raise ReplicationError(f"Destination dataset {dst_dataset!r} already exists and is it's own encryption root. "
+                               "This configuration is not supported yet. If you want to replicate into an encrypted "
+                               "dataset, please, encrypt it's parent dataset.")
+
+    try:
+        index = list_data(dst_context.shell, dst_dataset)
+    except DatasetIsNotMounted:
+        logger.debug("Encrypted dataset %r is not mounted, not trying to destroy", dst_dataset)
+    else:
+        if not index:
+            logger.info("Encrypted destination dataset %r does not have snapshots or data, destroying it",
+                        dst_dataset)
+            dst_context.shell.exec(["zfs", "destroy", dst_dataset])
+            dst_context.datasets.pop(dst_dataset, None)
+            dst_context.datasets_readonly.pop(dst_dataset, None)
+
+
 def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,
                                          src_context: ReplicationContext, dst_context: ReplicationContext):
     src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
                                                         replication_task.recursive)
     if replication_task.properties:
-        try:
-            src_context.datasets_encrypted = {
-                dataset["name"]: dataset["encryption"] != "off"
-                for dataset in list_datasets_with_properties(src_context.shell, source_dataset,
-                                                             replication_task.recursive,
-                                                             ["encryption"])
-            }
-        except ExecException as e:
-            logger.debug("Encryption not supported: %r (exit code = %d)", e.stdout.split("\n")[0], e.returncode)
-            src_context.datasets_encrypted = defaultdict(lambda: False)
+        src_context.datasets_encrypted = get_datasets_encrypted(src_context.shell, source_dataset,
+                                                                replication_task.recursive)
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
@@ -257,6 +293,7 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
     dst_context.datasets = {}
     dst_context.datasets_readonly = {}
+    dst_context.datasets_receive_resume_tokens = {}
     templates = []
     for source_dataset in source_datasets:
         if not replication_task_should_replicate_dataset(replication_task, source_dataset):
@@ -266,7 +303,7 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
         try:
             datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
-                                                     ["readonly"])
+                                                     ["readonly", "receive_resume_token"])
         except ExecException as e:
             if "dataset does not exist" in e.stdout:
                 pass
@@ -279,6 +316,10 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
             )
             dst_context.datasets_readonly.update(**{dataset["name"]: zfs_bool(dataset["readonly"])
                                                     for dataset in datasets})
+            dst_context.datasets_receive_resume_tokens.update(**{
+                dataset["name"]: dataset["receive_resume_token"] if dataset["receive_resume_token"] != "-" else None
+                for dataset in datasets
+            })
 
         templates.append(
             ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset)
@@ -298,13 +339,27 @@ def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool, dat
     return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
 
 
+def get_datasets_encrypted(shell: Shell, dataset: str, recursive: bool):
+    try:
+        return {
+            dataset["name"]: dataset["encryption"] != "off"
+            for dataset in list_datasets_with_properties(shell, dataset, recursive, ["encryption"])
+        }
+    except ExecException as e:
+        logger.debug("Encryption not supported on shell %r: %r (exit code = %d)", shell, e.stdout.split("\n")[0],
+                     e.returncode)
+        return defaultdict(lambda: False)
+
+
 def resume_replications(step_templates: [ReplicationStepTemplate], observer=None):
     resumed = False
     for step_template in step_templates:
         context = step_template.src_context.context
 
         if step_template.dst_dataset in step_template.dst_context.datasets:
-            receive_resume_token = get_receive_resume_token(step_template.dst_context.shell, step_template.dst_dataset)
+            receive_resume_token = step_template.dst_context.datasets_receive_resume_tokens.get(
+                step_template.dst_dataset
+            )
 
             if receive_resume_token is not None:
                 logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)

@@ -23,7 +23,9 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("properties", [True, False])
 @pytest.mark.parametrize("compression", [None, "pigz", "plzip", "lz4", "xz"])
 @pytest.mark.parametrize("encrypted", [True, False])
-def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replicate, properties, compression, encrypted):
+@pytest.mark.parametrize("dst_parent_encrypted", [True, False])
+def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replicate, properties, compression, encrypted,
+                          dst_parent_encrypted):
     if transport["type"] != "ssh" and compression:
         return
     if replicate and not properties:
@@ -37,7 +39,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst_parent", shell=True)
+    create_dataset("data/dst_parent", dst_parent_encrypted)
     if dst_exists:
         subprocess.check_call("zfs create data/dst_parent/dst", shell=True)
     if dst_parent_is_readonly:
@@ -83,7 +85,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
-    if dst_exists and properties and encrypted:
+    if dst_exists and properties and encrypted and not dst_parent_encrypted:
         error = observer.call_args_list[-1][0][0]
         assert isinstance(error, ReplicationTaskError), error
         assert error.error == ("Unable to send encrypted dataset 'data/src' to existing unencrypted or unrelated "

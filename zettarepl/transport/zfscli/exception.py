@@ -24,8 +24,8 @@ class ZfsCliExceptionHandler:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         m = {}
-        valid_errors = ("failed to create mountpoint", "mountpoint or dataset is busy")
-        valid_pylibzfs_errors = ("failed to create mountpoint",)
+        valid_errors = ("failed to create mountpoint.*", "mountpoint or dataset is busy")
+        valid_pylibzfs_errors = ("failed to create mountpoint.*",)
         if (
             isinstance(exc_val, ExecException) and
             (
@@ -38,7 +38,7 @@ class ZfsCliExceptionHandler:
                     ) and (
                         m["dataset"] == self.replication_process.target_dataset or
                         (
-                            m["error"] == "failed to create mountpoint" and
+                            m["error"].startswith("failed to create mountpoint") and
                             m["dataset"].endswith(f"/{self.replication_process.target_dataset}")
                         )
                     )
