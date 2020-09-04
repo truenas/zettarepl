@@ -10,7 +10,9 @@ import subprocess
 from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
 
+from .async_exec_tee import AsyncExecTee
 from .interface import *
+from .progress_report_mixin import ProgressReportMixin
 from .zfscli import *
 from .zfscli.exception import ZfsCliExceptionHandler
 
@@ -95,7 +97,7 @@ class LocalShell(Shell):
             shutil.copyfileobj(f, f2)
 
 
-class LocalReplicationProcess(ReplicationProcess):
+class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -108,9 +110,9 @@ class LocalReplicationProcess(ReplicationProcess):
         if self.speed_limit is not None:
             raise ReplicationConfigurationError("speed-limit is not supported for local replication (it has no sense)")
 
-        self.async_exec = self.local_shell.exec_async(
-            pipe(
-                zfs_send(self.source_dataset,
+        report_progress = self._zfs_send_can_report_progress()
+
+        send = zfs_send(self.source_dataset,
                          self.snapshot,
                          self.properties,
                          self.replicate,
@@ -119,17 +121,31 @@ class LocalReplicationProcess(ReplicationProcess):
                          self.dedup,
                          self.large_block,
                          self.embed,
-                         self.compressed),
-                zfs_recv(self.target_dataset)
-            )
-        )
+                         self.compressed,
+                         report_progress)
+
+        recv = zfs_recv(self.target_dataset)
+
+        send = self._wrap_send(send)
+
+        self.async_exec = AsyncExecTee(self.local_shell, pipe(send, recv))
+        self.async_exec.run()
+
+        if report_progress:
+            self._start_progress_observer()
 
     def wait(self):
-        with ZfsCliExceptionHandler(self):
-            self.async_exec.wait()
+        try:
+            with ZfsCliExceptionHandler(self):
+                self.async_exec.wait()
+        finally:
+            self._stop_progress_observer()
 
     def stop(self):
         return self.async_exec.stop()
+
+    def _get_send_shell(self):
+        return self.local_shell
 
 
 class LocalTransport(Transport):
