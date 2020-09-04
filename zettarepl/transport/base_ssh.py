@@ -4,6 +4,7 @@ import logging
 import io
 import shlex
 import socket
+import stat
 import threading
 
 import paramiko
@@ -139,6 +140,9 @@ class SshTransportShell(Shell):
 
     def ls(self, path):
         return self.get_sftp().listdir(path)
+
+    def is_dir(self, path):
+        return stat.S_ISDIR(self.get_sftp().lstat(path).st_mode)
 
     def put_file(self, f, dst_path):
         sftp = self.get_sftp()

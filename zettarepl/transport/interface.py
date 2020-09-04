@@ -93,6 +93,9 @@ class Shell:
     def ls(self, path):
         raise NotImplementedError
 
+    def is_dir(self, path):
+        raise NotImplementedError
+
     def put_file(self, f, dst_path):
         raise NotImplementedError
 
