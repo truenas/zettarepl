@@ -2,10 +2,8 @@
 import enum
 import logging
 import os
-import re
 import subprocess
 import tempfile
-import threading
 
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.utils.shlex import implode, pipe
@@ -13,6 +11,7 @@ from zettarepl.utils.shlex import implode, pipe
 from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .interface import *
+from .progress_report_mixin import ProgressReportMixin
 from .zfscli import *
 from .zfscli.exception import ZfsCliExceptionHandler
 
@@ -48,20 +47,17 @@ class SshClientCapabilities:
         return SshClientCapabilities(executable, supports_none_cipher)
 
 
-class SshReplicationProcess(ReplicationProcess):
+class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.report_progress = False
 
         self.private_key_file = None
         self.host_key_file = None
 
         self.async_exec = None
-        self.stop_progress_observer = None
 
     def run(self):
-        self.report_progress = self._zfs_send_can_report_progress()
+        report_progress = self._zfs_send_can_report_progress()
 
         self.private_key_file = tempfile.NamedTemporaryFile("w")
         os.chmod(self.private_key_file.name, 0o600)
@@ -104,12 +100,11 @@ class SshReplicationProcess(ReplicationProcess):
                             self.embed,
                             self.compressed,
                             self.raw,
-                            self.report_progress)
+                            report_progress)
 
             recv = zfs_recv(self.target_dataset)
 
-            send = ["sh", "-c", "(" + implode(send) + " & PID=$!; echo \"zettarepl: zfs send PID is $PID\" 1>&2; "
-                                "wait $PID)"]
+            send = self._wrap_send(send)
 
             if self.compression is not None:
                 send = pipe(send, self.compression.compress)
@@ -128,13 +123,8 @@ class SshReplicationProcess(ReplicationProcess):
             self.async_exec = AsyncExecTee(self.local_shell, pipe(*commands))
             self.async_exec.run()
 
-            if self.report_progress:
-                self.stop_progress_observer = threading.Event()
-
-                pid = self.async_exec.head(self._get_zettarepl_pid, 10)
-
-                threading.Thread(daemon=True, name=f"{threading.current_thread().name}.ssh.progress_observer",
-                                 target=self._progress_observer, args=(pid,)).start()
+            if report_progress:
+                self._start_progress_observer()
 
         except Exception:
             self.private_key_file.close()
@@ -148,45 +138,10 @@ class SshReplicationProcess(ReplicationProcess):
         finally:
             self.private_key_file.close()
             self.host_key_file.close()
-            if self.stop_progress_observer:
-                self.stop_progress_observer.set()
+            self._stop_progress_observer()
 
     def stop(self):
         return self.async_exec.stop()
-
-    def _zfs_send_can_report_progress(self):
-        send_shell = self._get_send_shell()
-
-        try:
-            send_shell.exec(["zfs", "send", "-V"])
-        except ExecException as e:
-            if "missing snapshot argument" in e.stdout:
-                # Option is supported (patched zfs on FreeNAS)
-                return True
-            else:
-                # invalid option 'V'
-                return False
-        else:
-            return False
-
-    def _get_zettarepl_pid(self, line):
-        m = re.match("zettarepl: zfs send PID is ([0-9]+)", line.strip())
-        if m:
-            return int(m.group(1))
-
-    def _progress_observer(self, pid):
-        send_shell = self._get_send_shell()
-
-        while True:
-            if self.stop_progress_observer.wait(10):
-                return
-
-            s = send_shell.exec(["/bin/ps", "-axww", "-o", "command", "-p", str(pid)])
-            m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
-            if m:
-                self.notify_progress_observer(int(m.group("current")), int(m.group("total")))
-            else:
-                logger.debug("Unable to find ZFS send progress in %r", s)
 
     def _get_send_shell(self):
         if self.direction == ReplicationDirection.PUSH:
