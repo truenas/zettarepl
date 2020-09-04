@@ -449,7 +449,26 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                 if not step_template.replication_task.allow_from_scratch:
                     if is_immediate_target_dataset:
                         # We are only interested in checking target datasets, not their children
-                        ensure_has_no_data(step_template.dst_context.shell, step_template.dst_dataset)
+
+                        allowed_empty_children = []
+                        if step_template.replication_task.recursive:
+                            allowed_dst_child_datasets = {
+                                get_target_dataset(step_template.replication_task, dataset)
+                                for dataset in (
+                                    set(step_template.src_context.datasets) -
+                                    set(step_template.replication_task.exclude)
+                                )
+                                if dataset != step_template.src_dataset and is_child(dataset, step_template.src_dataset)
+                            }
+                            existing_dst_child_datasets = {
+                                dataset
+                                for dataset in step_template.dst_context.datasets
+                                if dataset != step_template.dst_dataset and is_child(dataset, step_template.dst_dataset)
+                            }
+                            allowed_empty_children = list(allowed_dst_child_datasets & existing_dst_child_datasets)
+
+                        ensure_has_no_data(step_template.dst_context.shell, step_template.dst_dataset,
+                                           allowed_empty_children)
 
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,

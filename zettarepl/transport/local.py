@@ -90,6 +90,9 @@ class LocalShell(Shell):
     def ls(self, path):
         return os.listdir(path)
 
+    def is_dir(self, path):
+        return os.path.isdir(path)
+
     def put_file(self, f, dst_path):
         with open(dst_path, "wb") as f2:
             shutil.copyfileobj(f, f2)

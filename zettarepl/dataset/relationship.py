@@ -6,12 +6,17 @@ import zettarepl.dataset.exclude
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["is_child", "belongs_to_tree"]
+__all__ = ["is_child", "is_immediate_child", "belongs_to_tree"]
 
 
 def is_child(child: str, parent: str):
     rel = os.path.relpath(child, parent)
     return rel == "." or not rel.startswith("..")
+
+
+def is_immediate_child(child: str, parent: str):
+    rel = os.path.relpath(child, parent)
+    return rel != "." and rel != ".." and "/" not in rel
 
 
 def belongs_to_tree(dataset: str, root: str, recursive: bool, exclude: [str]):

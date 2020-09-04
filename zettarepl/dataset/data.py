@@ -1,6 +1,8 @@
 # -*- coding=utf-8 -*-
 import logging
+import os
 
+from zettarepl.dataset.relationship import is_immediate_child
 from zettarepl.replication.error import ReplicationError
 from zettarepl.transport.interface import ExecException, Shell
 from zettarepl.transport.zfscli import get_properties
@@ -23,8 +25,20 @@ def list_data(shell: Shell, dataset: str):
     return index
 
 
-def ensure_has_no_data(shell: Shell, dataset: str):
-    index, dst_properties = inspect_data(shell, dataset)
+def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]):
+    allowed_empty_immediate_children = [
+        child
+        for child in allowed_empty_children
+        if is_immediate_child(child, dataset)
+    ]
+
+    index, dst_properties = inspect_data(shell, dataset, [
+        os.path.basename(child)
+        for child in allowed_empty_children
+    ])
+
+    for child in allowed_empty_immediate_children:
+        ensure_has_no_data(shell, child, allowed_empty_children)
 
     if index is not None:
         if index:
@@ -53,7 +67,9 @@ def ensure_has_no_data(shell: Shell, dataset: str):
         )
 
 
-def inspect_data(shell: Shell, dataset: str):
+def inspect_data(shell: Shell, dataset: str, exclude: [str]=None):
+    exclude = exclude or []
+
     try:
         dst_properties = get_properties(shell, dataset, {
             "type": str,
@@ -78,12 +94,60 @@ def inspect_data(shell: Shell, dataset: str):
                 index = shell.ls(dst_properties["mountpoint"])
             except Exception as e:
                 logger.warning(
-                    "An exception occurred while listing dataset %r mountpoint %r: %r. Assuming dataset is not mounted",
-                    dataset, dst_properties["mountpoint"], e,
+                    "An exception occurred while listing dataset %r mountpoint %r on shell %r: %r. "
+                    "Assuming dataset is not mounted",
+                    dataset, dst_properties["mountpoint"], shell, e,
                 )
             else:
                 if dst_properties["snapdir"] == "visible" and ".zfs" in index:
                     index.remove(".zfs")
+
+                for excluded in exclude:
+                    if excluded not in index:
+                        continue
+
+                    child_mountpoint = os.path.join(dst_properties["mountpoint"], excluded)
+                    try:
+                        if not shell.is_dir(child_mountpoint):
+                            continue
+                    except Exception as e:
+                        logger.warning(
+                            "An exception occurred while checking if %r on shell %r is a directory: %r. "
+                            "Assuming it is not",
+                            child_mountpoint, shell, e,
+                        )
+                        continue
+
+                    child_dataset = os.path.join(dataset, excluded)
+                    try:
+                        child_properties = get_properties(shell, child_dataset, {
+                            "type": str,
+                            "mounted": bool,
+                            "mountpoint": str,
+                        })
+                    except Exception as e:
+                        logger.warning(
+                            "An exception occurred while getting properties for dataset %r on shell %r: %r. "
+                            "Assuming it does not exist",
+                            child_dataset, shell, e,
+                        )
+                        continue
+
+                    if child_properties["type"] == "filesystem":
+                        if child_properties["mounted"] and child_properties["mountpoint"] == child_mountpoint:
+                            index.remove(excluded)
+                        else:
+                            try:
+                                child_contents = shell.ls(child_mountpoint)
+                            except Exception as e:
+                                logger.warning(
+                                    "An exception occurred while listing %r on shell %r: %r. Assuming it is not empty",
+                                    child_mountpoint, shell, e,
+                                )
+                                continue
+                            else:
+                                if not child_contents:
+                                    index.remove(excluded)
 
                 return index, dst_properties
 

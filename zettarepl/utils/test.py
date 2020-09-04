@@ -84,13 +84,16 @@ def set_localhost_transport_options(transport):
     )
 
 
-def transports():
+def transports(netcat=True):
     result = [
         {"type": "local"},
         {"type": "ssh", "hostname": "localhost"},
-        {"type": "ssh+netcat", "active-side": "local", "hostname": "localhost"},
-        {"type": "ssh+netcat", "active-side": "remote", "hostname": "localhost"},
     ]
+    if netcat:
+        result += [
+            {"type": "ssh+netcat", "active-side": "local", "hostname": "localhost"},
+            {"type": "ssh+netcat", "active-side": "remote", "hostname": "localhost"},
+        ]
 
     for transport in result[1:]:
         set_localhost_transport_options(transport)
