@@ -13,6 +13,8 @@ __all__ = ["ProgressReportMixin"]
 
 
 class ProgressReportMixin:
+    stop_progress_observer = None
+
     def _get_send_shell(self):
         raise NotImplementedError
 
