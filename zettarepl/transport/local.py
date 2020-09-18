@@ -11,6 +11,7 @@ from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
 
 from .async_exec_tee import AsyncExecTee
+from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
 from .zfscli import *
@@ -105,6 +106,7 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
         super().__init__(*args, **kwargs)
 
         self.async_exec = None
+        self.encryption_context = None
 
     def run(self):
         if self.compression is not None:
@@ -128,7 +130,12 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
                          self.raw,
                          report_progress)
 
-        recv = zfs_recv(self.target_dataset)
+        recv_properties = {}
+        if self.encryption:
+            self.encryption_context = EncryptionContext(self, self.local_shell)
+            recv_properties = self.encryption_context.enter()
+
+        recv = zfs_recv(self.target_dataset, recv_properties)
 
         send = self._wrap_send(send)
 
@@ -139,10 +146,15 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
             self._start_progress_observer()
 
     def wait(self):
+        success = False
         try:
             with ZfsCliExceptionHandler(self):
                 self.async_exec.wait()
+                success = True
         finally:
+            if self.encryption_context is not None:
+                self.encryption_context.exit(success)
+
             self._stop_progress_observer()
 
     def stop(self):

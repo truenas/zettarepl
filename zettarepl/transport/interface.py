@@ -5,6 +5,7 @@ import threading
 
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
+from zettarepl.replication.task.encryption import ReplicationEncryption
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ class ReplicationProcess:
                  snapshot: str,
                  properties: bool,
                  replicate: bool,
+                 encryption: ReplicationEncryption,
                  incremental_base: str,
                  receive_resume_token: str,
                  compression: ReplicationCompression,
@@ -134,6 +136,7 @@ class ReplicationProcess:
         self.snapshot = snapshot
         self.properties = properties
         self.replicate = replicate
+        self.encryption = encryption
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
         self.compression = compression

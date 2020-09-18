@@ -10,6 +10,7 @@ from zettarepl.replication.task.direction import ReplicationDirection
 
 from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
+from .encryption_context import EncryptionContext
 from .interface import *
 from .utils import put_file
 from .zfscli.exception import ZfsCliExceptionHandler
@@ -51,6 +52,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         self.listen_exec_error = None
         self.listen_exec_terminated = threading.Event()
+
+        self.encryption_context = None
 
     def run(self):
         if self.compression is not None:
@@ -97,7 +100,12 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
             send_args.extend(["--receive-resume-token", self.receive_resume_token])
 
-        receive_args = ["receive", self.target_dataset]
+        recv_properties = {}
+        if self.encryption:
+            self.encryption_context = EncryptionContext(self, self._get_recv_shell())
+            recv_properties = self.encryption_context.enter()
+
+        receive_args = ["receive", "--props", json.dumps(recv_properties), self.target_dataset]
 
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             listen_shell = self.local_shell
@@ -175,6 +183,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         self.connect_exec = connect_shell.exec_async(connect_args)
 
     def wait(self):
+        success = False
         try:
             with ZfsCliExceptionHandler(self):
                 self.connect_exec.wait()
@@ -195,8 +204,13 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
             if self.listen_exec_error is not None:
                 raise SshNetcatExecException(None, self.listen_exec_error)
+
+            success = True
         finally:
             self.stop()
+
+            if self.encryption_context is not None:
+                self.encryption_context.exit(success)
 
     def stop(self):
         self.listen_exec.stop()
@@ -216,6 +230,14 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             self.logger.error("listen_exec failed", exc_info=True)
         finally:
             self.listen_exec_terminated.set()
+
+    def _get_recv_shell(self):
+        if self.direction == ReplicationDirection.PUSH:
+            return self.remote_shell
+        elif self.direction == ReplicationDirection.PULL:
+            return self.local_shell
+        else:
+            raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
 
 class SshNetcatTransport(BaseSshTransport):

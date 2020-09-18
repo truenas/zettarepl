@@ -38,6 +38,7 @@ if __name__ == "__main__":
     receive_parser = subparsers.add_parser("receive")
     receive_parser.set_defaults(command="receive")
     receive_parser.add_argument("dataset")
+    receive_parser.add_argument("--props", type=json.loads)
 
     args = parser.parse_args()
 
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     if args.command == "receive":
         try:
-            zfs.receive(args.dataset, fh, force=True, resumable=True)
+            zfs.receive(args.dataset, fh, force=True, resumable=True, props=args.props)
         except libzfs.ZFSException as e:
             sys.stderr.write(f"{e.args[0]}\n")
             sys.exit(1)

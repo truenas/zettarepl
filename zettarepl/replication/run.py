@@ -20,7 +20,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_receive_resume_token, get_properties, get_property
+from zettarepl.transport.zfscli import get_properties, get_property
 from zettarepl.transport.zfscli.parse import zfs_bool
 
 from .error import *
@@ -28,6 +28,7 @@ from .monitor import ReplicationMonitor
 from .process_runner import ReplicationProcessRunner
 from .task.dataset import get_target_dataset
 from .task.direction import ReplicationDirection
+from .task.encryption import ReplicationEncryption
 from .task.naming_schema import replication_task_naming_schemas
 from .task.readonly_behavior import ReadOnlyBehavior
 from .task.should_replicate import *
@@ -82,7 +83,8 @@ class ReplicationStepTemplate:
 
 
 class ReplicationStep(ReplicationStepTemplate):
-    def __init__(self, template, *args, snapshot=None, incremental_base=None, receive_resume_token=None):
+    def __init__(self, template, *args, snapshot=None, incremental_base=None, receive_resume_token=None,
+                 encryption: ReplicationEncryption=None):
         self.template = template
 
         super().__init__(*args)
@@ -90,11 +92,15 @@ class ReplicationStep(ReplicationStepTemplate):
         self.snapshot = snapshot
         self.incremental_base = incremental_base
         self.receive_resume_token = receive_resume_token
+        self.encryption = encryption
         if self.receive_resume_token is None:
             assert self.snapshot is not None
         else:
             assert self.snapshot is None
             assert self.incremental_base is None
+        if self.encryption is not None:
+            assert self.incremental_base is None
+            assert self.receive_resume_token is None
 
 
 def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
@@ -242,17 +248,21 @@ def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dat
     if dst_dataset not in dst_context.datasets:
         return
 
-    if dst_context.datasets[dst_dataset]:
-        return
-
-    if dst_context.datasets_receive_resume_tokens.get(dst_dataset) is not None:
-        return
-
     try:
         properties = get_properties(dst_context.shell, dst_dataset, {"encryption": str, "encryptionroot": str})
     except ExecException as e:
         logger.debug("Encryption not supported on shell %r: %r (exit code = %d)", dst_context.shell,
                      e.stdout.split("\n")[0], e.returncode)
+        return
+
+    if replication_task.encryption and properties["encryption"] == "off":
+        raise ReplicationError(f"Encryption requested for destination dataset {dst_dataset!r}, but it already exists "
+                               "and is not encrypted.")
+
+    if dst_context.datasets[dst_dataset]:
+        return
+
+    if dst_context.datasets_receive_resume_tokens.get(dst_dataset) is not None:
         return
 
     if properties["encryption"] == "off":
@@ -483,11 +493,15 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if "/" in parent:
                 create_dataset(step_template.dst_context.shell, parent)
 
-        step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
-        plan.append((step_template, incremental_base, snapshots, observer))
+        encryption = None
+        if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:
+            encryption = step_template.replication_task.encryption
 
-    for step_template, incremental_base, snapshots, observer in plan:
-        replicate_snapshots(step_template, incremental_base, snapshots, observer)
+        step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
+        plan.append((step_template, incremental_base, snapshots, encryption))
+
+    for step_template, incremental_base, snapshots, encryption in plan:
+        replicate_snapshots(step_template, incremental_base, snapshots, encryption, observer)
         handle_readonly(step_template)
 
 
@@ -535,17 +549,21 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
     return incremental_base, snapshots_to_send
 
 
-def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, observer=None):
+def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, encryption, observer):
     for snapshot in snapshots:
-        run_replication_step(step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot), observer)
+        step = step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot, encryption=encryption)
+        run_replication_step(step, observer)
         incremental_base = snapshot
+        encryption = None
 
 
 def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot=None):
-    logger.info("For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r "
-                "receive_resume_token=%r", step.replication_task.id, step.replication_task.direction.value,
-                step.src_dataset, step.dst_dataset, step.snapshot, step.incremental_base,
-                step.receive_resume_token)
+    logger.info(
+        "For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r receive_resume_token=%r "
+        "encryption=%r",
+        step.replication_task.id, step.replication_task.direction.value, step.src_dataset, step.dst_dataset,
+        step.snapshot, step.incremental_base, step.receive_resume_token, step.encryption is not None,
+    )
 
     observer_snapshot = observer_snapshot or step.snapshot
 
@@ -583,6 +601,7 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.snapshot,
         step.replication_task.properties,
         step.replication_task.replicate,
+        step.encryption,
         step.incremental_base,
         step.receive_resume_token,
         step.replication_task.compression,
