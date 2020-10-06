@@ -135,6 +135,16 @@ replication-tasks:
     # You must have recursive set to true, exclude to empty list, properties to true. Disabled by default.
     replicate: false
 
+    # Use the following encryption parameters to create a target dataset.
+    encryption:
+      # Encryption key
+      key: "0a0b0c0d0e0f"
+      # Key format. Can be "hex" or "passphrase"
+      key-format: "hex"
+      # Path to store encryption key.
+      # A special value "$TrueNAS" will store the key in TrueNAS database.
+      key-location: "/data/keys/dataset.key"
+
     # You must specify at least one of the following two fields for push
     # replication:
 

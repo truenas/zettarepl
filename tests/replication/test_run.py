@@ -158,21 +158,6 @@ def test__get_target_dataset__2():
     ) == "data/dst/a/b"
 
 
-def test__resume_replications__no_resume():
-    dst_context = Mock(datasets=["data/dst", "data/dst/work"])
-    dst = Mock(dst_context=dst_context, dst_dataset="data/dst")
-    dst_work = Mock(dst_context=dst_context, dst_dataset="data/dst/work")
-    dst_zzzz = Mock(dst_context=dst_context, dst_dataset="data/dst/zzzz")
-    with patch("zettarepl.replication.run.get_receive_resume_token") as get_receive_resume_token:
-        get_receive_resume_token.return_value = None
-        with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-            result = resume_replications([dst, dst_work, dst_zzzz])
-
-            run_replication_step.assert_not_called()
-
-            assert result is False
-
-
 def test__get_snapshot_to_send__works():
     assert get_snapshots_to_send(
         ["2018-09-02_17-45", "2018-09-02_17-46", "2018-09-02_17-47"],
@@ -229,7 +214,7 @@ def test__get_snapshot_to_send__multiple_tasks_retention_policy():
 def test__replicate_snapshots():
     step1 = Mock()
     step2 = Mock()
-    step_template = Mock(instantiate=Mock(side_effect=lambda incremental_base, snapshot: {
+    step_template = Mock(instantiate=Mock(side_effect=lambda incremental_base, snapshot, encryption: {
         ("snap-5", "snap-6"): step1,
         ("snap-6", "snap-7"): step2,
     }[incremental_base, snapshot]))
@@ -237,7 +222,7 @@ def test__replicate_snapshots():
                                              snapshots_total_by_replication_step_template=defaultdict(lambda: 0))
 
     with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-        replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"])
+        replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"], None, None)
 
         assert run_replication_step.call_count == 2
         # call arguments are checked by `step_template.instantiate` side effect

@@ -9,6 +9,7 @@ from zettarepl.transport.create import create_transport
 
 from .compression import *
 from .direction import ReplicationDirection
+from .encryption import ReplicationEncryption, KeyFormat
 from .readonly_behavior import ReadOnlyBehavior
 from .retention_policy import *
 
@@ -27,6 +28,7 @@ class ReplicationTask:
                  exclude: [str],
                  properties: bool,
                  replicate: bool,
+                 encryption: ReplicationEncryption,
                  periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str],
                  auto: bool,
@@ -54,6 +56,7 @@ class ReplicationTask:
         self.exclude = exclude
         self.properties = properties
         self.replicate = replicate
+        self.encryption = encryption
         self.periodic_snapshot_tasks = periodic_snapshot_tasks
         self.also_include_naming_schema = also_include_naming_schema
         self.auto = auto
@@ -87,6 +90,7 @@ class ReplicationTask:
         data.setdefault("exclude", [])
         data.setdefault("properties", True)
         data.setdefault("replicate", False)
+        data.setdefault("encryption", None)
         data.setdefault("periodic-snapshot-tasks", [])
         data.setdefault("only-matching-schedule", False)
         data.setdefault("readonly", "ignore")
@@ -135,6 +139,15 @@ class ReplicationTask:
                     "Replication tasks that replicate entire filesystem can't exclude properties"
                 )
 
+        if data["encryption"]:
+            encryption = ReplicationEncryption(
+                data["encryption"]["key"],
+                KeyFormat(data["encryption"]["key-format"]),
+                data["encryption"]["key-location"],
+            )
+        else:
+            encryption = None
+
         data["direction"] = ReplicationDirection(data["direction"])
 
         if data["direction"] == ReplicationDirection.PUSH:
@@ -178,6 +191,7 @@ class ReplicationTask:
                    data["exclude"],
                    data["properties"],
                    data["replicate"],
+                   encryption,
                    resolved_periodic_snapshot_tasks,
                    data["also-include-naming-schema"],
                    data["auto"],

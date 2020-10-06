@@ -10,6 +10,7 @@ from zettarepl.utils.shlex import implode, pipe
 
 from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
+from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
 from .zfscli import *
@@ -55,6 +56,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
         self.host_key_file = None
 
         self.async_exec = None
+        self.encryption_context = None
 
     def run(self):
         report_progress = self._zfs_send_can_report_progress()
@@ -102,7 +104,12 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                             self.raw,
                             report_progress)
 
-            recv = zfs_recv(self.target_dataset)
+            recv_properties = {}
+            if self.encryption:
+                self.encryption_context = EncryptionContext(self, self._get_recv_shell())
+                recv_properties = self.encryption_context.enter()
+
+            recv = zfs_recv(self.target_dataset, recv_properties)
 
             send = self._wrap_send(send)
 
@@ -132,12 +139,18 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             raise
 
     def wait(self):
+        success = False
         try:
             with ZfsCliExceptionHandler(self):
                 self.async_exec.wait()
+                success = True
         finally:
             self.private_key_file.close()
             self.host_key_file.close()
+
+            if self.encryption_context is not None:
+                self.encryption_context.exit(success)
+
             self._stop_progress_observer()
 
     def stop(self):
@@ -148,6 +161,14 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             return self.local_shell
         elif self.direction == ReplicationDirection.PULL:
             return self.remote_shell
+        else:
+            raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+    def _get_recv_shell(self):
+        if self.direction == ReplicationDirection.PUSH:
+            return self.remote_shell
+        elif self.direction == ReplicationDirection.PULL:
+            return self.local_shell
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
 

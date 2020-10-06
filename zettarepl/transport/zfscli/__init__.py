@@ -62,8 +62,15 @@ def zfs_send(source_dataset: str,
     return send
 
 
-def zfs_recv(target_dataset):
-    return ["zfs", "recv", "-s", "-F", target_dataset]
+def zfs_recv(target_dataset, properties: dict):
+    result = ["zfs", "recv", "-s", "-F"]
+
+    for k, v in properties.items():
+        result.extend(["-o", f"{k}={v}"])
+
+    result.append(target_dataset)
+
+    return result
 
 
 def get_receive_resume_token(shell, dataset):
