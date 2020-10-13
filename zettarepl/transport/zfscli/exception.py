@@ -154,3 +154,12 @@ class ZfsCliExceptionHandler:
                 f"Unable to send encrypted dataset {self.replication_process.source_dataset!r} to existing "
                 f"unencrypted or unrelated dataset {self.replication_process.target_dataset!r}"
             ) from None
+
+        if (
+            isinstance(exc_val, ExecException) and
+            re.search(r"cannot mount '.+': Insufficient privileges", exc_val.stdout)
+        ):
+            raise ReplicationError(
+                f"{exc_val.stdout.rstrip('.')}. Please make sure that replication user has write permissions to its "
+                f"parent dataset"
+            ) from None
