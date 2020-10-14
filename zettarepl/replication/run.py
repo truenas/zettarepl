@@ -13,7 +13,8 @@ from zettarepl.dataset.data import DatasetIsNotMounted, list_data, ensure_has_no
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
-                                ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess, ReplicationTaskError)
+                                ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess,
+                                ReplicationTaskDataProgress, ReplicationTaskError)
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
@@ -21,8 +22,10 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_properties, get_property
+from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 from zettarepl.transport.zfscli.parse import zfs_bool
 
+from .dataset_size_observer import DatasetSizeObserver
 from .error import *
 from .monitor import ReplicationMonitor
 from .process_runner import ReplicationProcessRunner
@@ -209,7 +212,7 @@ def calculate_replication_tasks_parts(replication_tasks):
 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
-                              src_context: ReplicationContext, dst_context: ReplicationContext, observer=None):
+                              src_context: ReplicationContext, dst_context: ReplicationContext, observer):
     check_target_type(replication_task, source_dataset, src_context, dst_context)
 
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
@@ -217,12 +220,19 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
 
     destroy_empty_encrypted_target(replication_task, source_dataset, dst_context)
 
-    resumed = resume_replications(step_templates, observer)
-    if resumed:
-        step_templates = calculate_replication_step_templates(replication_task, source_dataset,
-                                                              src_context, dst_context)
+    with DatasetSizeObserver(
+        src_context.shell, dst_context.shell,
+        source_dataset, get_target_dataset(replication_task, source_dataset),
+        lambda src_used, dst_used: notify(observer,
+                                          ReplicationTaskDataProgress(replication_task.id, source_dataset,
+                                                                      src_used, dst_used))
+    ):
+        resumed = resume_replications(step_templates, observer)
+        if resumed:
+            step_templates = calculate_replication_step_templates(replication_task, source_dataset,
+                                                                  src_context, dst_context)
 
-    run_replication_steps(step_templates, observer)
+        run_replication_steps(step_templates, observer)
 
 
 def check_target_type(replication_task: ReplicationTask, source_dataset: str,
@@ -232,9 +242,8 @@ def check_target_type(replication_task: ReplicationTask, source_dataset: str,
     source_dataset_type = get_property(src_context.shell, source_dataset, "type")
     try:
         target_dataset_type = get_property(dst_context.shell, target_dataset, "type")
-    except ExecException as e:
-        if not ("dataset does not exist" in e.stdout):
-            raise
+    except DatasetDoesNotExistException:
+        pass
     else:
         if source_dataset_type != target_dataset_type:
             raise ReplicationError(f"Source {source_dataset!r} is a {source_dataset_type}, but target "
@@ -314,11 +323,8 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
         try:
             datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
                                                      ["readonly", "receive_resume_token"])
-        except ExecException as e:
-            if "dataset does not exist" in e.stdout:
-                pass
-            else:
-                raise
+        except DatasetDoesNotExistException:
+            pass
         else:
             dst_context.datasets.update(
                 list_snapshots_for_datasets(dst_context.shell, target_dataset, replication_task.recursive,

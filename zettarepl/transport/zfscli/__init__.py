@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
+from .exception import ZfsCliExceptionHandler
 from .parse import zfs_bool
 
 logger = logging.getLogger(__name__)
@@ -82,8 +83,11 @@ def get_properties(shell, dataset, properties: {str: type}, include_source: bool
         if v == bool:
             properties[k] = zfs_bool
 
+    with ZfsCliExceptionHandler():
+        output = shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset])
+
     result = {}
-    for line in shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset]).strip().split("\n"):
+    for line in output.strip().split("\n"):
         name, property, value, source = line.split("\t", 3)
         result[property] = None if value == "-" else properties[property](value)
         if include_source:

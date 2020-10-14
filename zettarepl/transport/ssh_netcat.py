@@ -13,7 +13,7 @@ from .base_ssh import BaseSshTransport
 from .encryption_context import EncryptionContext
 from .interface import *
 from .utils import put_file
-from .zfscli.exception import ZfsCliExceptionHandler
+from .zfscli.exception import ZfsSendRecvExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def wait(self):
         success = False
         try:
-            with ZfsCliExceptionHandler(self):
+            with ZfsSendRecvExceptionHandler(self):
                 self.connect_exec.wait()
         except ExecException as connect_exec_error:
             if not self.listen_exec_terminated.wait(5):
@@ -222,7 +222,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def _wait_listen_exec(self):
         try:
-            with ZfsCliExceptionHandler(self):
+            with ZfsSendRecvExceptionHandler(self):
                 self.listen_exec.wait()
         except (ExecException, ReplicationError) as e:
             self.listen_exec_error = e

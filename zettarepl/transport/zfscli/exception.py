@@ -12,10 +12,24 @@ from zettarepl.utils.re import re_search_to
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ZfsCliExceptionHandler"]
+__all__ = ["DatasetDoesNotExistException", "ZfsCliExceptionHandler", "ZfsSendRecvExceptionHandler"]
+
+
+class DatasetDoesNotExistException(ExecException):
+    pass
 
 
 class ZfsCliExceptionHandler:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if isinstance(exc_val, ExecException):
+            if "dataset does not exist" in exc_val.stdout:
+                raise DatasetDoesNotExistException(exc_val.returncode, exc_val.stdout) from None
+
+
+class ZfsSendRecvExceptionHandler:
     def __init__(self, replication_process: ReplicationProcess):
         self.replication_process = replication_process
 

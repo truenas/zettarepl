@@ -6,6 +6,7 @@ from zettarepl.dataset.relationship import is_immediate_child
 from zettarepl.replication.error import ReplicationError
 from zettarepl.transport.interface import ExecException, Shell
 from zettarepl.transport.zfscli import get_properties
+from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +80,8 @@ def inspect_data(shell: Shell, dataset: str, exclude: [str]=None):
             "snapdir": str,
             "used": int,
         })
-    except ExecException as e:
-        if "dataset does not exist" in e.stdout:
-            return None, None
-
-        raise
+    except DatasetDoesNotExistException:
+        return None, None
     else:
         if (
                 dst_properties["type"] == "filesystem" and
