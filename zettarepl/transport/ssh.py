@@ -14,7 +14,7 @@ from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
 from .zfscli import *
-from .zfscli.exception import ZfsCliExceptionHandler
+from .zfscli.exception import ZfsSendRecvExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
     def wait(self):
         success = False
         try:
-            with ZfsCliExceptionHandler(self):
+            with ZfsSendRecvExceptionHandler(self):
                 self.async_exec.wait()
                 success = True
         finally:

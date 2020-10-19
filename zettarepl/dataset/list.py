@@ -2,6 +2,7 @@
 import logging
 
 from zettarepl.transport.interface import Shell
+from zettarepl.transport.zfscli import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
@@ -25,4 +26,7 @@ def list_datasets_with_properties(shell: Shell, dataset: str=None, recursive: bo
     if dataset is not None:
         args.append(dataset)
 
-    return [dict(zip(properties, line.split("\t"))) for line in filter(None, shell.exec(args).split("\n"))]
+    with ZfsCliExceptionHandler():
+        output = shell.exec(args)
+
+    return [dict(zip(properties, line.split("\t"))) for line in filter(None, output.split("\n"))]

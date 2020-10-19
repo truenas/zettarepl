@@ -9,7 +9,7 @@ import yaml
 from zettarepl.definition.definition import Definition
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.observer import (ReplicationTaskStart, ReplicationTaskSnapshotStart, ReplicationTaskSnapshotProgress,
-                                ReplicationTaskSnapshotSuccess, ReplicationTaskSuccess)
+                                ReplicationTaskSnapshotSuccess, ReplicationTaskDataProgress, ReplicationTaskSuccess)
 from zettarepl.utils.itertools import select_by_class
 from zettarepl.utils.test import transports, create_zettarepl, wait_replication_tasks_to_complete
 
@@ -60,6 +60,9 @@ def test_replication_progress(transport):
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
+    calls = [call for call in zettarepl.observer.call_args_list
+             if call[0][0].__class__ != ReplicationTaskDataProgress]
+
     result = [
         ReplicationTaskStart("src"),
         ReplicationTaskSnapshotStart("src",     "data/src/src1", "2018-10-01_01-00", 0, 3),
@@ -88,7 +91,7 @@ def test_replication_progress(transport):
         ))
 
     for i, message in enumerate(result):
-        call = zettarepl.observer.call_args_list[i]
+        call = calls[i]
 
         assert call[0][0].__class__ == message.__class__
 
@@ -152,6 +155,9 @@ def test_replication_progress_resume():
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
+    calls = [call for call in zettarepl.observer.call_args_list
+             if call[0][0].__class__ != ReplicationTaskDataProgress]
+
     result = [
         ReplicationTaskStart("src"),
         ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_02-00", 0, 3),
@@ -164,7 +170,7 @@ def test_replication_progress_resume():
     ]
 
     for i, message in enumerate(result):
-        call = zettarepl.observer.call_args_list[i]
+        call = calls[i]
 
         assert call[0][0].__class__ == message.__class__
 
@@ -213,6 +219,9 @@ def test_replication_progress_pre_calculate():
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
+    calls = [call for call in zettarepl.observer.call_args_list
+             if call[0][0].__class__ != ReplicationTaskDataProgress]
+
     result = [
         ReplicationTaskStart("src"),
         ReplicationTaskSnapshotStart("src",     "data/src",         "2018-10-01_02-00", 0, 5),
@@ -229,7 +238,7 @@ def test_replication_progress_pre_calculate():
     ]
 
     for i, message in enumerate(result):
-        call = zettarepl.observer.call_args_list[i]
+        call = calls[i]
 
         assert call[0][0].__class__ == message.__class__
 
