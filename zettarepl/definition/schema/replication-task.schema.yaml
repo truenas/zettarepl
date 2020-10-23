@@ -36,6 +36,13 @@ properties:
       type: string
   properties:
     type: boolean
+  properties-exclude:
+    type: array
+    items:
+      type: string
+  properties-override:
+    type: object
+    additionalProperties: true
   replicate:
     type: boolean
   encryption:

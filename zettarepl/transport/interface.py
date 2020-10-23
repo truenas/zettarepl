@@ -115,6 +115,8 @@ class ReplicationProcess:
                  target_dataset: str,
                  snapshot: str,
                  properties: bool,
+                 properties_exclude: [str],
+                 properties_override: {str: str},
                  replicate: bool,
                  encryption: ReplicationEncryption,
                  incremental_base: str,
@@ -135,6 +137,8 @@ class ReplicationProcess:
         self.target_dataset = target_dataset
         self.snapshot = snapshot
         self.properties = properties
+        self.properties_exclude = properties_exclude
+        self.properties_override = properties_override
         self.replicate = replicate
         self.encryption = encryption
         self.incremental_base = incremental_base

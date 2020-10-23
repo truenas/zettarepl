@@ -606,6 +606,8 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.dst_dataset,
         step.snapshot,
         step.replication_task.properties,
+        step.replication_task.properties_exclude,
+        step.replication_task.properties_override,
         step.replication_task.replicate,
         step.encryption,
         step.incremental_base,
