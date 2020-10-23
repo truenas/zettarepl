@@ -13,6 +13,7 @@ from .base_ssh import BaseSshTransport
 from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
+from .utils import get_properties_override
 from .zfscli import *
 from .zfscli.exception import ZfsSendRecvExceptionHandler
 
@@ -104,12 +105,12 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                             self.raw,
                             report_progress)
 
-            recv_properties = {}
             if self.encryption:
                 self.encryption_context = EncryptionContext(self, self._get_recv_shell())
-                recv_properties = self.encryption_context.enter()
 
-            recv = zfs_recv(self.target_dataset, recv_properties)
+            properties_override = get_properties_override(self, self.encryption_context)
+
+            recv = zfs_recv(self.target_dataset, self.properties_exclude, properties_override)
 
             send = self._wrap_send(send)
 

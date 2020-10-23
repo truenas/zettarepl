@@ -1,16 +1,10 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-from unittest.mock import Mock
 
 import yaml
 
-from zettarepl.definition.definition import Definition
-from zettarepl.replication.task.task import ReplicationTask
-from zettarepl.transport.local import LocalShell
-from zettarepl.utils.itertools import select_by_class
 from zettarepl.utils.test import run_replication_test
-from zettarepl.zettarepl import Zettarepl
 
 
 def test_preserves_clone_origin():

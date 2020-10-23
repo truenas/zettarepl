@@ -12,7 +12,7 @@ from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .encryption_context import EncryptionContext
 from .interface import *
-from .utils import put_file
+from .utils import get_properties_override, put_file
 from .zfscli.exception import ZfsSendRecvExceptionHandler
 
 logger = logging.getLogger(__name__)
@@ -100,12 +100,13 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
             send_args.extend(["--receive-resume-token", self.receive_resume_token])
 
-        recv_properties = {}
         if self.encryption:
             self.encryption_context = EncryptionContext(self, self._get_recv_shell())
-            recv_properties = self.encryption_context.enter()
 
-        receive_args = ["receive", "--props", json.dumps(recv_properties), self.target_dataset]
+        props = dict({p: None for p in self.properties_exclude},
+                     **get_properties_override(self, self.encryption_context))
+
+        receive_args = ["receive", "--prop", json.dumps(props), self.target_dataset]
 
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             listen_shell = self.local_shell

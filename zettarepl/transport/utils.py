@@ -3,11 +3,20 @@ import hashlib
 import logging
 import os
 
-from .interface import Shell
+from .encryption_context import EncryptionContext
+from .interface import ReplicationProcess, Shell
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["put_file"]
+__all__ = ["get_properties_override", "put_file"]
+
+
+def get_properties_override(process: ReplicationProcess, encryption_context: EncryptionContext):
+    properties_override = {}
+    if encryption_context:
+        properties_override.update(**encryption_context.enter())
+    properties_override.update(process.properties_override)
+    return properties_override
 
 
 def put_file(name, shell: Shell):

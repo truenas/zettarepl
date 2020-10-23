@@ -27,6 +27,8 @@ class ReplicationTask:
                  recursive: bool,
                  exclude: [str],
                  properties: bool,
+                 properties_exclude: [str],
+                 properties_override: {str: str},
                  replicate: bool,
                  encryption: ReplicationEncryption,
                  periodic_snapshot_tasks: [PeriodicSnapshotTask],
@@ -55,6 +57,8 @@ class ReplicationTask:
         self.recursive = recursive
         self.exclude = exclude
         self.properties = properties
+        self.properties_exclude = properties_exclude
+        self.properties_override = properties_override
         self.replicate = replicate
         self.encryption = encryption
         self.periodic_snapshot_tasks = periodic_snapshot_tasks
@@ -89,6 +93,8 @@ class ReplicationTask:
 
         data.setdefault("exclude", [])
         data.setdefault("properties", True)
+        data.setdefault("properties-exclude", [])
+        data.setdefault("properties-override", {})
         data.setdefault("replicate", False)
         data.setdefault("encryption", None)
         data.setdefault("periodic-snapshot-tasks", [])
@@ -190,6 +196,8 @@ class ReplicationTask:
                    data["recursive"],
                    data["exclude"],
                    data["properties"],
+                   data["properties-exclude"],
+                   {k: str(v) for k, v in data["properties-override"].items()},
                    data["replicate"],
                    encryption,
                    resolved_periodic_snapshot_tasks,

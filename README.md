@@ -130,6 +130,14 @@ replication-tasks:
     # replicated to remote system.
     properties: true
 
+    # When sending properties, exclude these properties
+    properties-exclude:
+      - mountpoint
+
+    # When sending properties, override these properties
+    properties-override:
+      compression: gzip-9
+
     # Send a replication stream package, which will replicate the specified filesystem, and all descendent file systems.
     # When received, all properties, snapshots, descendent file systems, and clones are preserved.
     # You must have recursive set to true, exclude to empty list, properties to true. Disabled by default.
