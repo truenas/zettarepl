@@ -64,7 +64,11 @@ class ProgressReportMixin:
             s = send_shell.exec(["ps", "-o", "command", "-p", str(pid)])
             m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
             if m:
-                self.notify_progress_observer(int(m.group("current")), int(m.group("total")))
+                current = int(m.group("current"))
+                total = int(m.group("total"))
+                if total == 0:
+                    total = current + 1
+                self.notify_progress_observer(current, total)
             else:
                 logger.debug("Unable to find ZFS send progress in %r", s)
 
