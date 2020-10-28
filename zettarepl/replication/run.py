@@ -422,7 +422,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
             if not step_template.dst_context.datasets_readonly.get(step_template.dst_dataset, True):
                 raise ReplicationError(
-                    f"Target dataset {step_template.dst_dataset!r} exists and does hot have readonly=on property, "
+                    f"Target dataset {step_template.dst_dataset!r} exists and does not have readonly=on property, "
                     "but replication task is set up to require this property. Refusing to replicate."
                 )
 

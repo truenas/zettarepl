@@ -12,12 +12,12 @@ from zettarepl.utils.test import run_replication_test
 @pytest.mark.parametrize("dataset_ops", [
     (
         [],
-        "Target dataset 'data/dst' exists and does hot have readonly=on property, but replication task is set up "
+        "Target dataset 'data/dst' exists and does not have readonly=on property, but replication task is set up "
         "to require this property. Refusing to replicate."
     ),
     (
         [("data/dst", "on"), ("data/dst/sub1", "off")],
-        "Target dataset 'data/dst/sub1' exists and does hot have readonly=on property, but replication task is set up "
+        "Target dataset 'data/dst/sub1' exists and does not have readonly=on property, but replication task is set up "
         "to require this property. Refusing to replicate."
     ),
     (
