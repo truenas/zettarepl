@@ -24,7 +24,7 @@ def test_replication_resume(caplog, transport, dedup, encrypted):
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
     create_dataset("data/src", encrypted)
-    subprocess.check_call("dd if=/dev/zero of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
 
     if encrypted:
@@ -76,3 +76,55 @@ def test_replication_resume(caplog, transport, dedup, encrypted):
 
     local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/dst", False)) == 1
+
+    assert subprocess.check_output("zfs get -H -o value mounted data/dst", shell=True, encoding="utf-8") == "yes\n"
+
+
+def test_replication_resume__recursive_mount():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    create_dataset("data/src/child")
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs send -R data/src@2018-10-01_01-00 | zfs recv -s -F data/dst", shell=True)
+
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+
+    subprocess.check_call("(zfs send -i data/src@2018-10-01_01-00 data/src@2018-10-01_02-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
+                          "sleep 1; killall zfs", shell=True)
+
+    assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
+                                                                 shell=True, encoding="utf-8")
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          src:
+            dataset: data/src
+            recursive: true
+            lifetime: PT1H
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "0"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            periodic-snapshot-tasks:
+              - src
+            auto: true
+            retention-policy: none
+    """))
+
+    run_replication_test(definition)
+
+    assert subprocess.check_output("zfs get -H -o value mounted data/dst/child", shell=True, encoding="utf-8") == "yes\n"
