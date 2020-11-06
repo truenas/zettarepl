@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import logging
+import os
 import subprocess
 import textwrap
 
@@ -77,10 +78,12 @@ def test_replication_resume(caplog, transport, dedup, encrypted):
     local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/dst", False)) == 1
 
-    assert subprocess.check_output("zfs get -H -o value mounted data/dst", shell=True, encoding="utf-8") == "yes\n"
+    if not encrypted:
+        assert subprocess.check_output("zfs get -H -o value mounted data/dst", shell=True, encoding="utf-8") == "yes\n"
 
 
-def test_replication_resume__recursive_mount():
+@pytest.mark.parametrize("canmount", [True, False])
+def test_replication_resume__recursive_mount(canmount):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -89,6 +92,9 @@ def test_replication_resume__recursive_mount():
     create_dataset("data/src/child")
     subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs send -R data/src@2018-10-01_01-00 | zfs recv -s -F data/dst", shell=True)
+    if not canmount:
+        subprocess.check_call("zfs set canmount=off data/dst", shell=True)
+        subprocess.check_call("zfs set canmount=off data/dst/child", shell=True)
 
     subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
@@ -127,4 +133,8 @@ def test_replication_resume__recursive_mount():
 
     run_replication_test(definition)
 
-    assert subprocess.check_output("zfs get -H -o value mounted data/dst/child", shell=True, encoding="utf-8") == "yes\n"
+    mounted = subprocess.check_output("zfs get -H -o value mounted data/dst/child", shell=True, encoding="utf-8")
+    if canmount:
+        assert mounted == "yes\n"
+    else:
+        assert mounted == "no\n"

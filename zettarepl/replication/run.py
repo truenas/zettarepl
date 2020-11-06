@@ -418,6 +418,16 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                     # let's do it ourselves
                     for dst_dataset in sorted(step_template.dst_context.datasets.keys(), key=len):
                         if is_child(dst_dataset, step_template.dst_dataset):
+                            properties = get_properties(step_template.dst_context.shell, dst_dataset, {
+                                "canmount": bool,
+                                "mountpoint": str,
+                            })
+
+                            if not properties["canmount"]:
+                                continue
+                            if not properties["mountpoint"] or properties["mountpoint"] == "legacy":
+                                continue
+
                             try:
                                 step_template.dst_context.shell.exec(["zfs", "mount", dst_dataset])
                             except ExecException:
