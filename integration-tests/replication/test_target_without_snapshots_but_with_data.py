@@ -40,7 +40,7 @@ def test_target_without_snapshots_but_with_data(zvol, mounted, snapdir):
             bs = "15m"
         subprocess.check_call(f"dd if=/dev/urandom of=/mnt/data/dst/test bs={bs} count=1", shell=True)
         if not mounted:
-            subprocess.check_call("zfs unmount data/dst", shell=True)
+            subprocess.check_call("zfs umount data/dst", shell=True)
     time.sleep(5)  # "used" property is not updated immediately
 
     definition = yaml.safe_load(textwrap.dedent("""\

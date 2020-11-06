@@ -414,6 +414,25 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                     context.snapshots_total_by_replication_step_template[step_template] = 1
                     resumed = True
 
+                    # ZFS does not automatically mount after resuming with receive_resume_token,
+                    # let's do it ourselves
+                    for dst_dataset in sorted(step_template.dst_context.datasets.keys(), key=len):
+                        if is_child(dst_dataset, step_template.dst_dataset):
+                            properties = get_properties(step_template.dst_context.shell, dst_dataset, {
+                                "canmount": bool,
+                                "mountpoint": str,
+                            })
+
+                            if not properties["canmount"]:
+                                continue
+                            if not properties["mountpoint"] or properties["mountpoint"] == "legacy":
+                                continue
+
+                            try:
+                                step_template.dst_context.shell.exec(["zfs", "mount", dst_dataset])
+                            except ExecException:
+                                pass
+
     return resumed
 
 
