@@ -2,7 +2,7 @@
 import logging
 
 from zettarepl.transport.interface import Shell
-from zettarepl.transport.zfscli import ZfsCliExceptionHandler
+from zettarepl.transport.zfscli import ZfsCliExceptionHandler, parse_property
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +14,11 @@ def list_datasets(shell: Shell, dataset: str=None, recursive: bool=True):
 
 
 def list_datasets_with_properties(shell: Shell, dataset: str=None, recursive: bool=True, properties=None):
-    properties = properties or []
+    properties = properties or {}
 
-    properties = ["name"] + properties
+    properties["name"] = str
 
-    args = ["zfs", "list", "-t", "filesystem,volume", "-H", "-o", ",".join(properties), "-s", "name"]
+    args = ["zfs", "list", "-t", "filesystem,volume", "-H", "-o", ",".join(properties.keys()), "-s", "name"]
     if recursive:
         args.extend(["-r"])
     else:
@@ -29,4 +29,10 @@ def list_datasets_with_properties(shell: Shell, dataset: str=None, recursive: bo
     with ZfsCliExceptionHandler():
         output = shell.exec(args)
 
-    return [dict(zip(properties, line.split("\t"))) for line in filter(None, output.split("\n"))]
+    return [
+        {
+            property: parse_property(value, properties[property])
+            for property, value in zip(properties, line.split("\t"))
+        }
+        for line in filter(None, output.split("\n"))
+    ]
