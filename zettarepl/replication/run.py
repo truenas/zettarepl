@@ -213,6 +213,8 @@ def calculate_replication_tasks_parts(replication_tasks):
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
                               src_context: ReplicationContext, dst_context: ReplicationContext, observer):
+    target_dataset = get_target_dataset(replication_task, source_dataset)
+
     check_target_type(replication_task, source_dataset, src_context, dst_context)
 
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
@@ -222,7 +224,7 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
 
     with DatasetSizeObserver(
         src_context.shell, dst_context.shell,
-        source_dataset, get_target_dataset(replication_task, source_dataset),
+        source_dataset, target_dataset,
         lambda src_used, dst_used: notify(observer,
                                           ReplicationTaskDataProgress(replication_task.id, source_dataset,
                                                                       src_used, dst_used))
@@ -233,6 +235,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
                                                                   src_context, dst_context)
 
         run_replication_steps(step_templates, observer)
+
+    mount_dst_datasets(dst_context, target_dataset, replication_task.recursive)
 
 
 def check_target_type(replication_task: ReplicationTask, source_dataset: str,
@@ -413,25 +417,6 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                     context.snapshots_sent_by_replication_step_template[step_template] = 1
                     context.snapshots_total_by_replication_step_template[step_template] = 1
                     resumed = True
-
-                    # ZFS does not automatically mount after resuming with receive_resume_token,
-                    # let's do it ourselves
-                    for dst_dataset in sorted(step_template.dst_context.datasets.keys(), key=len):
-                        if is_child(dst_dataset, step_template.dst_dataset):
-                            properties = get_properties(step_template.dst_context.shell, dst_dataset, {
-                                "canmount": bool,
-                                "mountpoint": str,
-                            })
-
-                            if not properties["canmount"]:
-                                continue
-                            if not properties["mountpoint"] or properties["mountpoint"] == "legacy":
-                                continue
-
-                            try:
-                                step_template.dst_context.shell.exec(["zfs", "mount", dst_dataset])
-                            except ExecException:
-                                pass
 
     return resumed
 
@@ -678,3 +663,26 @@ def handle_readonly(step_template: ReplicationStepTemplate):
         # We only set value is there is no parent that already has this value set
         if not step_template.dst_context.datasets_readonly.get(parent, False):
             step_template.dst_context.shell.exec(["zfs", "set", "readonly=on", step_template.dst_dataset])
+
+
+def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recursive: bool):
+    dst_datasets = list_datasets_with_properties(dst_context.shell, dst_dataset, recursive, {
+        "type": str,
+        "mounted": bool,
+        "canmount": bool,
+        "mountpoint": str
+    })
+    for properties in sorted(dst_datasets, key=lambda dataset: len(dataset["name"])):
+        if properties["type"] != "filesystem":
+            continue
+        if properties["mounted"]:
+            continue
+        if not properties["canmount"]:
+            continue
+        if properties["mountpoint"] in ["none", "legacy"]:
+            continue
+
+        try:
+            dst_context.shell.exec(["zfs", "mount", properties["name"]])
+        except ExecException:
+            pass
