@@ -1,5 +1,4 @@
 # -*- coding=utf-8 -*-
-import os
 import subprocess
 import textwrap
 
@@ -82,8 +81,7 @@ def test_replication_progress(transport):
         ReplicationTaskSuccess("src"),
     ]
 
-    uname = os.uname()
-    if transport["type"] == "ssh" and not (uname.sysname == "FreeBSD" and uname.release.startswith("12")):  # FIXME
+    if transport["type"] == "ssh":
         result.insert(4, ReplicationTaskSnapshotProgress("src", "data/src/src1", "2018-10-01_02-00", 1, 3,
                                                          10240 * 9 * 10,    # We poll for progress every 10 seconds so
                                                                             # we would have transferred 10x speed limit
@@ -93,7 +91,7 @@ def test_replication_progress(transport):
     for i, message in enumerate(result):
         call = calls[i]
 
-        assert call[0][0].__class__ == message.__class__
+        assert call[0][0].__class__ == message.__class__, calls
 
         d1 = call[0][0].__dict__
         d2 = message.__dict__
