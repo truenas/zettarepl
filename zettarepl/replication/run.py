@@ -322,7 +322,7 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
         try:
             datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
-                                                     ["readonly", "receive_resume_token"])
+                                                     {"readonly": str, "receive_resume_token": str})
         except DatasetDoesNotExistException:
             pass
         else:
@@ -359,7 +359,7 @@ def get_datasets_encrypted(shell: Shell, dataset: str, recursive: bool):
     try:
         return {
             dataset["name"]: dataset["encryption"] != "off"
-            for dataset in list_datasets_with_properties(shell, dataset, recursive, ["encryption"])
+            for dataset in list_datasets_with_properties(shell, dataset, recursive, {"encryption": str})
         }
     except ExecException as e:
         logger.debug("Encryption not supported on shell %r: %r (exit code = %d)", shell, e.stdout.split("\n")[0],
