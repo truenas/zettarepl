@@ -598,6 +598,11 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
     else:
         raise ValueError(f"Invalid replication direction: {step.replication_task.direction!r}")
 
+    if step.replication_task.replicate:
+        raw = any(step.src_context.datasets_encrypted.values())
+    else:
+        raw = step.replication_task.properties and step.src_context.datasets_encrypted[step.src_dataset]
+
     transport = remote_context.transport
 
     process = transport.replication_process(
@@ -622,7 +627,7 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.replication_task.large_block,
         step.replication_task.embed,
         step.replication_task.compressed,
-        step.replication_task.properties and step.src_context.datasets_encrypted[step.src_dataset],
+        raw,
     )
     process.add_progress_observer(
         lambda bytes_sent, bytes_total:
