@@ -23,12 +23,16 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("properties", [True, False])
 @pytest.mark.parametrize("compression", [None, "pigz", "plzip", "lz4", "xz"])
 @pytest.mark.parametrize("encrypted", [True, False])
+@pytest.mark.parametrize("has_encrypted_child", [True, False])
 @pytest.mark.parametrize("dst_parent_encrypted", [True, False])
 def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replicate, properties, compression, encrypted,
-                          dst_parent_encrypted):
+                          has_encrypted_child, dst_parent_encrypted):
     if transport["type"] != "ssh" and compression:
         return
     if replicate and not properties:
+        return
+    if encrypted and has_encrypted_child:
+        # If parent is encrypted, child is also encrypted
         return
 
     subprocess.call("zfs destroy -r data/src", shell=True)
@@ -36,8 +40,10 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
 
     create_dataset("data/src", encrypted)
     subprocess.check_call("zfs set test:property=test-value data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    if has_encrypted_child:
+        create_dataset("data/src/child", True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_02-00", shell=True)
 
     create_dataset("data/dst_parent", dst_parent_encrypted)
     if dst_exists:
@@ -103,7 +109,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
         properties
     )
 
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_03-00", shell=True)
 
     zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
