@@ -24,12 +24,14 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
                 shell.exec(args)
                 break
             except ExecException as e:
-                m = re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout)
-                if m is None:
-                    m = re.search(r"cannot destroy .+?@(.+?)': snapshot has dependent clones", e.stdout)
-                if m is None:
+                if m := re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout):
+                    reason = "busy"
+                    name = m.group(1)
+                elif m := re.search(r"cannot destroy '.+?@(.+?)': snapshot has dependent clones", e.stdout):
+                    reason = "cloned"
+                    name = m.group(1)
+                else:
                     raise
 
-                name = m.group(1)
-                logger.info("Snapshot %r on dataset %r is busy, skipping", name, dataset)
+                logger.info("Snapshot %r on dataset %r is %s, skipping", name, dataset, reason)
                 names.remove(name)
