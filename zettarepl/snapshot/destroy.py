@@ -26,6 +26,8 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
             except ExecException as e:
                 m = re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout)
                 if m is None:
+                    m = re.search(r"cannot destroy .+?@(.+?)': snapshot has dependent clones", e.stdout)
+                if m is None:
                     raise
 
                 name = m.group(1)
