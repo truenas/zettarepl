@@ -11,18 +11,30 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["destroy_snapshots"]
 
+ARG_MAX = 262000  # FreeBSD, on Linux it is even higher
+
 
 def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
     for dataset, snapshots in sortedgroupby(snapshots, lambda snapshot: snapshot.dataset):
-        names = [snapshot.name for snapshot in snapshots]
+        names = {snapshot.name for snapshot in snapshots}
 
         logger.info("On %r for dataset %r destroying snapshots %r", shell, dataset, names)
 
         while names:
-            args = ["zfs", "destroy", f"{dataset}@" + ",".join(names)]
+            chunk = set()
+            sum_len = len(dataset)
+            for name in sorted(names):
+                new_sum_len = sum_len + len(name) + 1
+                if new_sum_len >= ARG_MAX:
+                    break
+
+                chunk.add(name)
+                sum_len = new_sum_len
+
+            args = ["zfs", "destroy", f"{dataset}@" + ",".join(sorted(chunk))]
             try:
                 shell.exec(args)
-                break
+                names -= chunk
             except ExecException as e:
                 if m := re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout):
                     reason = "busy"
@@ -34,4 +46,4 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
                     raise
 
                 logger.info("Snapshot %r on dataset %r is %s, skipping", name, dataset, reason)
-                names.remove(name)
+                names.discard(name)
