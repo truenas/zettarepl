@@ -55,20 +55,30 @@ class ProgressReportMixin:
             return int(m.group(1))
 
     def _progress_observer(self, pid):
-        send_shell = self._get_send_shell()
+        try:
+            send_shell = self._get_send_shell()
 
-        while True:
-            if self.stop_progress_observer.wait(10):
-                return
+            while True:
+                if self.stop_progress_observer.wait(10):
+                    return
 
-            s = send_shell.exec(["ps", "-o", "command", "-p", str(pid)])
-            m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
-            if m:
-                current = int(m.group("current"))
-                total = int(m.group("total"))
-                if total == 0:
-                    total = current + 1
-                self.notify_progress_observer(current, total)
-            else:
-                logger.debug("Unable to find ZFS send progress in %r", s)
+                try:
+                    s = send_shell.exec(["ps", "-o", "command", "-p", str(pid)])
+                except ExecException as e:
+                    if e.returncode == 1 and e.stdout.strip() == "COMMAND":
+                        logger.debug("zfs send with PID %r is gone", pid)
+                        return
 
+                    raise
+
+                m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
+                if m:
+                    current = int(m.group("current"))
+                    total = int(m.group("total"))
+                    if total == 0:
+                        total = current + 1
+                    self.notify_progress_observer(current, total)
+                else:
+                    logger.debug("Unable to find ZFS send progress in %r", s)
+        except Exception:
+            logger.error("Unhandled exception in progress observer", exc_info=True)
