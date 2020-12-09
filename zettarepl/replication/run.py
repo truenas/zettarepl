@@ -674,7 +674,7 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
     dst_datasets = list_datasets_with_properties(dst_context.shell, dst_dataset, recursive, {
         "type": str,
         "mounted": bool,
-        "canmount": bool,
+        "canmount": str,
         "mountpoint": str
     })
     for properties in sorted(dst_datasets, key=lambda dataset: len(dataset["name"])):
@@ -682,7 +682,7 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
             continue
         if properties["mounted"]:
             continue
-        if not properties["canmount"]:
+        if properties["canmount"] == "off":
             continue
         if properties["mountpoint"] in ["none", "legacy"]:
             continue
