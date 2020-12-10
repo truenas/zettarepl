@@ -682,7 +682,7 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
             continue
         if properties["mounted"]:
             continue
-        if properties["canmount"] == "off":
+        if properties["canmount"] != "on":
             continue
         if properties["mountpoint"] in ["none", "legacy"]:
             continue
