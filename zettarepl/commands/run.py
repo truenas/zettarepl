@@ -1,11 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
-from zettarepl.scheduler.clock import Clock
-from zettarepl.scheduler.tz_clock import TzClock
-from zettarepl.scheduler.scheduler import Scheduler
-from zettarepl.transport.local import LocalShell
-from zettarepl.zettarepl import Zettarepl
+from zettarepl.zettarepl import create_zettarepl
 
 from .utils import load_definition
 
@@ -17,12 +13,6 @@ __all__ = ["run"]
 def run(args):
     definition = load_definition(args.definition_path)
 
-    clock = Clock(args.once)
-    tz_clock = TzClock(definition.timezone, clock.now)
-
-    scheduler = Scheduler(clock, tz_clock)
-    local_shell = LocalShell()
-
-    zettarepl = Zettarepl(scheduler, local_shell)
+    zettarepl = create_zettarepl(definition, clock_args=(args.once,))
     zettarepl.set_tasks(definition.tasks)
     zettarepl.run()

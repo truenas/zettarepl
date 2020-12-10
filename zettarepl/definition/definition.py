@@ -48,8 +48,9 @@ class ReplicationTaskDefinitionError(DefinitionError):
 
 
 class Definition:
-    def __init__(self, tasks, timezone, errors):
+    def __init__(self, tasks, max_parallel_replication_tasks, timezone, errors):
         self.tasks = tasks
+        self.max_parallel_replication_tasks = max_parallel_replication_tasks
         self.timezone = timezone
 
         self.errors = errors
@@ -65,6 +66,8 @@ class Definition:
         cls.validate(data)
 
         errors = []
+
+        max_parallel_replication_tasks = data.get("max-parallel-replication-tasks")
 
         timezone = tzlocal()
         if "timezone" in data:
@@ -100,4 +103,4 @@ class Definition:
         if errors and raise_on_error:
             raise DefinitionErrors(errors)
 
-        return cls(periodic_snapshot_tasks + replication_tasks, timezone, errors)
+        return cls(periodic_snapshot_tasks + replication_tasks, max_parallel_replication_tasks, timezone, errors)

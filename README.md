@@ -18,6 +18,10 @@ a list of tasks to perform.
 ### Common replication parameters
 
 ```yaml
+# Specifies the maximum number of simultaneously running replication tasks
+# Default is unlimited
+max-parallel-replication-tasks: null
+
 # Specifies timezone which is used for snapshot creation date and time
 # Defaults to system timezone
 timezone: "US/Pacific"
