@@ -121,15 +121,7 @@ class ReplicationTask:
                 raise ValueError(f"Periodic snapshot task {periodic_snapshot_task_id!r} does not exist")
 
         if data["recursive"]:
-            for source_dataset in data["source-dataset"]:
-                for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
-                    if is_child(source_dataset, periodic_snapshot_task.dataset):
-                        for exclude in periodic_snapshot_task.exclude:
-                            if exclude not in data["exclude"]:
-                                raise ValueError(
-                                    "Replication tasks should exclude everything their periodic snapshot tasks exclude "
-                                    f"(task does not exclude {exclude!r} from periodic snapshot task "
-                                    f"{periodic_snapshot_task.id!r})")
+            cls._validate_exclude(data, resolved_periodic_snapshot_tasks)
 
         if data["replicate"]:
             if not data["recursive"]:
@@ -217,6 +209,18 @@ class ReplicationTask:
                    data["compressed"],
                    data["retries"],
                    logging._nameToLevel[data["logging-level"].upper()])
+
+    @classmethod
+    def _validate_exclude(cls, data, resolved_periodic_snapshot_tasks):
+        for source_dataset in data["source-dataset"]:
+            for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
+                if is_child(source_dataset, periodic_snapshot_task.dataset):
+                    for exclude in periodic_snapshot_task.exclude:
+                        if is_child(exclude, source_dataset) and exclude not in data["exclude"]:
+                            raise ValueError(
+                                "Replication tasks should exclude everything their periodic snapshot tasks exclude "
+                                f"(task does not exclude {exclude!r} from periodic snapshot task "
+                                f"{periodic_snapshot_task.id!r})")
 
     @classmethod
     def _parse_schedules(cls, data):
