@@ -235,24 +235,16 @@ class ReplicationTask:
             restrict_schedule = None
 
         if data["direction"] == ReplicationDirection.PUSH:
-            if schedule:
-                if data["periodic-snapshot-tasks"]:
-                    raise ValueError("Push replication can't be bound to periodic snapshot task and have "
-                                     "schedule at the same time")
-            else:
-                if data["auto"] and not data["periodic-snapshot-tasks"]:
-                    raise ValueError("Push replication that runs automatically must be either bound to periodic "
-                                     "snapshot task or have schedule")
+            if schedule is None and data["auto"] and not data["periodic-snapshot-tasks"]:
+                raise ValueError("Push replication that runs automatically must be either bound to a periodic "
+                                 "snapshot task or have a schedule")
 
         if data["direction"] == ReplicationDirection.PULL:
-            if schedule:
-                pass
-            else:
-                if data["auto"]:
-                    raise ValueError("Pull replication that runs automatically must have schedule")
+            if schedule is None and data["auto"]:
+                raise ValueError("Pull replication that runs automatically must have a schedule")
 
             if data["periodic-snapshot-tasks"]:
-                raise ValueError("Pull replication can't be bound to periodic snapshot task")
+                raise ValueError("Pull replication can't be bound to a periodic snapshot task")
 
         if schedule:
             if not data["auto"]:

@@ -168,8 +168,11 @@ class Zettarepl:
     def _replication_tasks_for_periodic_snapshot_tasks(self, replication_tasks, periodic_snapshot_tasks):
         result = []
         for replication_task in replication_tasks:
-            if any(periodic_snapshot_task in replication_task.periodic_snapshot_tasks
-                   for periodic_snapshot_task in periodic_snapshot_tasks):
+            if (
+                replication_task.schedule is None and
+                any(periodic_snapshot_task in replication_task.periodic_snapshot_tasks
+                    for periodic_snapshot_task in periodic_snapshot_tasks)
+            ):
                 result.append(replication_task)
 
         return result
