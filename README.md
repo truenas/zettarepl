@@ -178,9 +178,10 @@ replication-tasks:
     # periodic snapshot task or on schedule
     auto: true
 
-    # Same crontab-like schedule that is required when you don't have
-    # any bound periodic snapshot task but do want replication task to
-    # run automatically on schedule
+    # Same crontab-like schedule used to run the replication task.
+    # Required when you don't have any bound periodic snapshot task but
+    # want replication task to run automatically on schedule. Otherwise,
+    # overrides bound periodic snapshot task schedule.
     schedule:
       minute: "0"
 
