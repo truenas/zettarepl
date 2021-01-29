@@ -21,7 +21,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_properties, get_property
+from zettarepl.transport.zfscli import get_all_properties_raw, get_properties, get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 from zettarepl.transport.zfscli.parse import zfs_bool
 
@@ -70,18 +70,21 @@ class ReplicationContext:
 class ReplicationStepTemplate:
     def __init__(self, replication_task: ReplicationTask,
                  src_context: ReplicationContext, dst_context: ReplicationContext,
-                 src_dataset: str, dst_dataset: str):
+                 src_dataset: str, dst_dataset: str,
+                 valid_properties: [str]):
         self.replication_task = replication_task
         self.src_context = src_context
         self.dst_context = dst_context
         self.src_dataset = src_dataset
         self.dst_dataset = dst_dataset
+        self.valid_properties = valid_properties
 
     def instantiate(self, **kwargs):
         return ReplicationStep(self,
                                self.replication_task,
                                self.src_context, self.dst_context,
                                self.src_dataset, self.dst_dataset,
+                               self.valid_properties,
                                **kwargs)
 
 
@@ -324,6 +327,23 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
 
         target_dataset = get_target_dataset(replication_task, source_dataset)
 
+        valid_properties = set()
+        referenced_properties = (
+            set(replication_task.properties_exclude) |
+            set(replication_task.properties_override.keys())
+        )
+        if referenced_properties:
+            for property, (value, source) in get_properties(
+                src_context.shell, source_dataset, {p: str for p in referenced_properties}, True
+            ).items():
+                if source == "-":
+                    # Invalid properties (like `mountpoint` for VOLUME) will be seen like this
+                    # Properties like `used` will be seen like this too, but they will never appear in
+                    # `referenced_properties` because no one excludes or overrides them.
+                    continue
+
+                valid_properties.add(property)
+
         try:
             datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
                                                      {"readonly": str, "receive_resume_token": str})
@@ -342,7 +362,8 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
             })
 
         templates.append(
-            ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset)
+            ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset,
+                                    valid_properties)
         )
 
     return templates
@@ -615,8 +636,8 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.dst_dataset,
         step.snapshot,
         step.replication_task.properties,
-        step.replication_task.properties_exclude,
-        step.replication_task.properties_override,
+        list(set(step.replication_task.properties_exclude) & step.valid_properties),
+        {k: v for k, v in step.replication_task.properties_override.items() if k in step.valid_properties},
         step.replication_task.replicate,
         step.encryption,
         step.incremental_base,

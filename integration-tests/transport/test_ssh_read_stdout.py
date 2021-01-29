@@ -7,7 +7,7 @@ from zettarepl.utils.test import set_localhost_transport_options
 
 @pytest.mark.parametrize("bufsize", [1, 9000])
 def test__ssh_read_stdout(bufsize):
-    data = dict(hostname="localhost", port=22, username="root")
+    data = dict(hostname="127.0.0.1", port=22, username="root")
     set_localhost_transport_options(data)
     transport = SshTransport.from_data(data)
     f1 = "0" * bufsize

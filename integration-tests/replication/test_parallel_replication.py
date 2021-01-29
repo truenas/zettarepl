@@ -58,7 +58,7 @@ def test_parallel_replication():
             direction: push
             transport:
               type: ssh
-              hostname: localhost
+              hostname: 127.0.0.1
             source-dataset: data/src/a
             target-dataset: data/dst/a
             recursive: true
@@ -71,7 +71,7 @@ def test_parallel_replication():
             direction: push
             transport:
               type: ssh
-              hostname: localhost
+              hostname: 127.0.0.1
             source-dataset: data/src/b
             target-dataset: data/dst/b
             recursive: true

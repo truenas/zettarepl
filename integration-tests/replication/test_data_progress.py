@@ -29,7 +29,7 @@ def test_replication_data_progress():
             direction: push
             transport:
               type: ssh
-              hostname: localhost
+              hostname: 127.0.0.1
             source-dataset:
             - data/src
             target-dataset: data/dst

@@ -80,19 +80,19 @@ def set_localhost_transport_options(transport):
         transport["private-key"] = f.read()
 
     transport["host-key"] = (
-        subprocess.check_output(["ssh-keyscan", "localhost"], encoding="utf8").split("\n")[-2].split(" ", 1)[1]
+        subprocess.check_output(["ssh-keyscan", "127.0.0.1"], encoding="utf8").split("\n")[-2].split(" ", 1)[1]
     )
 
 
 def transports(netcat=True):
     result = [
         {"type": "local"},
-        {"type": "ssh", "hostname": "localhost"},
+        {"type": "ssh", "hostname": "127.0.0.1"},
     ]
     if netcat:
         result += [
-            {"type": "ssh+netcat", "active-side": "local", "hostname": "localhost"},
-            {"type": "ssh+netcat", "active-side": "remote", "hostname": "localhost"},
+            {"type": "ssh+netcat", "active-side": "local", "hostname": "127.0.0.1"},
+            {"type": "ssh+netcat", "active-side": "remote", "hostname": "127.0.0.1"},
         ]
 
     for transport in result[1:]:
