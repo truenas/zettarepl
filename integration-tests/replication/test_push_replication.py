@@ -21,14 +21,11 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("replicate", [True, False])
 @pytest.mark.parametrize("properties", [True, False])
-@pytest.mark.parametrize("compression", [None, "pigz", "plzip", "lz4", "xz"])
 @pytest.mark.parametrize("encrypted", [True, False])
 @pytest.mark.parametrize("has_encrypted_child", [True, False])
 @pytest.mark.parametrize("dst_parent_encrypted", [True, False])
-def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replicate, properties, compression, encrypted,
+def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replicate, properties, encrypted,
                           has_encrypted_child, dst_parent_encrypted):
-    if transport["type"] != "ssh" and compression:
-        return
     if replicate and not properties:
         return
     if encrypted and has_encrypted_child:
@@ -78,8 +75,6 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["replicate"] = replicate
     definition["replication-tasks"]["src"]["properties"] = properties
-    if compression:
-        definition["replication-tasks"]["src"]["compression"] = compression
     definition = Definition.from_data(definition)
 
     local_shell = LocalShell()
