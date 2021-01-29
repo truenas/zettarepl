@@ -3,6 +3,7 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime
 import logging
 import os
+import signal
 import socket
 import time
 
@@ -21,7 +22,7 @@ from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas,
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.zfscli import get_all_properties_raw, get_properties, get_property
+from zettarepl.transport.zfscli import get_properties, get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 from zettarepl.transport.zfscli.parse import zfs_bool
 
@@ -170,6 +171,11 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                         # Let's reset remote shell just in case
                         remote_shell.close()
                         raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
+                except ExecException as e:
+                    if e.returncode == 128 + signal.SIGPIPE:
+                        raise RecoverableReplicationError(f"Broken pipe ({e.stdout})")
+                    else:
+                        raise 
                 except (IOError, OSError) as e:
                     raise RecoverableReplicationError(str(e)) from None
                 replication_tasks_parts_left[replication_task.id] -= 1
