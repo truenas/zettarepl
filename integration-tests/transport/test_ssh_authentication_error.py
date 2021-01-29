@@ -33,7 +33,7 @@ def test_replication_retry(caplog):
           src:
             transport:
               type: ssh
-              hostname: localhost
+              hostname: 127.0.0.1
             direction: push
             source-dataset: data/src
             target-dataset: data/dst

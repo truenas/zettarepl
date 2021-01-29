@@ -93,3 +93,39 @@ def test_properties_override(transport):
         ).split("\n")[0].split("\t")[2] ==
         "gzip-9"
     )
+
+
+@pytest.mark.parametrize("config", [
+    {"properties-exclude": ["mountpoint"]},
+    {"properties-override": {"canmount": "off"}},
+])
+def test_properties_exclude_override_does_not_break_volume(config):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create -V 1m data/src/vol", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2019-11-08_15-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            properties: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"].update(config)
+
+    run_replication_test(definition)
