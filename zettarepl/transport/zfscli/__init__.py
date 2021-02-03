@@ -6,7 +6,8 @@ from .parse import zfs_bool
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_properties", "get_property"]
+__all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_properties_recursive", "get_properties",
+           "get_property"]
 
 
 def zfs_send(source_dataset: str,
@@ -78,17 +79,28 @@ def get_receive_resume_token(shell, dataset):
     return get_property(shell, dataset, "receive_resume_token")
 
 
-def get_properties(shell, dataset, properties: {str: type}, include_source: bool = False):
+def get_properties_recursive(shell, datasets, properties: {str: type}, include_source: bool = False,
+                             recursive: bool = False):
     with ZfsCliExceptionHandler():
-        output = shell.exec(["zfs", "get", "-H", "-p", ",".join(properties.keys()), dataset])
+        cmd = ["zfs", "get", "-H", "-p", ",".join(properties.keys())]
+        if recursive:
+            cmd.append("-r")
+        cmd.extend(datasets)
+        output = shell.exec(cmd)
 
     result = {}
     for line in output.strip().split("\n"):
         name, property, value, source = line.split("\t", 3)
-        result[property] = parse_property(value, properties[property])
+        result.setdefault(name, {})
+        result[name][property] = parse_property(value, properties[property])
         if include_source:
-            result[property] = result[property], source
+            result[name][property] = result[property], source
+
     return result
+
+
+def get_properties(shell, dataset, properties: {str: type}, include_source: bool = False):
+    return get_properties_recursive(shell, [dataset], properties, include_source)[dataset]
 
 
 def get_property(shell, dataset, property, type=str, include_source: bool = False):
