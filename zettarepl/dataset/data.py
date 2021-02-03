@@ -4,7 +4,7 @@ import os
 
 from zettarepl.dataset.relationship import is_immediate_child
 from zettarepl.replication.error import ReplicationError
-from zettarepl.transport.interface import ExecException, Shell
+from zettarepl.transport.interface import Shell
 from zettarepl.transport.zfscli import get_properties
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 
