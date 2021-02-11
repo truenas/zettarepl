@@ -13,6 +13,9 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
 from zettarepl.replication.task.task import *
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
+from zettarepl.scheduler.clock import Clock
+from zettarepl.scheduler.tz_clock import TzClock
+from zettarepl.scheduler.scheduler import Scheduler
 from zettarepl.snapshot.create import *
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.empty import get_empty_snapshots_for_deletion
@@ -22,6 +25,7 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotOwner
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.compare import are_same_host
+from zettarepl.transport.local import LocalShell
 from zettarepl.utils.itertools import bisect_by_class, select_by_class, sortedgroupby
 from zettarepl.utils.logging import ReplicationTaskLoggingLevelFilter
 
@@ -32,6 +36,18 @@ __all__ = ["Zettarepl"]
 ScheduledPeriodicSnapshotTask = namedtuple("ScheduledPeriodicSnapshotTask", [
     "task", "snapshot_name", "parsed_snapshot_name",
 ])
+
+
+def create_zettarepl(definition, clock_args=None):
+    clock_args = clock_args or []
+
+    clock = Clock(*clock_args)
+    tz_clock = TzClock(definition.timezone, clock.now)
+
+    scheduler = Scheduler(clock, tz_clock)
+    local_shell = LocalShell()
+
+    return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks)
 
 
 def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
@@ -45,9 +61,10 @@ def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTas
 
 
 class Zettarepl:
-    def __init__(self, scheduler, local_shell):
+    def __init__(self, scheduler, local_shell, max_parallel_replication_tasks=None):
         self.scheduler = scheduler
         self.local_shell = local_shell
+        self.max_parallel_replication_tasks = max_parallel_replication_tasks
 
         self.observer = None
 
@@ -198,6 +215,11 @@ class Zettarepl:
     def _can_spawn_replication_task(self, replication_task: ReplicationTask):
         if self.retention_running:
             return False
+
+        if self.max_parallel_replication_tasks is not None:
+            if len(self.running_tasks) >= self.max_parallel_replication_tasks:
+                logger.debug("Already running %r replication tasks", self.running_tasks)
+                return False
 
         return all(self._replication_tasks_can_run_in_parallel(replication_task, t) for t in self.running_tasks)
 

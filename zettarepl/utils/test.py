@@ -35,7 +35,7 @@ def create_dataset(name, encrypted=False):
 
 def create_zettarepl(definition):
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl = Zettarepl(Mock(), local_shell, definition.max_parallel_replication_tasks)
     zettarepl._spawn_retention = Mock()
     observer = Mock(return_value=None)
     zettarepl.set_observer(observer)
