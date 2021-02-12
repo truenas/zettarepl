@@ -186,6 +186,7 @@ class Zettarepl:
         result = []
         for replication_task in replication_tasks:
             if (
+                replication_task.auto and
                 replication_task.schedule is None and
                 any(periodic_snapshot_task in replication_task.periodic_snapshot_tasks
                     for periodic_snapshot_task in periodic_snapshot_tasks)
