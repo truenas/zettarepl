@@ -94,7 +94,7 @@ def get_properties_recursive(shell, datasets, properties: {str: type}, include_s
         result.setdefault(name, {})
         result[name][property] = parse_property(value, properties[property])
         if include_source:
-            result[name][property] = result[property], source
+            result[name][property] = result[name][property], source
 
     return result
 
