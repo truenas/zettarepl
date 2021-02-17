@@ -219,7 +219,15 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def _parse_listen_exec(self, data):
         logger.debug("Read from listen side: %r", data)
-        return json.loads(data)
+        try:
+            return json.loads(data)
+        except ValueError:
+            if "python3: not found" in data:
+                error = ("Please install Python 3 to the remote system in order to use SSH+NETCAT transport "
+                         f"({data!r})")
+            else:
+                error = f"Unknown SSH+NETCAT transport error: {data!r}"
+            raise ReplicationError(error)
 
     def _wait_listen_exec(self):
         try:
