@@ -82,9 +82,10 @@ def get_receive_resume_token(shell, dataset):
 def get_properties_recursive(shell, datasets, properties: {str: type}, include_source: bool = False,
                              recursive: bool = False):
     with ZfsCliExceptionHandler():
-        cmd = ["zfs", "get", "-H", "-p", ",".join(properties.keys())]
+        cmd = ["zfs", "get", "-H", "-p"]
         if recursive:
             cmd.append("-r")
+        cmd.append(",".join(properties.keys()))
         cmd.extend(datasets)
         output = shell.exec(cmd)
 
