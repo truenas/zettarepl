@@ -173,7 +173,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                         raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
                 except ExecException as e:
                     if e.returncode == 128 + signal.SIGPIPE:
-                        raise RecoverableReplicationError(f"Broken pipe ({e.stdout})")
+                        raise RecoverableReplicationError(broken_pipe_error(e.stdout))
                     else:
                         raise 
                 except (IOError, OSError) as e:
@@ -718,3 +718,17 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
             dst_context.shell.exec(["zfs", "mount", properties["name"]])
         except ExecException:
             pass
+
+
+def broken_pipe_error(error):
+    if error:
+        if "\n" in error:
+            if not error.endswith("\n"):
+                error += "\n"
+        else:
+            if not error.endswith("."):
+                error += "."
+            error += " "
+    error += "Broken pipe."
+
+    return error
