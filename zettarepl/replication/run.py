@@ -527,6 +527,10 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
                         step_template.src_dataset)
+            if is_immediate_target_dataset and incremental_base is None:
+                raise ReplicationError(
+                    f"Dataset {step_template.src_dataset!r} does not have any matching snapshots to replicate"
+                )
             if not src_snapshots:
                 ignored_roots.add(step_template.src_dataset)
             continue
