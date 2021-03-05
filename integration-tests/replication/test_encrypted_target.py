@@ -164,3 +164,34 @@ def test_encrypted_target_but_unencrypted_target_exists():
     """))
     error = run_replication_test(definition, False)
     assert "but it already exists and is not encrypted" in error.error
+
+
+def test_encrypted_target_replication_from_scratch():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src", True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+
+    create_dataset("data/dst", True)
+    subprocess.check_call("zfs snapshot data/dst@2018-10-01_01-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            allow-from-scratch: true
+            retention-policy: none
+            retries: 1
+    """))
+    run_replication_test(definition)

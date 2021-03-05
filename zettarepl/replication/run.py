@@ -16,10 +16,8 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
                                 ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess,
                                 ReplicationTaskDataProgress, ReplicationTaskError)
-from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
-from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_properties, get_property
@@ -480,13 +478,22 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if dst_snapshots:
                 if step_template.replication_task.allow_from_scratch:
                     logger.warning(
-                        "No incremental base for replication task %r on dataset %r, destroying all destination "
-                        "snapshots", step_template.replication_task.id, step_template.src_dataset,
+                        "No incremental base for replication task %r on dataset %r, destroying destination dataset",
+                        step_template.replication_task.id, step_template.src_dataset,
                     )
-                    destroy_snapshots(
-                        step_template.dst_context.shell,
-                        [Snapshot(step_template.dst_dataset, name) for name in dst_snapshots]
-                    )
+                    step_template.dst_context.shell.exec(["zfs", "destroy", "-r", step_template.dst_dataset])
+                    for dictionary in (
+                        step_template.dst_context.datasets,
+                        step_template.dst_context.datasets_encrypted,
+                        step_template.dst_context.datasets_readonly,
+                        step_template.dst_context.datasets_receive_resume_tokens,
+                    ):
+                        if dictionary is None:
+                            continue
+
+                        for k in list(dictionary.keys()):
+                            if k == step_template.dst_dataset or k.startswith(f"{step_template.dst_dataset}/"):
+                                dictionary.pop(k)
                 else:
                     raise NoIncrementalBaseReplicationError(
                         f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
