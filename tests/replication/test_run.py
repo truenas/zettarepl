@@ -10,9 +10,9 @@ from zettarepl.replication.run import (
     run_replication_tasks,
     calculate_replication_step_templates,
     get_target_dataset,
-    resume_replications,
     get_snapshots_to_send,
     replicate_snapshots,
+    broken_pipe_error,
 )
 from zettarepl.replication.error import ReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -226,3 +226,15 @@ def test__replicate_snapshots():
 
         assert run_replication_step.call_count == 2
         # call arguments are checked by `step_template.instantiate` side effect
+
+
+@pytest.mark.parametrize("error,wrapped", [
+    ("No ECDSA host key is known.\nHost key verification failed.\n",
+     "No ECDSA host key is known.\nHost key verification failed.\nBroken pipe."),
+    ("No ECDSA host key is known.\nHost key verification failed.",
+     "No ECDSA host key is known.\nHost key verification failed.\nBroken pipe."),
+    ("Host key verification failed.", "Host key verification failed. Broken pipe."),
+    ("Host key verification failed", "Host key verification failed. Broken pipe."),
+])
+def test_broken_pipe_error(error, wrapped):
+    assert broken_pipe_error(error) == wrapped
