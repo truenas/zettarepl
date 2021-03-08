@@ -32,7 +32,7 @@ class AsyncExec:
     def run(self):
         raise NotImplementedError
 
-    def wait(self):
+    def wait(self, timeout=None):
         raise NotImplementedError
 
     def stop(self):
@@ -80,8 +80,8 @@ class Shell:
     def close(self):
         raise NotImplementedError
 
-    def exec(self, args, encoding="utf8", stdout=None):
-        return self.exec_async(args, encoding, stdout).wait()
+    def exec(self, args, encoding="utf8", stdout=None, timeout=None):
+        return self.exec_async(args, encoding, stdout).wait(timeout)
 
     def exec_async(self, args, encoding="utf8", stdout=None):
         async_exec = self.async_exec(self, args, encoding, stdout)

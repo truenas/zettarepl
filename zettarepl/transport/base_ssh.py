@@ -6,6 +6,7 @@ import shlex
 import socket
 import stat
 import threading
+import time
 
 import paramiko
 
@@ -30,10 +31,22 @@ class SshTransportAsyncExec(AsyncExec):
             "sh -c " + shlex.quote(" ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"), timeout=10)
         self._copy_stdout_from(self.stdout_fd)
 
-    def wait(self):
-        stdout = self._read_stdout()
+    def wait(self, timeout=None):
+        until = None
+        if timeout is not None:
+            assert timeout > 0
+            until = time.monotonic() + timeout
+
+        stdout = self._read_stdout(until)
 
         self.logger.debug("Waiting for exit status")
+
+        if until is not None:
+            now = time.monotonic()
+            if until < now or not self.stdout_fd.channel.status_event.wait(until - now):
+                self._stop()
+                raise TimeoutError()
+
         exitcode = self.stdout_fd.channel.recv_exit_status()
 
         if exitcode != 0:
@@ -43,7 +56,7 @@ class SshTransportAsyncExec(AsyncExec):
         self.logger.debug("Success: %r", stdout)
         return stdout
 
-    def _read_stdout(self):
+    def _read_stdout(self, until):
         if self.stdout is None:
             self.logger.debug("Reading stdout")
 
@@ -55,6 +68,11 @@ class SshTransportAsyncExec(AsyncExec):
                         break
                     stdout += read
                 except socket.timeout:
+                    if until is not None and until < time.monotonic():
+                        self.logger.debug("Timeout")
+                        self._stop()
+                        raise TimeoutError()
+
                     if self.stdout_fd.channel.exit_status_ready():
                         break
                     else:
@@ -67,6 +85,9 @@ class SshTransportAsyncExec(AsyncExec):
 
     def stop(self):
         self.logger.debug("Stopping")
+        self._stop()
+
+    def _stop(self):
         self.stdout_fd.close()
 
 
