@@ -6,6 +6,8 @@ import threading
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.encryption import ReplicationEncryption
+from zettarepl.transport.timeout import get_shell_timeout
+from zettarepl.utils.lang import undefined
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class AsyncExec:
     def run(self):
         raise NotImplementedError
 
-    def wait(self):
+    def wait(self, timeout=None):
         raise NotImplementedError
 
     def stop(self):
@@ -80,8 +82,10 @@ class Shell:
     def close(self):
         raise NotImplementedError
 
-    def exec(self, args, encoding="utf8", stdout=None):
-        return self.exec_async(args, encoding, stdout).wait()
+    def exec(self, args, encoding="utf8", stdout=None, timeout=undefined):
+        if timeout is undefined:
+            timeout = get_shell_timeout()
+        return self.exec_async(args, encoding, stdout).wait(timeout)
 
     def exec_async(self, args, encoding="utf8", stdout=None):
         async_exec = self.async_exec(self, args, encoding, stdout)

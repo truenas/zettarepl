@@ -42,12 +42,23 @@ class LocalAsyncExec(AsyncExec):
             atexit.register(self._atexit)
         self._copy_stdout_from(self.process.stdout)
 
-    def wait(self):
+    def wait(self, timeout=None):
         if self.stdout is None:
-            stdout, stderr = self.process.communicate()
+            try:
+                stdout, stderr = self.process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self.logger.debug("Timeout")
+                self.process.kill()
+                raise TimeoutError()
         else:
-            self.process.wait()
-            self.process.stdout.close()
+            try:
+                self.process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self.logger.debug("Timeout")
+                self.process.kill()
+                raise TimeoutError()
+            finally:
+                self.process.stdout.close()
             stdout = None
 
         if self.process.returncode != 0:
