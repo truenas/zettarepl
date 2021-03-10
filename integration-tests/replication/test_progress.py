@@ -78,7 +78,7 @@ def test_replication_progress(transport):
         ReplicationTaskSnapshotSuccess("src",   "data/src/src2", "2018-10-01_03-00", 6, 7),
         ReplicationTaskSnapshotStart("src",     "data/src/src2", "2018-10-01_04-00", 6, 7),
         ReplicationTaskSnapshotSuccess("src",   "data/src/src2", "2018-10-01_04-00", 7, 7),
-        ReplicationTaskSuccess("src"),
+        ReplicationTaskSuccess("src", []),
     ]
 
     if transport["type"] == "ssh":
@@ -164,7 +164,7 @@ def test_replication_progress_resume():
         ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_03-00", 2, 3),
         ReplicationTaskSnapshotStart("src",     "data/src", "2018-10-01_04-00", 2, 3),
         ReplicationTaskSnapshotSuccess("src",   "data/src", "2018-10-01_04-00", 3, 3),
-        ReplicationTaskSuccess("src"),
+        ReplicationTaskSuccess("src", []),
     ]
 
     for i, message in enumerate(result):
@@ -232,7 +232,7 @@ def test_replication_progress_pre_calculate():
         ReplicationTaskSnapshotSuccess("src",   "data/src/charlie", "2018-10-01_02-00", 4, 5),
         ReplicationTaskSnapshotStart("src",     "data/src/dave",    "2018-10-01_02-00", 4, 5),
         ReplicationTaskSnapshotSuccess("src",   "data/src/dave",    "2018-10-01_02-00", 5, 5),
-        ReplicationTaskSuccess("src"),
+        ReplicationTaskSuccess("src", []),
     ]
 
     for i, message in enumerate(result):

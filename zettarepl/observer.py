@@ -98,8 +98,9 @@ class ReplicationTaskDataProgress(ObserverMessage):
 
 
 class ReplicationTaskSuccess(ObserverMessage):
-    def __init__(self, task_id):
+    def __init__(self, task_id, warnings):
         self.task_id = task_id
+        self.warnings = warnings
 
 
 class ReplicationTaskError(ObserverMessage):

@@ -73,7 +73,10 @@ class AsyncExecTee(AsyncExec):
                 self.async_exec.stop()
                 raise event.exception
 
-    def wait(self):
+    def wait(self, timeout=None):
+        if timeout is not None:
+            raise NotImplementedError("AsyncExecTee.wait with timeout is not implemented yet")
+
         data_drained = False
         exit_event = None
 

@@ -84,7 +84,7 @@ def set_localhost_transport_options(transport):
     )
 
 
-def transports(netcat=True):
+def transports(netcat=True, unprivileged=False):
     result = [
         {"type": "local"},
         {"type": "ssh", "hostname": "127.0.0.1"},
@@ -97,6 +97,11 @@ def transports(netcat=True):
 
     for transport in result[1:]:
         set_localhost_transport_options(transport)
+
+    if unprivileged:
+        result = result[1:]
+        for transport in result:
+            transport["username"] = "user"
 
     return result
 
