@@ -16,6 +16,7 @@ from .progress_report_mixin import ProgressReportMixin
 from .utils import get_properties_override
 from .zfscli import *
 from .zfscli.exception import ZfsSendRecvExceptionHandler
+from .zfscli.warning import warnings_from_zfs_success
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,12 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
         success = False
         try:
             with ZfsSendRecvExceptionHandler(self):
-                self.async_exec.wait()
+                stdout = self.async_exec.wait()
+                logger.debug("Success: %r", stdout)
+
+                for warning in warnings_from_zfs_success(stdout):
+                    self.notify_warning_observer(warning)
+
                 success = True
         finally:
             self.private_key_file.close()

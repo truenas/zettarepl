@@ -23,6 +23,7 @@ from zettarepl.transport.local import LocalShell
 from zettarepl.transport.zfscli import get_properties, get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 from zettarepl.transport.zfscli.parse import zfs_bool
+from zettarepl.transport.zfscli.warning import warnings_from_zfs_success
 
 from .dataset_size_observer import DatasetSizeObserver
 from .error import *
@@ -45,6 +46,7 @@ class GlobalReplicationContext:
     def __init__(self):
         self.snapshots_sent_by_replication_step_template = defaultdict(lambda: 0)
         self.snapshots_total_by_replication_step_template = defaultdict(lambda: 0)
+        self.warnings = []
 
     @property
     def snapshots_sent(self):
@@ -53,6 +55,10 @@ class GlobalReplicationContext:
     @property
     def snapshots_total(self):
         return sum(self.snapshots_total_by_replication_step_template.values())
+
+    def add_warning(self, warning):
+        if warning not in self.warnings:
+            self.warnings.append(warning)
 
 
 class ReplicationContext:
@@ -171,6 +177,8 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                         raise RecoverableReplicationError(str(e).replace("[Errno None] ", "")) from None
                 except ExecException as e:
                     if e.returncode == 128 + signal.SIGPIPE:
+                        for warning in warnings_from_zfs_success(e.stdout):
+                            contexts[replication_task].add_warning(warning)
                         raise RecoverableReplicationError(broken_pipe_error(e.stdout))
                     else:
                         raise 
@@ -675,6 +683,7 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
                 bytes_sent, bytes_total,
             ))
     )
+    process.add_warning_observer(step.template.src_context.context.add_warning)
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
     ReplicationProcessRunner(process, monitor).run()
 

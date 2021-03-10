@@ -158,6 +158,7 @@ class ReplicationProcess:
         self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
 
         self.progress_observers = []
+        self.warning_observers = []
 
     def add_progress_observer(self, progress_observer):
         self.progress_observers.append(progress_observer)
@@ -168,6 +169,19 @@ class ReplicationProcess:
                 progress_observer(bytes_sent, bytes_total)
             except Exception:
                 self.logger.warning("Error notifying replication progress observer %r", progress_observer,
+                                    exc_info=True)
+
+    def add_warning_observer(self, warning_observer):
+        self.warning_observers.append(warning_observer)
+
+    def notify_warning_observer(self, warning):
+        self.logger.info("Warning: %r", warning)
+
+        for warning_observer in self.warning_observers:
+            try:
+                warning_observer(warning)
+            except Exception:
+                self.logger.warning("Error notifying replication warning observer %r", warning_observer,
                                     exc_info=True)
 
     def run(self):
