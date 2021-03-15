@@ -69,6 +69,7 @@ def run_replication_test(definition, success=True):
     if success:
         success = zettarepl.observer.call_args_list[-1][0][0]
         assert isinstance(success, ReplicationTaskSuccess), success
+        return success
     else:
         error = zettarepl.observer.call_args_list[-1][0][0]
         assert isinstance(error, ReplicationTaskError), error
