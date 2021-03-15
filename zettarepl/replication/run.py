@@ -186,7 +186,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                     raise RecoverableReplicationError(str(e)) from None
                 replication_tasks_parts_left[replication_task.id] -= 1
                 if replication_tasks_parts_left[replication_task.id] == 0:
-                    notify(observer, ReplicationTaskSuccess(replication_task.id))
+                    notify(observer, ReplicationTaskSuccess(replication_task.id, contexts[replication_task].warnings))
                 break
             except RecoverableReplicationError as e:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,

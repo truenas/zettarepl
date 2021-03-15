@@ -46,8 +46,10 @@ def test_property_receive(transport):
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
 
-    assert "cannot receive truenas:customproperty property" in run_replication_test(definition, success=False).error
+    warning = "cannot receive truenas:customproperty property on data/dst/dst: permission denied"
+
+    assert warning in run_replication_test(definition).warnings
 
     subprocess.check_call("zfs snapshot -r data/src@2021-03-10_12-02", shell=True)
 
-    assert "cannot receive truenas:customproperty property" in run_replication_test(definition, success=False).error
+    assert warning in run_replication_test(definition).warnings
