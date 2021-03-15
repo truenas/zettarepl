@@ -138,3 +138,60 @@ def test_replication_resume__recursive_mount(canmount):
         assert mounted == "yes\n"
     else:
         assert mounted == "no\n"
+
+
+@pytest.mark.parametrize("kill_timeout", [1, 15])
+def test_replication_resume__replicate(caplog, kill_timeout):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    create_dataset("data/src/child")
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/child/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+
+    subprocess.check_call("(zfs send -R data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
+                          f"sleep {kill_timeout}; killall zfs", shell=True)
+    assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
+                                                                 shell=True, encoding="utf-8")
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          src:
+            dataset: data/src
+            recursive: true
+            lifetime: PT1H
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "0"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            replicate: true
+            periodic-snapshot-tasks:
+              - src
+            auto: true
+            retention-policy: none
+    """))
+
+    caplog.set_level(logging.INFO)
+    run_replication_test(definition)
+
+    assert any(
+        "Discarding receive_resume_token" in record.message
+        for record in caplog.get_records("call")
+    )
+
+    local_shell = LocalShell()
+    assert len(list_snapshots(local_shell, "data/dst", False)) == 1
+    assert len(list_snapshots(local_shell, "data/dst/child", False)) == 1
