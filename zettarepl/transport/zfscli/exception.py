@@ -124,7 +124,7 @@ class ZfsSendRecvExceptionHandler:
                           exc_val.stdout)
             if m:
                 match = m.group(0)
-                snapshot = m.group("snapshot")
+                snapshot = m.group("snapshot").strip("'")
                 incremental_base = self.replication_process.incremental_base
 
             if match is not None:
