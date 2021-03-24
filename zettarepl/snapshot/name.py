@@ -23,11 +23,28 @@ def get_snapshot_name(now: datetime, naming_schema: str) -> str:
 
 
 def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
-    strptime_name = name
-    if naming_schema_has_utcoffset(naming_schema):
-        strptime_name = strptime_name.replace(":", "+")
+    if "%s" in naming_schema:
+        try:
+            if not (m := re.match(naming_schema.replace("%s", "(?P<s>[0-9]+)") + "$", name)):
+                raise ValueError(f"time data {name!r} does not match format {naming_schema!r}")
+        except re.error as e:
+            raise ValueError(f"Invalid naming schema: {e.msg}")
 
-    d = datetime.strptime(strptime_name, naming_schema)
+        d = datetime.fromtimestamp(int(m.group("s")))
+    else:
+        strptime_name = name
+        if naming_schema_has_utcoffset(naming_schema):
+            strptime_name = strptime_name.replace(":", "+")
+
+        try:
+            d = datetime.strptime(strptime_name, naming_schema)
+        except ValueError:
+            raise
+        except re.error as e:
+            raise ValueError(f"Invalid naming schema: {e.msg}")
+        except Exception as e:
+            raise ValueError(f"Invalid naming schema: {e!r}")
+
     return ParsedSnapshotName(naming_schema, name, d, d.replace(tzinfo=None), d.tzinfo)
 
 
@@ -77,9 +94,19 @@ def naming_schema_has_utcoffset(schema: str):
 
 
 def validate_snapshot_naming_schema(schema: str):
-    for s in ("%Y", "%m", "%d", "%H", "%M"):
-        if not re.search(f"(^|[^%]){s}", schema):
-            raise ValueError(f"{s} must be present in snapshot naming schema")
+    if "%%" in schema:
+        raise ValueError("% is not an allowed character in ZFS snapshot name")
+
+    if m := re.search("[^0-9A-Za-z %_.:-]", schema):
+        raise ValueError(f"{m.group(0)} is not an allowed character in ZFS snapshot name")
+
+    if "%s" in schema:
+        if re.search("%[^s]", schema):
+            raise ValueError("No other placeholder can be used with %s in naming schema")
+    else:
+        for s in ("%Y", "%m", "%d", "%H", "%M"):
+            if s not in schema:
+                raise ValueError(f"{s} must be present in snapshot naming schema")
 
     has_utcoffset = naming_schema_has_utcoffset(schema)
     if has_utcoffset and ":" in schema:

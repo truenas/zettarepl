@@ -60,3 +60,23 @@ def test__parse_snapshots_names_with_multiple_schemas__multiple_schemas__ambiguo
 
     assert e.value.args[0] == ("Snapshot name snap-2018-09-06-11-30 was parsed ambiguously: as 2018-09-06 11:30:00, "
                                "and, with naming schema snap-%Y-%d-%m-%H-%M, as 2018-06-09 11:30:00")
+
+
+def test__parse_snapshots_name__with_timestamp():
+    assert set(
+        parse_snapshots_names_with_multiple_schemas(
+            [
+                "snap-2018-09-06-11-30",
+                "snap-1536226260",
+            ],
+            [
+                "snap-%Y-%m-%d-%H-%M",
+                "snap-%s",
+            ]
+        )
+    ) == {
+        ParsedSnapshotName("snap-%Y-%m-%d-%H-%M", "snap-2018-09-06-11-30", datetime(2018, 9, 6, 11, 30),
+                           datetime(2018, 9, 6, 11, 30), None),
+        ParsedSnapshotName("snap-%s", "snap-1536226260", datetime(2018, 9, 6, 11, 31),
+                           datetime(2018, 9, 6, 11, 31), None),
+    }
