@@ -52,9 +52,13 @@ def test__replication_tasks_for_periodic_snapshot_tasks():
     pst3 = Mock()
 
     rt1 = Mock(spec=ReplicationTask)
+    rt1.auto = True
+    rt1.schedule = None
     rt1.periodic_snapshot_tasks = [pst1, pst2]
 
     rt2 = Mock(spec=ReplicationTask)
+    rt2.auto = True
+    rt2.schedule = None
     rt2.periodic_snapshot_tasks = []
 
     assert zettarepl._replication_tasks_for_periodic_snapshot_tasks([rt1, rt2], [pst1, pst3]) == [rt1]

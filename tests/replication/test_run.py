@@ -118,7 +118,9 @@ def test__run_replication_tasks__only_notify_success_after_last_part():
              target_dataset="data/dst",
              recursive=True,
              replicate=False,
-             exclude=["data/src/trash"]),
+             exclude=["data/src/trash"],
+             properties_exclude=[],
+             properties_override={}),
         {"data/src": [], "data/src/work": [], "data/src/work/archive": []},
         [
             ("data/src", "data/dst"),
@@ -139,7 +141,7 @@ def test__calculate_replication_step_templates(replication_task, src_datasets, r
                                                          Mock(datasets=src_datasets), Mock())
 
                     assert ReplicationStepTemplate.mock_calls == [
-                        call(replication_task, ANY, ANY, *replication_step_template)
+                        call(replication_task, ANY, ANY, *replication_step_template, set())
                         for replication_step_template in replication_step_templates
                     ]
 
