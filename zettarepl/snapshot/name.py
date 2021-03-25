@@ -97,8 +97,11 @@ def validate_snapshot_naming_schema(schema: str):
     if "%%" in schema:
         raise ValueError("% is not an allowed character in ZFS snapshot name")
 
-    if m := re.search("[^0-9A-Za-z %_.:-]", schema):
-        raise ValueError(f"{m.group(0)} is not an allowed character in ZFS snapshot name")
+    if m := re.findall("[^0-9A-Za-z %_.:-]", schema):
+        if len(m) == 1:
+            raise ValueError(f"{m[0]} is not an allowed character in ZFS snapshot name")
+        else:
+            raise ValueError(f"{''.join(m)} are not allowed characters in ZFS snapshot name")
 
     if "%s" in schema:
         if re.search("%[^s]", schema):
