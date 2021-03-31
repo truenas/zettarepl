@@ -109,9 +109,13 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             if self.encryption:
                 self.encryption_context = EncryptionContext(self, self._get_recv_shell())
 
+            properties_exclude = self.properties_exclude
             properties_override = get_properties_override(self, self.encryption_context)
+            if not self._zfs_recv_can_exclude_properties():
+                properties_exclude = []
+                properties_override = {}
 
-            recv = zfs_recv(self.target_dataset, self.properties_exclude, properties_override)
+            recv = zfs_recv(self.target_dataset, properties_exclude, properties_override)
 
             send = self._wrap_send(send)
 
@@ -178,6 +182,16 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             return self.local_shell
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+    def _zfs_recv_can_exclude_properties(self):
+        if self.direction == ReplicationDirection.PUSH:
+            try:
+                self.remote_shell.exec(["zfs", "recv", "-x"])
+            except ExecException as e:
+                if "invalid option" in e.stdout:
+                    return False
+
+        return True
 
 
 class SshTransport(BaseSshTransport):
