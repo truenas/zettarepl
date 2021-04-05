@@ -29,15 +29,15 @@ def test_target_without_snapshots_but_with_data(zvol, mounted, snapdir):
 
     if zvol:
         subprocess.check_call("zfs create -V 20m data/dst", shell=True)
-        subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/data/dst bs=15m count=1", shell=True)
+        subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/data/dst bs=15M count=1", shell=True)
     else:
         subprocess.check_call("zfs create data/dst", shell=True)
         if snapdir:
             subprocess.check_call("zfs set snapdir=visible data/dst", shell=True)
         if mounted:
-            bs = "1k"
+            bs = "1K"
         else:
-            bs = "15m"
+            bs = "15M"
         subprocess.check_call(f"dd if=/dev/urandom of=/mnt/data/dst/test bs={bs} count=1", shell=True)
         if not mounted:
             subprocess.check_call("zfs umount data/dst", shell=True)
