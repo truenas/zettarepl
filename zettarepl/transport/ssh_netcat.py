@@ -94,6 +94,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
             if self.incremental_base:
                 send_args.extend(["--incremental-base", self.incremental_base])
+
+            if self.include_intermediate:
+                send_args.extend(["--include-intermediate"])
         else:
             assert self.snapshot is None
             assert self.incremental_base is None

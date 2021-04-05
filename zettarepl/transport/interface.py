@@ -124,6 +124,7 @@ class ReplicationProcess:
                  replicate: bool,
                  encryption: ReplicationEncryption,
                  incremental_base: str,
+                 include_intermediate: bool,
                  receive_resume_token: str,
                  compression: ReplicationCompression,
                  speed_limit: int,
@@ -146,6 +147,7 @@ class ReplicationProcess:
         self.replicate = replicate
         self.encryption = encryption
         self.incremental_base = incremental_base
+        self.include_intermediate = include_intermediate
         self.receive_resume_token = receive_resume_token
         self.compression = compression
         self.speed_limit = speed_limit

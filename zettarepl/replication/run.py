@@ -92,14 +92,15 @@ class ReplicationStepTemplate:
 
 
 class ReplicationStep(ReplicationStepTemplate):
-    def __init__(self, template, *args, snapshot=None, incremental_base=None, receive_resume_token=None,
-                 encryption: ReplicationEncryption=None):
+    def __init__(self, template, *args, snapshot=None, incremental_base=None, include_intermediate=None,
+                 receive_resume_token=None, encryption: ReplicationEncryption=None):
         self.template = template
 
         super().__init__(*args)
 
         self.snapshot = snapshot
         self.incremental_base = incremental_base
+        self.include_intermediate = include_intermediate
         self.receive_resume_token = receive_resume_token
         self.encryption = encryption
         if self.receive_resume_token is None:
@@ -427,8 +428,10 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                 src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
                 dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
 
-                incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots,
-                                                                    step_template.replication_task)
+                incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+                    src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
+                    step_template.src_dataset,
+                )
                 if snapshots:
                     resumed_snapshot = snapshots[0]
                     context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
@@ -487,9 +490,11 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
 
-        incremental_base, snapshots = get_snapshots_to_send(src_snapshots, dst_snapshots,
-                                                            step_template.replication_task)
-        if incremental_base is None:
+        incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+            src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
+            step_template.src_dataset,
+        )
+        if incremental_base is None and snapshots:
             if dst_snapshots:
                 if step_template.replication_task.allow_from_scratch:
                     logger.warning(
@@ -561,16 +566,18 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             encryption = step_template.replication_task.encryption
 
         step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
-        plan.append((step_template, incremental_base, snapshots, encryption))
+        plan.append((step_template, incremental_base, snapshots, include_intermediate, encryption))
 
-    for step_template, incremental_base, snapshots, encryption in plan:
-        replicate_snapshots(step_template, incremental_base, snapshots, encryption, observer)
+    for step_template, incremental_base, snapshots, include_intermediate, encryption in plan:
+        replicate_snapshots(step_template, incremental_base, snapshots, include_intermediate, encryption, observer)
         handle_readonly(step_template)
 
 
-def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, encryption, observer):
+def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, include_intermediate,
+                        encryption, observer):
     for snapshot in snapshots:
-        step = step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot, encryption=encryption)
+        step = step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot,
+                                         include_intermediate=include_intermediate, encryption=encryption)
         run_replication_step(step, observer)
         incremental_base = snapshot
         encryption = None
@@ -578,10 +585,11 @@ def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base
 
 def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot=None):
     logger.info(
-        "For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r receive_resume_token=%r "
-        "encryption=%r",
+        "For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r include_intermediate=%r "
+        "receive_resume_token=%r encryption=%r",
         step.replication_task.id, step.replication_task.direction.value, step.src_dataset, step.dst_dataset,
-        step.snapshot, step.incremental_base, step.receive_resume_token, step.encryption is not None,
+        step.snapshot, step.incremental_base, step.include_intermediate, step.receive_resume_token,
+        step.encryption is not None,
     )
 
     observer_snapshot = observer_snapshot or step.snapshot
@@ -629,6 +637,7 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.replication_task.replicate,
         step.encryption,
         step.incremental_base,
+        step.include_intermediate,
         step.receive_resume_token,
         step.replication_task.compression,
         step.replication_task.speed_limit,
