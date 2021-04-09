@@ -164,10 +164,16 @@ class ZfsSendRecvExceptionHandler:
             isinstance(exc_val, ExecException) and
             "zfs receive -F cannot be used to destroy an encrypted filesystem" in exc_val.stdout.strip()
         ):
-            raise ReplicationError(
-                f"Unable to send encrypted dataset {self.replication_process.source_dataset!r} to existing "
-                f"unencrypted or unrelated dataset {self.replication_process.target_dataset!r}"
-            ) from None
+            if self.replication_process.raw:
+                raise ReplicationError(
+                    f"Unable to send encrypted dataset {self.replication_process.source_dataset!r} to existing "
+                    f"unencrypted or unrelated dataset {self.replication_process.target_dataset!r}"
+                ) from None
+            else:
+                raise ReplicationError(
+                    f"Unable to send dataset {self.replication_process.source_dataset!r} to existing unrelated "
+                    f"encrypted dataset {self.replication_process.target_dataset!r}"
+                ) from None
 
         if (
             isinstance(exc_val, ExecException) and
