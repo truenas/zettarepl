@@ -127,3 +127,40 @@ def test_readonly_dst_does_not_exist(readonly):
         assert subprocess.check_output(
             "zfs get -H -o value,source readonly data/dst/child/sub1", shell=True, encoding="utf-8"
         ) == "on\tinherited from data/dst/child\n"
+
+
+def test_readonly_require_zvol():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create -V 1M data/src", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+
+    subprocess.check_call("zfs create -V 1M data/dst", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            readonly: require
+            retention-policy: none
+            retries: 1
+    """))
+    error = run_replication_test(definition, success=False)
+
+    assert error.error == (
+        "Target dataset 'data/dst' exists and does not have readonly=on property, but replication task is set up to "
+        "require this property. Refusing to replicate. Please run \"zfs set readonly=on data/dst\" on the target "
+        "system to fix this."
+    )
