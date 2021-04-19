@@ -29,6 +29,7 @@ from .dataset_size_observer import DatasetSizeObserver
 from .error import *
 from .monitor import ReplicationMonitor
 from .process_runner import ReplicationProcessRunner
+from .stuck import retry_stuck_replication
 from .task.dataset import get_target_dataset
 from .task.direction import ReplicationDirection
 from .task.encryption import ReplicationEncryption
@@ -159,7 +160,11 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
 
             try:
                 try:
-                    run_replication_task_part(replication_task, source_dataset, src_context, dst_context, observer)
+                    retry_stuck_replication(
+                        lambda: run_replication_task_part(replication_task, source_dataset, src_context, dst_context,
+                                                          observer),
+                        recoverable_error,
+                    )
                 except socket.timeout:
                     raise RecoverableReplicationError("Network connection timeout") from None
                 except paramiko.ssh_exception.NoValidConnectionsError as e:
