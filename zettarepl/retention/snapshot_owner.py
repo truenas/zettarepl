@@ -15,7 +15,7 @@ class SnapshotOwner:
     def owns_dataset(self, dataset: str):
         raise NotImplementedError
 
-    def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
+    def owns_snapshot(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         raise NotImplementedError
 
     def wants_to_delete(self):

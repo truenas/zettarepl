@@ -36,6 +36,9 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
 
     newest_snapshot_for_naming_schema = {}
     for parsed_snapshot_name in parsed_snapshot_names:
+        if parsed_snapshot_name.naming_schema is None:
+            continue
+
         if (
                 parsed_snapshot_name.naming_schema not in newest_snapshot_for_naming_schema or
                 (
@@ -56,8 +59,9 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
             owner
             for owner in owners
             if (
-                parsed_snapshot_name.naming_schema in owner.get_naming_schemas() and
-                owner.owns_snapshot(parsed_snapshot_name)
+                # Owners owning `None` naming schema may own all snapshots
+                {parsed_snapshot_name.naming_schema, None} & set(owner.get_naming_schemas()) and
+                owner.owns_snapshot(dataset, parsed_snapshot_name)
             )
         ]
         if (
@@ -70,6 +74,10 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
             result.append(parsed_snapshot_name.name)
 
     for naming_schema, snapshots_left in snapshots_left_for_naming_schema.items():
+        if naming_schema is None:
+            # We do not want this behavior for snapshots with unknown naming schema
+            continue
+
         if not snapshots_left:
             newest_snapshot = newest_snapshot_for_naming_schema[naming_schema]
             logger.info("Not destroying %r as it is the only snapshot left for naming schema %r",

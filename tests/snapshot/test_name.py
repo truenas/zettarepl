@@ -80,3 +80,31 @@ def test__parse_snapshots_name__with_timestamp():
         ParsedSnapshotName("snap-%s", "snap-1536226260", datetime(2018, 9, 6, 11, 31),
                            datetime(2018, 9, 6, 11, 31), None),
     }
+
+
+@pytest.mark.parametrize("has_none", [True, False])
+def test__parse_snapshots_names_with_multiple_schemas__none(has_none):
+    naming_schemas = [
+        "snap-%Y-%m-%d-%H_%M",
+        "snap-%Y-%m-%d-%H-%M",
+    ]
+    result = {
+        ParsedSnapshotName("snap-%Y-%m-%d-%H-%M", "snap-2018-09-06-11-30", datetime(2018, 9, 6, 11, 30),
+                           datetime(2018, 9, 6, 11, 30), None),
+        ParsedSnapshotName("snap-%Y-%m-%d-%H_%M", "snap-2018-09-06-11_31", datetime(2018, 9, 6, 11, 31),
+                           datetime(2018, 9, 6, 11, 31), None),
+    }
+    if has_none:
+        naming_schemas.append(None)
+        result.add(ParsedSnapshotName(None, "snap-1", None, None, None))
+
+    assert set(
+        parse_snapshots_names_with_multiple_schemas(
+            [
+                "snap-2018-09-06-11-30",
+                "snap-2018-09-06-11_31",
+                "snap-1"
+            ],
+            naming_schemas
+        )
+    ) == result

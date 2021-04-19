@@ -13,6 +13,7 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
 from zettarepl.replication.task.task import *
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
+from zettarepl.retention.snapshot_removal_date_snapshot_owner import SnapshotRemovalDateSnapshotOwner
 from zettarepl.scheduler.clock import Clock
 from zettarepl.scheduler.tz_clock import TzClock
 from zettarepl.scheduler.scheduler import Scheduler
@@ -27,6 +28,7 @@ from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.compare import are_same_host
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.timeout import ShellTimeoutContext
+from zettarepl.truenas.removal_dates import get_removal_dates
 from zettarepl.utils.itertools import bisect_by_class, select_by_class, sortedgroupby
 from zettarepl.utils.logging import ReplicationTaskLoggingLevelFilter
 
@@ -48,7 +50,7 @@ def create_zettarepl(definition, clock_args=None):
     scheduler = Scheduler(clock, tz_clock)
     local_shell = LocalShell()
 
-    return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks)
+    return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks, definition.use_removal_dates)
 
 
 def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
@@ -62,10 +64,11 @@ def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTas
 
 
 class Zettarepl:
-    def __init__(self, scheduler, local_shell, max_parallel_replication_tasks=None):
+    def __init__(self, scheduler, local_shell, max_parallel_replication_tasks=None, use_removal_dates=False):
         self.scheduler = scheduler
         self.local_shell = local_shell
         self.max_parallel_replication_tasks = max_parallel_replication_tasks
+        self.use_removal_dates = use_removal_dates
 
         self.observer = None
 
@@ -333,6 +336,21 @@ class Zettarepl:
                                                 if replication_task.hold_pending_snapshots]
         pull_replications_tasks = list(filter(self._is_pull_replication_task, replication_tasks))
 
+        snapshot_removal_date_owner = None
+        if self.use_removal_dates:
+            try:
+                removal_dates = get_removal_dates()
+            except Exception:
+                logger.warning("Skipping local retention: unhandled exception getting snapshot removal dates",
+                               exc_info=True)
+                return
+            else:
+                if removal_dates is None:
+                    logger.warning("Skipping local retention: snapshot removal dates are not loaded yet")
+                    return
+
+                snapshot_removal_date_owner = SnapshotRemovalDateSnapshotOwner(now, removal_dates)
+
         local_snapshots_queries = []
         local_snapshots_queries.extend([
             (periodic_snapshot_task.dataset, periodic_snapshot_task.recursive)
@@ -343,6 +361,8 @@ class Zettarepl:
             (replication_task.target_dataset, replication_task.recursive)
             for replication_task in pull_replications_tasks
         ])
+        if snapshot_removal_date_owner:
+            local_snapshots_queries.extend([(dataset, False) for dataset in snapshot_removal_date_owner.datasets])
         local_snapshots = multilist_snapshots(self.local_shell, local_snapshots_queries)
         local_snapshots_grouped = group_snapshots_by_datasets(local_snapshots)
 
@@ -357,6 +377,9 @@ class Zettarepl:
             shell = self._get_retention_shell(transport)
             owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
                                                                         replication_tasks))
+
+        if snapshot_removal_date_owner:
+            owners.append(snapshot_removal_date_owner)
 
         for transport, replication_tasks in self._transport_for_replication_tasks(pull_replications_tasks):
             shell = self._get_retention_shell(transport)

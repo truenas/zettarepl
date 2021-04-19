@@ -48,10 +48,11 @@ class ReplicationTaskDefinitionError(DefinitionError):
 
 
 class Definition:
-    def __init__(self, tasks, max_parallel_replication_tasks, timezone, errors):
+    def __init__(self, tasks, max_parallel_replication_tasks, timezone, use_removal_dates, errors):
         self.tasks = tasks
         self.max_parallel_replication_tasks = max_parallel_replication_tasks
         self.timezone = timezone
+        self.use_removal_dates = use_removal_dates
 
         self.errors = errors
 
@@ -103,4 +104,5 @@ class Definition:
         if errors and raise_on_error:
             raise DefinitionErrors(errors)
 
-        return cls(periodic_snapshot_tasks + replication_tasks, max_parallel_replication_tasks, timezone, errors)
+        return cls(periodic_snapshot_tasks + replication_tasks, max_parallel_replication_tasks, timezone,
+                   data.get("use-removal-dates", False), errors)
