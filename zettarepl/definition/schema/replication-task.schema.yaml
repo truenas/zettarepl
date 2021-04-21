@@ -104,6 +104,20 @@ properties:
     - none
   lifetime:
     type: string
+  lifetimes:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      ^.+$:
+        type: object
+        required:
+        - schedule
+        - lifetime
+        additionalProperties: false
+        schedule:
+          $ref: http://freenas.org/zettarepl/schedule.schema.json
+        lifetime:
+          type: string
   compression:
     type: string
     enum:
