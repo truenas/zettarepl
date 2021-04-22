@@ -186,8 +186,8 @@ class BaseSshTransport(Transport):
 
         self.logger = logger.getChild(f"{self.username}@{self.hostname}")
 
-    def __hash__(self):
-        return hash((self.hostname, self.port, self.username, self.private_key, self.host_key))
+    def _descriptor(self):
+        return self.hostname, self.port, self.username, self.private_key, self.host_key
 
     def __repr__(self):
         return f"<SSH Transport({self.username}@{self.hostname})>"
