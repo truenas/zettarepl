@@ -271,7 +271,7 @@ class SshNetcatTransport(BaseSshTransport):
 
         return SshNetcatTransport(**data)
 
-    def __hash__(self):
-        return hash((super().__hash__(), self.active_side, self.active_side_min_port, self.active_side_max_port))
+    def _descriptor(self):
+        return super()._descriptor(), self.active_side, self.active_side_min_port, self.active_side_max_port
 
     replication_process = SshNetcatReplicationProcess

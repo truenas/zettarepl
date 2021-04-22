@@ -183,7 +183,7 @@ class LocalTransport(Transport):
     def from_data(cls, data):
         return LocalTransport()
 
-    def __hash__(self):
+    def _descriptor(self):
         return 1
 
     def __repr__(self):
