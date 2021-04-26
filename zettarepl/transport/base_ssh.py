@@ -102,10 +102,12 @@ class SshTransportShell(Shell):
 
     def close(self):
         if self._client is not None:
-            self._client.close()
+            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.close_shell",
+                             target=self._client.close).start()
             self._client = None
         if self._sftp is not None:
-            self._sftp.close()
+            threading.Thread(daemon=True, name=f"{threading.current_thread().name}.close_sftp",
+                             target=self._sftp.close).start()
             self._sftp = None
 
     def get_client(self):
