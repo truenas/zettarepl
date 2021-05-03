@@ -10,6 +10,8 @@ properties:
       - type: "null"
   timezone:
     type: string
+  use-removal-dates:
+    type: boolean
   periodic-snapshot-tasks:
     type: object
     additionalProperties: false

@@ -26,7 +26,7 @@ class PeriodicSnapshotTaskSnapshotOwner(SnapshotOwner):
         return belongs_to_tree(dataset, self.periodic_snapshot_task.dataset, self.periodic_snapshot_task.recursive,
                                self.periodic_snapshot_task.exclude)
 
-    def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
+    def owns_snapshot(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         return self.periodic_snapshot_task.schedule.should_run(parsed_snapshot_name.datetime)
 
     def wants_to_delete(self):

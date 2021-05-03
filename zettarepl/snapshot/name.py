@@ -60,6 +60,10 @@ def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSn
 
 
 def parse_snapshots_names_with_multiple_schemas(names: Iterable[str], naming_schemas: [str]) -> [ParsedSnapshotName]:
+    naming_schemas = list(naming_schemas)
+    if has_none_naming_schema := None in naming_schemas:
+        naming_schemas.remove(None)
+
     parsed_snapshots = {}
     for naming_schema in naming_schemas:
         for parsed_snapshot in parse_snapshots_names(names, naming_schema):
@@ -72,7 +76,13 @@ def parse_snapshots_names_with_multiple_schemas(names: Iterable[str], naming_sch
                                      f"as {existing_parsed_snapshot.datetime}, and, "
                                      f"with naming schema {naming_schema}, as {parsed_snapshot.datetime}")
 
-    return list(parsed_snapshots.values())
+    unparsed_snapshots = []
+    if has_none_naming_schema:
+        for name in names:
+            if name not in parsed_snapshots:
+                unparsed_snapshots.append(ParsedSnapshotName(None, name, None, None, None))
+
+    return list(parsed_snapshots.values()) + unparsed_snapshots
 
 
 def parsed_snapshot_sort_key(parsed_snapshot: ParsedSnapshotName):

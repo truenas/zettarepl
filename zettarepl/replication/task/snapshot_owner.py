@@ -43,7 +43,7 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
 
         raise ValueError(self.side)
 
-    def owns_snapshot(self, parsed_snapshot_name: ParsedSnapshotName):
+    def owns_snapshot(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         return replication_task_should_replicate_parsed_snapshot(self.replication_task, parsed_snapshot_name)
 
     def __repr__(self):
