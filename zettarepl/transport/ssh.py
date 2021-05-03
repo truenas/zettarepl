@@ -219,7 +219,7 @@ class SshTransport(BaseSshTransport):
 
         return SshTransport(**data)
 
-    def __hash__(self):
-        return hash((super().__hash__(), self.cipher))
+    def _descriptor(self):
+        return super()._descriptor(), self.cipher
 
     replication_process = SshReplicationProcess

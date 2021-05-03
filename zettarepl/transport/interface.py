@@ -197,15 +197,21 @@ class ReplicationProcess:
 
 
 class Transport:
-    logger: logging.Logger = NotImplementedError
+    logger: logging.Logger = NotImplemented
 
-    shell: Shell.__class__ = NotImplementedError
+    shell: Shell.__class__ = NotImplemented
 
-    replication_process: ReplicationProcess.__class__ = NotImplementedError
+    replication_process: ReplicationProcess.__class__ = NotImplemented
 
     @classmethod
     def from_data(cls, data):
         raise NotImplementedError
 
     def __hash__(self):
+        return hash(self._descriptor())
+
+    def __eq__(self, other):
+        return other.__class__ == self.__class__ and other._descriptor() == self._descriptor()
+
+    def _descriptor(self):
         raise NotImplementedError
