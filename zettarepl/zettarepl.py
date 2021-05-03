@@ -200,7 +200,7 @@ class Zettarepl:
         with self.tasks_lock:
             for replication_task in replication_tasks:
                 if replication_task in self.pending_tasks:
-                    logger.debug("Replication task %r is already pending")
+                    logger.info("Replication task %r is already pending", replication_task)
                     continue
 
                 if self._can_spawn_replication_task(replication_task):
@@ -216,14 +216,20 @@ class Zettarepl:
 
     def _can_spawn_replication_task(self, replication_task: ReplicationTask):
         if self.retention_running:
+            logger.info("Retention is running")
             return False
 
         if self.max_parallel_replication_tasks is not None:
             if len(self.running_tasks) >= self.max_parallel_replication_tasks:
-                logger.debug("Already running %r replication tasks", self.running_tasks)
+                logger.info("Already running %r replication tasks", self.running_tasks)
                 return False
 
-        return all(self._replication_tasks_can_run_in_parallel(replication_task, t) for t in self.running_tasks)
+        for running_task in self.running_tasks:
+            if not self._replication_tasks_can_run_in_parallel(replication_task, running_task):
+                logger.info("Replication tasks %r and %r cannot run in parallel", replication_task, running_task)
+                return False
+
+        return True
 
     def _replication_tasks_can_run_in_parallel(self, t1: ReplicationTask, t2: ReplicationTask):
         if t1.direction == t2.direction:
