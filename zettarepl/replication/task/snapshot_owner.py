@@ -116,6 +116,7 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
                 parsed_dst_snapshots_names.get(dst_dataset, []),
             )
             for dst_dataset in self.dst_snapshots.keys()
+            if replication_task_replicates_target_dataset(replication_task, dst_dataset)
         }
 
     def wants_to_delete(self):
