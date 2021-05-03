@@ -468,10 +468,22 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
     for step_template in step_templates:
         if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
             if not step_template.dst_context.datasets_readonly.get(step_template.dst_dataset, True):
-                raise ReplicationError(
+                message = (
                     f"Target dataset {step_template.dst_dataset!r} exists and does not have readonly=on property, "
                     "but replication task is set up to require this property. Refusing to replicate."
                 )
+                try:
+                    target_type = get_property(step_template.dst_context.shell, step_template.dst_dataset, "type")
+                except Exception:
+                    pass
+                else:
+                    if target_type == "volume":
+                        message += (
+                            f" Please run \"zfs set readonly=on {step_template.dst_dataset}\" on the target system "
+                            "to fix this."
+                        )
+
+                raise ReplicationError(message)
 
     plan = []
     ignored_roots = set()
