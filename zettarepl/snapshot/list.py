@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 __all__ = ["list_snapshots", "multilist_snapshots", "group_snapshots_by_datasets"]
 
 
-def list_snapshots(shell: Shell, dataset: str, recursive: bool) -> [Snapshot]:
-    args = ["zfs", "list", "-t", "snapshot", "-H", "-o", "name", "-s", "name"]
+def list_snapshots(shell: Shell, dataset: str, recursive: bool, sort: str = "name") -> [Snapshot]:
+    args = ["zfs", "list", "-t", "snapshot", "-H", "-o", "name", "-s", sort]
     if recursive:
         args.extend(["-r"])
     else:

@@ -33,6 +33,7 @@ if __name__ == "__main__":
     send_parser.add_argument("--raw", action="store_true")
     send_parser.add_argument("--snapshot")
     send_parser.add_argument("--incremental-base")
+    send_parser.add_argument("--include-intermediate", action="store_true")
     send_parser.add_argument("--receive-resume-token")
 
     receive_parser = subparsers.add_parser("receive")
@@ -94,6 +95,8 @@ if __name__ == "__main__":
         flags = set()
         if args.replicate:
             flags.add(libzfs.SendFlag.REPLICATE)
+        if args.include_intermediate:
+            flags.add(libzfs.SendFlag.DOALL)
         if args.properties:
             flags.add(libzfs.SendFlag.PROPS)
         if args.dedup:

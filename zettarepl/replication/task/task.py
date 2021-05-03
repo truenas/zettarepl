@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import logging
+import re
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.definition.schema import replication_task_validator
@@ -33,6 +34,7 @@ class ReplicationTask:
                  encryption: ReplicationEncryption,
                  periodic_snapshot_tasks: [PeriodicSnapshotTask],
                  also_include_naming_schema: [str],
+                 name_pattern: re.Pattern,
                  auto: bool,
                  schedule: CronSchedule,
                  restrict_schedule: CronSchedule,
@@ -63,6 +65,7 @@ class ReplicationTask:
         self.encryption = encryption
         self.periodic_snapshot_tasks = periodic_snapshot_tasks
         self.also_include_naming_schema = also_include_naming_schema
+        self.name_pattern = name_pattern
         self.auto = auto
         self.schedule = schedule
         self.restrict_schedule = restrict_schedule
@@ -98,6 +101,7 @@ class ReplicationTask:
         data.setdefault("replicate", False)
         data.setdefault("encryption", None)
         data.setdefault("periodic-snapshot-tasks", [])
+        data.setdefault("name-regex", None)
         data.setdefault("only-matching-schedule", False)
         data.setdefault("readonly", "ignore")
         data.setdefault("allow-from-scratch", False)
@@ -154,15 +158,15 @@ class ReplicationTask:
 
             data.setdefault("also-include-naming-schema", [])
 
-            if not resolved_periodic_snapshot_tasks and not data["also-include-naming-schema"]:
+            if not resolved_periodic_snapshot_tasks and not data["also-include-naming-schema"] and not data["name-regex"]:
                 raise ValueError(
-                    "You must at least provide either periodic-snapshot-tasks or also-include-naming-schema "
-                    "for push replication task"
+                    "You must at least provide either periodic-snapshot-tasks or also-include-naming-schema or "
+                    "name-regex for push replication task"
                 )
 
         elif data["direction"] == ReplicationDirection.PULL:
-            if "naming-schema" not in data:
-                raise ValueError("You must provide naming-schema for pull replication task")
+            if "naming-schema" not in data and not data["name-regex"]:
+                raise ValueError("You must provide naming-schema or name-regex for pull replication task")
 
             if "also-include-naming-schema" in data:
                 raise ValueError("Pull replication task can't have also-include-naming-schema")
@@ -175,6 +179,17 @@ class ReplicationTask:
             if data["hold-pending-snapshots"]:
                 raise ValueError("Pull replication tasks can't hold pending snapshots because they don't do source "
                                  "retention")
+
+        if data["name-regex"]:
+            try:
+                name_pattern = re.compile(f"({data['name-regex']})$")
+            except Exception as e:
+                raise ValueError(f"Invalid name-regex: {e}")
+
+            if data["also-include-naming-schema"]:
+                raise ValueError("naming-schema/also-include-naming-schema can't be used with name-regex")
+        else:
+            name_pattern = None
 
         retention_policy = TargetSnapshotRetentionPolicy.from_data(data)
 
@@ -194,6 +209,7 @@ class ReplicationTask:
                    encryption,
                    resolved_periodic_snapshot_tasks,
                    data["also-include-naming-schema"],
+                   name_pattern,
                    data["auto"],
                    schedule,
                    restrict_schedule,
@@ -202,7 +218,8 @@ class ReplicationTask:
                    data["allow-from-scratch"],
                    data["hold-pending-snapshots"],
                    retention_policy,
-                   compression, data["speed-limit"],
+                   compression,
+                   data["speed-limit"],
                    data["dedup"],
                    data["large-block"],
                    data["embed"],

@@ -78,6 +78,8 @@ properties:
       items:
         type: string
     - type: string
+  name-regex:
+    type: string
   auto:
     type: boolean
   schedule:

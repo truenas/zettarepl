@@ -198,6 +198,12 @@ replication-tasks:
 There are also a few additional options that you can use:
 
 ```yaml
+    # Using this option will replicate all snapshots which names match
+    # specified regular expression. The performance on the systems with large
+    # number of snapshots will be lower, as snapshots metadata needs to be read
+    # in order to determine snapshots creation order.
+    name-regex: "auto-[0-9-]+|manual-[0-9]+"
+
     # You can restrict snapshots that your task replicates. For example,
     # you can bind replication to periodic snapshot task that takes snapshots
     # every hour but only replicate snapshots taken at even hours.

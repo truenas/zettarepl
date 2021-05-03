@@ -98,6 +98,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                             self.properties,
                             self.replicate,
                             self.incremental_base,
+                            self.include_intermediate,
                             self.receive_resume_token,
                             self.dedup,
                             self.large_block,

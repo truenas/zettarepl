@@ -15,6 +15,7 @@ def zfs_send(source_dataset: str,
              properties: bool,
              replicate: bool,
              incremental_base: str,
+             include_intermediate: bool,
              receive_resume_token: str,
              dedup: bool,
              large_block: bool,
@@ -43,7 +44,12 @@ def zfs_send(source_dataset: str,
             send.append("-w")
 
         if incremental_base is not None:
-            send.extend(["-i", f"{source_dataset}@{incremental_base}"])
+            if include_intermediate:
+                send.append("-I")
+            else:
+                send.append("-i")
+
+            send.append(f"{source_dataset}@{incremental_base}")
 
         if dedup:
             send.append("-D")
