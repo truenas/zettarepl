@@ -240,6 +240,18 @@ There are also a few additional options that you can use:
     # Custom lifetime for replicated snapshots (as usual in ISO8601 format)
     retention-policy: custom
     lifetime: P180D
+    # Additional lifetimes might be specified for snapshots that match specific
+    # schedules
+    lifetimes:      
+      daily:
+        schedule:
+          hour: 0
+        lifetime: P360D
+      weekly:
+        schedule:
+          hour: 0
+          dow: 1
+        lifetime: P720D
 
     # Do not delete remote snapshots at all
     retention-policy: none
