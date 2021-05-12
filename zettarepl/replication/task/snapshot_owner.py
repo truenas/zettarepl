@@ -12,6 +12,7 @@ from zettarepl.transport.interface import Shell
 from .dataset import *
 from .naming_schema import replication_task_naming_schemas
 from .should_replicate import *
+from .snapshot_query import replication_tasks_target_datasets_queries
 from .task import ReplicationTask
 
 logger = logging.getLogger(__name__)
@@ -76,8 +77,7 @@ def pending_push_replication_task_snapshot_owners(src_snapshots: {str: [str]}, s
                          if replication_task.hold_pending_snapshots]
 
     if replication_tasks:
-        dst_snapshots_queries = [(replication_task.target_dataset, replication_task.recursive)
-                                 for replication_task in replication_tasks]
+        dst_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
         try:
             dst_snapshots = multilist_snapshots(shell, dst_snapshots_queries)
         except Exception as e:

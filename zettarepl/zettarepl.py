@@ -11,6 +11,7 @@ from zettarepl.observer import (notify, PeriodicSnapshotTaskStart, PeriodicSnaps
 from zettarepl.replication.run import run_replication_tasks
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
+from zettarepl.replication.task.snapshot_query import *
 from zettarepl.replication.task.task import *
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
 from zettarepl.retention.snapshot_removal_date_snapshot_owner import SnapshotRemovalDateSnapshotOwner
@@ -51,16 +52,6 @@ def create_zettarepl(definition, clock_args=None):
     local_shell = LocalShell()
 
     return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks, definition.use_removal_dates)
-
-
-def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
-    return sum([
-        [
-            (source_dataset, replication_task.recursive)
-            for source_dataset in replication_task.source_datasets
-        ]
-        for replication_task in replication_tasks
-    ], [])
 
 
 class Zettarepl:
@@ -413,10 +404,7 @@ class Zettarepl:
             self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
             shell = self._get_retention_shell(transport)
-            remote_snapshots_queries = [
-                (replication_task.target_dataset, replication_task.recursive)
-                for replication_task in replication_tasks
-            ]
+            remote_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
             try:
                 # Prevent hanging remote from breaking all the replications
                 with ShellTimeoutContext(3600):
