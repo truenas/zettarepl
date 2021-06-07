@@ -413,21 +413,23 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
     for step_template in step_templates:
         context = step_template.src_context.context
 
+        if step_template.replication_task.replicate:
+            for dst_dataset, token in step_template.dst_context.datasets_receive_resume_tokens.items():
+                if token is not None:
+                    logger.warning(
+                        "Discarding receive_resume_token for destination dataset %r as it is not supported in "
+                        "`replicate` mode",
+                        dst_dataset,
+                    )
+                    step_template.dst_context.shell.exec(["zfs", "recv", "-A", dst_dataset])
+                    return False
+
         if step_template.dst_dataset in step_template.dst_context.datasets:
             receive_resume_token = step_template.dst_context.datasets_receive_resume_tokens.get(
                 step_template.dst_dataset
             )
 
             if receive_resume_token is not None:
-                if step_template.replication_task.replicate:
-                    logger.warning(
-                        "Discarding receive_resume_token for destination dataset %r as it is not supported in "
-                        "`replicate` mode",
-                        step_template.dst_dataset,
-                    )
-                    step_template.dst_context.shell.exec(["zfs", "recv", "-A", step_template.dst_dataset])
-                    return False
-
                 logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
 
                 src_snapshots = step_template.src_context.datasets[step_template.src_dataset]

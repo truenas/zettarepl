@@ -141,7 +141,11 @@ def test_replication_resume__recursive_mount(canmount):
 
 
 @pytest.mark.parametrize("kill_timeout", [1, 15])
-def test_replication_resume__replicate(caplog, kill_timeout):
+@pytest.mark.parametrize("had_recursive_replication_before", [False, True])
+def test_replication_resume__replicate(caplog, kill_timeout, had_recursive_replication_before):
+    if had_recursive_replication_before and kill_timeout != 1:
+        return
+
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -152,10 +156,28 @@ def test_replication_resume__replicate(caplog, kill_timeout):
     subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/child/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("(zfs send -R data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
-                          f"sleep {kill_timeout}; killall zfs", shell=True)
-    assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
-                                                                 shell=True, encoding="utf-8")
+    if had_recursive_replication_before:
+        subprocess.check_call("zfs send -R data/src@2018-10-01_01-00 | zfs recv -s -F data/dst", shell=True)
+
+        subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
+        subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/child/blob bs=1M count=1", shell=True)
+        subprocess.check_call("zfs snapshot -r data/src@2018-10-01_02-00", shell=True)
+        subprocess.check_call(
+            "(zfs send -p -i data/src/child@2018-10-01_01-00 data/src/child@2018-10-01_02-00 | throttle -b 102400 |"
+            " zfs recv -s -F data/dst/child) & "
+            f"sleep {kill_timeout}; killall zfs",
+            shell=True,
+        )
+        assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst/child",
+                                                                     shell=True, encoding="utf-8")
+    else:
+        subprocess.check_call(
+            "(zfs send -R data/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F data/dst) & "
+            f"sleep {kill_timeout}; killall zfs",
+            shell=True,
+        )
+        assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token data/dst",
+                                                                     shell=True, encoding="utf-8")
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -193,5 +215,9 @@ def test_replication_resume__replicate(caplog, kill_timeout):
     )
 
     local_shell = LocalShell()
-    assert len(list_snapshots(local_shell, "data/dst", False)) == 1
-    assert len(list_snapshots(local_shell, "data/dst/child", False)) == 1
+    if had_recursive_replication_before:
+        assert len(list_snapshots(local_shell, "data/dst", False)) == 2
+        assert len(list_snapshots(local_shell, "data/dst/child", False)) == 2
+    else:
+        assert len(list_snapshots(local_shell, "data/dst", False)) == 1
+        assert len(list_snapshots(local_shell, "data/dst/child", False)) == 1
