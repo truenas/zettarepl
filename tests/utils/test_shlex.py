@@ -18,7 +18,6 @@ def test__pipe(bad_command):
         commands[bad_command] += f"; echo ERROR 1>&2; exit {bad_command * 10 + 1}"
 
     piped = pipe(*[["sh", "-c", cmd] for cmd in commands])
-    print(piped[2])
 
     cp = subprocess.run(piped, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
 
