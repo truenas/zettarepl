@@ -8,6 +8,7 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.encryption import ReplicationEncryption
 from zettarepl.transport.timeout import get_shell_timeout
 from zettarepl.utils.lang import undefined
+from zettarepl.utils.shlex import pipe
 
 logger = logging.getLogger(__name__)
 
