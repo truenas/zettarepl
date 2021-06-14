@@ -29,7 +29,7 @@ def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replic
     filtered_dst_snapshots = list(filter(replication_task.name_pattern.match, dst_snapshots))
     to_replicate = set(filtered_src_snapshots) - set(filtered_dst_snapshots)
     if not to_replicate:
-        return None, []
+        return None, [], False
 
     # Only query createtxg if we have something to replicate as this operation is expensive
     src_snapshots = [

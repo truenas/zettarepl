@@ -65,3 +65,31 @@ def test_name_regex(caplog, transport, all_names, resume):
             assert len(logs) == 2
         else:
             assert len(logs) == 3
+
+
+def test_no_matching_names():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    subprocess.check_call("zfs snapshot -r data/src@snap-1", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: false
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"]["name-regex"] = "auto-.*"
+
+    error = run_replication_test(definition, success=False)
+    assert "does not have any matching snapshots to replicate" in error.error
