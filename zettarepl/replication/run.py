@@ -301,7 +301,7 @@ def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dat
         return
 
     if properties["encryptionroot"] == dst_dataset:
-        raise ReplicationError(f"Destination dataset {dst_dataset!r} already exists and is it's own encryption root. "
+        raise ReplicationError(f"Destination dataset {dst_dataset!r} already exists and is its own encryption root. "
                                "This configuration is not supported yet. If you want to replicate into an encrypted "
                                "dataset, please, encrypt it's parent dataset.")
 
