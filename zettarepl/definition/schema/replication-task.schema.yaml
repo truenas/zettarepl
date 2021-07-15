@@ -96,6 +96,8 @@ properties:
     - require
   allow-from-scratch:
     type: boolean
+  only-from-scratch:
+    type: boolean
   hold-pending-snapshots:
     type: boolean
   retention-policy:
