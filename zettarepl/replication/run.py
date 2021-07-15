@@ -234,7 +234,7 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
                               src_context: ReplicationContext, dst_context: ReplicationContext, observer):
     target_dataset = get_target_dataset(replication_task, source_dataset)
 
-    check_target_type(replication_task, source_dataset, src_context, dst_context)
+    check_target_existence_and_type(replication_task, source_dataset, src_context, dst_context)
 
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
@@ -258,8 +258,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
     mount_dst_datasets(dst_context, target_dataset, replication_task.recursive)
 
 
-def check_target_type(replication_task: ReplicationTask, source_dataset: str,
-                      src_context: ReplicationContext, dst_context: ReplicationContext):
+def check_target_existence_and_type(replication_task: ReplicationTask, source_dataset: str,
+                                    src_context: ReplicationContext, dst_context: ReplicationContext):
     target_dataset = get_target_dataset(replication_task, source_dataset)
 
     source_dataset_type = get_property(src_context.shell, source_dataset, "type")
@@ -268,6 +268,9 @@ def check_target_type(replication_task: ReplicationTask, source_dataset: str,
     except DatasetDoesNotExistException:
         pass
     else:
+        if replication_task.only_from_scratch:
+            raise ReplicationError(f"Target dataset {target_dataset!r} already exists")
+
         if source_dataset_type != target_dataset_type:
             raise ReplicationError(f"Source {source_dataset!r} is a {source_dataset_type}, but target "
                                    f"{target_dataset!r} already exists and is a {target_dataset_type}")
