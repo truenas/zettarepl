@@ -12,7 +12,7 @@ class LongStringsFilter(logging.Filter):
     def __init__(self, name=""):
         super().__init__(name)
 
-        self.max_string_length = int(os.environ.get("LOGGING_MAX_STRING_LENGTH", "64"))
+        self.max_string_length = int(os.environ.get("LOGGING_MAX_STRING_LENGTH", "512"))
 
     def filter(self, record):
         record.args = self._process(record.args)
