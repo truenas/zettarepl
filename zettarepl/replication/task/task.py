@@ -11,6 +11,7 @@ from zettarepl.transport.create import create_transport
 from .compression import *
 from .direction import ReplicationDirection
 from .encryption import ReplicationEncryption, KeyFormat
+from .name_pattern import compile_name_regex
 from .readonly_behavior import ReadOnlyBehavior
 from .retention_policy import *
 
@@ -185,7 +186,7 @@ class ReplicationTask:
 
         if data["name-regex"]:
             try:
-                name_pattern = re.compile(f"({data['name-regex']})$")
+                name_pattern = compile_name_regex(data["name-regex"])
             except Exception as e:
                 raise ValueError(f"Invalid name-regex: {e}")
 
