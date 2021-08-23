@@ -47,6 +47,7 @@ class GlobalReplicationContext:
     def __init__(self):
         self.snapshots_sent_by_replication_step_template = defaultdict(lambda: 0)
         self.snapshots_total_by_replication_step_template = defaultdict(lambda: 0)
+        self.last_recoverable_error = None
         self.warnings = []
 
     @property
@@ -196,7 +197,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
             except RecoverableReplicationError as e:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
                                i + 1, e)
-                recoverable_error = e
+                src_context.context.last_recoverable_error = recoverable_error = e
             except ReplicationError as e:
                 logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
                 notify(observer, ReplicationTaskError(replication_task.id, str(e)))
@@ -563,6 +564,9 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
                         step_template.src_dataset)
+            if step_template.replication_task.replicate:
+                check_no_snapshots_to_send_for_full_replication(step_template)
+
             if is_immediate_target_dataset and incremental_base is None:
                 raise ReplicationError(
                     f"Dataset {step_template.src_dataset!r} does not have any matching snapshots to replicate"
@@ -631,6 +635,50 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task):
                          if parsed_snapshot not in will_be_removed]
 
     return incremental_base, snapshots_to_send
+
+
+def check_no_snapshots_to_send_for_full_replication(step_template: ReplicationStepTemplate):
+    src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
+
+    if not src_snapshots:
+        return
+
+    naming_schemas = replication_task_naming_schemas(step_template.replication_task)
+
+    parsed_src_snapshots = parse_snapshots_names_with_multiple_schemas(src_snapshots, naming_schemas)
+    if not parsed_src_snapshots:
+        return
+
+    most_recent_src_snapshot = sorted(parsed_src_snapshots, key=parsed_snapshot_sort_key)[-1].name
+    for src_dataset, snapshots in step_template.src_context.datasets.items():
+        if not is_child(src_dataset, step_template.src_dataset):
+            continue
+
+        if most_recent_src_snapshot not in snapshots:
+            continue
+
+        dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
+        if most_recent_src_snapshot not in step_template.dst_context.datasets.get(dst_dataset, []):
+            if step_template.dst_context.context.last_recoverable_error is not None:
+                text = "Full "
+            else:
+                text = "Last full "
+
+            text += (
+                f"ZFS replication failed to transfer snapshot "
+                f"{step_template.src_dataset}@{most_recent_src_snapshot} as a whole. "
+            )
+
+            if step_template.dst_context.context.last_recoverable_error is not None:
+                text += f"The error was: {str(step_template.dst_context.context.last_recoverable_error).rstrip('.')}. "
+
+            text += (
+                f"The snapshot {dst_dataset}@{most_recent_src_snapshot} was not transferred. Please run "
+                f"`zfs destroy {step_template.dst_dataset}@{most_recent_src_snapshot}` on the target system "
+                f"and run replication again."
+            )
+
+            raise ReplicationError(text)
 
 
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, encryption, observer):
