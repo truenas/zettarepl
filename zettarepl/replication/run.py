@@ -440,10 +440,10 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                 src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
                 dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
 
-                incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+                incremental_base, snapshots = get_snapshots_to_send(
                     src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
                     step_template.src_dataset,
-                )
+                )[:2]
                 if snapshots:
                     resumed_snapshot = snapshots[0]
                     context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
@@ -514,7 +514,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
 
-        incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+        incremental_base, snapshots, include_intermediate, empty_is_successful = get_snapshots_to_send(
             src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
             step_template.src_dataset,
         )
@@ -574,12 +574,14 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             if step_template.replication_task.replicate:
                 check_no_snapshots_to_send_for_full_replication(step_template)
 
-            if is_immediate_target_dataset and incremental_base is None:
+            if is_immediate_target_dataset and incremental_base is None and not empty_is_successful:
                 raise ReplicationError(
                     f"Dataset {step_template.src_dataset!r} does not have any matching snapshots to replicate"
                 )
+
             if not src_snapshots:
                 ignored_roots.add(step_template.src_dataset)
+
             continue
 
         if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:

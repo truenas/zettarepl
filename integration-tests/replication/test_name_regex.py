@@ -93,3 +93,35 @@ def test_no_matching_names():
 
     error = run_replication_test(definition, success=False)
     assert "does not have any matching snapshots to replicate" in error.error
+
+
+def test_already_replicated():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    subprocess.check_call("zfs snapshot -r data/src@snap-1", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@snap-2", shell=True)
+
+    create_dataset("data/dst")
+    subprocess.check_call("zfs snapshot -r data/dst@snap-1", shell=True)
+    subprocess.check_call("zfs snapshot -r data/dst@snap-2", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: false
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"]["name-regex"] = "snap-.*"
+
+    run_replication_test(definition)
