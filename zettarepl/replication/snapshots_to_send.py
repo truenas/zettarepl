@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections import namedtuple
 from datetime import datetime
 import logging
 
@@ -11,6 +12,9 @@ from .task.should_replicate import replication_task_should_replicate_parsed_snap
 logger = logging.getLogger(__name__)
 
 __all__ = ["get_snapshots_to_send"]
+
+SnapshotsToSend = namedtuple("SnapshotsToSend", ["incremental_base", "snapshots", "include_intermediate",
+                                                 "empty_is_successful"])
 
 
 def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task, src_shell, src_dataset):
@@ -29,7 +33,7 @@ def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replic
     filtered_dst_snapshots = list(filter(replication_task.name_pattern.match, dst_snapshots))
     to_replicate = set(filtered_src_snapshots) - set(filtered_dst_snapshots)
     if not to_replicate:
-        return None, [], False
+        return SnapshotsToSend(None, [], False, len(filtered_src_snapshots) > 0)
 
     # Only query createtxg if we have something to replicate as this operation is expensive
     src_snapshots = [
@@ -57,7 +61,7 @@ def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replic
 
             include_intermediate = True
 
-    return incremental_base, filtered_snapshots_to_send, include_intermediate
+    return SnapshotsToSend(incremental_base, filtered_snapshots_to_send, include_intermediate, False)
 
 
 def get_snapshots_to_send_with_naming_schemas(src_snapshots, dst_snapshots, replication_task):
@@ -101,4 +105,4 @@ def get_snapshots_to_send_with_naming_schemas(src_snapshots, dst_snapshots, repl
                          for parsed_snapshot in snapshots_to_send
                          if parsed_snapshot not in will_be_removed]
 
-    return incremental_base, snapshots_to_send, False
+    return SnapshotsToSend(incremental_base, snapshots_to_send, False, False)

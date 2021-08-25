@@ -26,6 +26,7 @@ from zettarepl.transport.zfscli.warning import warnings_from_zfs_success
 from .dataset_size_observer import DatasetSizeObserver
 from .error import *
 from .monitor import ReplicationMonitor
+from .most_recent_snapshot import get_most_recent_snapshot
 from .process_runner import ReplicationProcessRunner
 from .snapshots_to_send import get_snapshots_to_send
 from .stuck import retry_stuck_replication
@@ -45,6 +46,7 @@ class GlobalReplicationContext:
     def __init__(self):
         self.snapshots_sent_by_replication_step_template = defaultdict(lambda: 0)
         self.snapshots_total_by_replication_step_template = defaultdict(lambda: 0)
+        self.last_recoverable_error = None
         self.warnings = []
 
     @property
@@ -195,7 +197,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
             except RecoverableReplicationError as e:
                 logger.warning("For task %r at attempt %d recoverable replication error %r", replication_task.id,
                                i + 1, e)
-                recoverable_error = e
+                src_context.context.last_recoverable_error = recoverable_error = e
             except ReplicationError as e:
                 logger.error("For task %r non-recoverable replication error %r", replication_task.id, e)
                 notify(observer, ReplicationTaskError(replication_task.id, str(e)))
@@ -438,10 +440,10 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
                 src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
                 dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
 
-                incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+                incremental_base, snapshots = get_snapshots_to_send(
                     src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
                     step_template.src_dataset,
-                )
+                )[:2]
                 if snapshots:
                     resumed_snapshot = snapshots[0]
                     context.snapshots_total_by_replication_step_template[step_template] = len(snapshots)
@@ -512,7 +514,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
         dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
 
-        incremental_base, snapshots, include_intermediate = get_snapshots_to_send(
+        incremental_base, snapshots, include_intermediate, empty_is_successful = get_snapshots_to_send(
             src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
             step_template.src_dataset,
         )
@@ -569,12 +571,17 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         if not snapshots:
             logger.info("No snapshots to send for replication task %r on dataset %r", step_template.replication_task.id,
                         step_template.src_dataset)
-            if is_immediate_target_dataset and incremental_base is None:
+            if step_template.replication_task.replicate:
+                check_no_snapshots_to_send_for_full_replication(step_template)
+
+            if is_immediate_target_dataset and incremental_base is None and not empty_is_successful:
                 raise ReplicationError(
                     f"Dataset {step_template.src_dataset!r} does not have any matching snapshots to replicate"
                 )
+
             if not src_snapshots:
                 ignored_roots.add(step_template.src_dataset)
+
             continue
 
         if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:
@@ -593,6 +600,48 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
     for step_template, incremental_base, snapshots, include_intermediate, encryption in plan:
         replicate_snapshots(step_template, incremental_base, snapshots, include_intermediate, encryption, observer)
         handle_readonly(step_template)
+
+
+def check_no_snapshots_to_send_for_full_replication(step_template: ReplicationStepTemplate):
+    src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
+
+    if not src_snapshots:
+        return
+
+    most_recent_src_snapshot = get_most_recent_snapshot(src_snapshots, step_template.replication_task,
+                                                        step_template.src_context.shell, step_template.src_dataset)
+    if most_recent_src_snapshot is None:
+        return
+
+    for src_dataset, snapshots in step_template.src_context.datasets.items():
+        if not is_child(src_dataset, step_template.src_dataset):
+            continue
+
+        if most_recent_src_snapshot not in snapshots:
+            continue
+
+        dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
+        if most_recent_src_snapshot not in step_template.dst_context.datasets.get(dst_dataset, []):
+            if step_template.dst_context.context.last_recoverable_error is not None:
+                text = "Full "
+            else:
+                text = "Last full "
+
+            text += (
+                "ZFS replication failed to transfer all the children of the snapshot "
+                f"{step_template.src_dataset}@{most_recent_src_snapshot}. "
+            )
+
+            if step_template.dst_context.context.last_recoverable_error is not None:
+                text += f"The error was: {str(step_template.dst_context.context.last_recoverable_error).rstrip('.')}. "
+
+            text += (
+                f"The snapshot {dst_dataset}@{most_recent_src_snapshot} was not transferred. Please run "
+                f"`zfs destroy {step_template.dst_dataset}@{most_recent_src_snapshot}` on the target system "
+                "and run replication again."
+            )
+
+            raise ReplicationError(text)
 
 
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base, snapshots, include_intermediate,
