@@ -665,8 +665,8 @@ def check_no_snapshots_to_send_for_full_replication(step_template: ReplicationSt
                 text = "Last full "
 
             text += (
-                f"ZFS replication failed to transfer snapshot "
-                f"{step_template.src_dataset}@{most_recent_src_snapshot} as a whole. "
+                "ZFS replication failed to transfer all the children of the snapshot "
+                f"{step_template.src_dataset}@{most_recent_src_snapshot}. "
             )
 
             if step_template.dst_context.context.last_recoverable_error is not None:
@@ -675,7 +675,7 @@ def check_no_snapshots_to_send_for_full_replication(step_template: ReplicationSt
             text += (
                 f"The snapshot {dst_dataset}@{most_recent_src_snapshot} was not transferred. Please run "
                 f"`zfs destroy {step_template.dst_dataset}@{most_recent_src_snapshot}` on the target system "
-                f"and run replication again."
+                "and run replication again."
             )
 
             raise ReplicationError(text)
