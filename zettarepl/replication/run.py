@@ -303,9 +303,9 @@ def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dat
         return
 
     if properties["encryptionroot"] == dst_dataset:
-        raise ReplicationError(f"Destination dataset {dst_dataset!r} already exists and is it's own encryption root. "
+        raise ReplicationError(f"Destination dataset {dst_dataset!r} already exists and is its own encryption root. "
                                "This configuration is not supported yet. If you want to replicate into an encrypted "
-                               "dataset, please, encrypt it's parent dataset.")
+                               "dataset, please, encrypt its parent dataset.")
 
     try:
         index = list_data(dst_context.shell, dst_dataset)
@@ -500,7 +500,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         ignore = False
         for ignored_root in ignored_roots:
             if is_child(step_template.src_dataset, ignored_root):
-                logger.debug("Not replicating dataset %r because it's ancestor %r did not have any snapshots",
+                logger.debug("Not replicating dataset %r because its ancestor %r did not have any snapshots",
                              step_template.src_dataset, ignored_root)
                 ignore = True
         if ignore:
