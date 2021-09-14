@@ -76,7 +76,7 @@ def test_encrypted_target_local():
             retries: 1
     """))
     error = run_replication_test(definition, success=False)
-    assert "is it's own encryption root" in error.error
+    assert "is its own encryption root" in error.error
 
 
 @pytest.mark.parametrize("encryption", [
