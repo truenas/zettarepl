@@ -27,9 +27,9 @@ from .dataset_size_observer import DatasetSizeObserver
 from .error import *
 from .monitor import ReplicationMonitor
 from .most_recent_snapshot import get_most_recent_snapshot
+from .partially_complete_state import retry_contains_partially_complete_state
 from .process_runner import ReplicationProcessRunner
 from .snapshots_to_send import get_snapshots_to_send
-from .stuck import retry_stuck_replication
 from .task.dataset import get_target_dataset
 from .task.direction import ReplicationDirection
 from .task.encryption import ReplicationEncryption
@@ -161,7 +161,7 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
 
             try:
                 try:
-                    retry_stuck_replication(
+                    retry_contains_partially_complete_state(
                         lambda: run_replication_task_part(replication_task, source_dataset, src_context, dst_context,
                                                           observer),
                         recoverable_error,
@@ -728,7 +728,13 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
     )
     process.add_warning_observer(step.template.src_context.context.add_warning)
     monitor = ReplicationMonitor(step.dst_context.shell, step.dst_dataset)
-    ReplicationProcessRunner(process, monitor).run()
+    try:
+        ReplicationProcessRunner(process, monitor).run()
+    except ExecException as e:
+        if "contains partially-complete state" in e.stdout and step.receive_resume_token:
+            raise ContainsPartiallyCompleteState() from None
+
+        raise
 
     step.template.src_context.context.snapshots_sent_by_replication_step_template[step.template] += 1
     notify(observer, ReplicationTaskSnapshotSuccess(
