@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ["ReplicationError", "ReplicationConfigurationError", "RecoverableReplicationError",
-           "NoIncrementalBaseReplicationError", "StuckReplicationError"]
+           "NoIncrementalBaseReplicationError", "StuckReplicationError", "ContainsPartiallyCompleteState"]
 
 
 class ReplicationError(Exception):
@@ -24,4 +24,8 @@ class NoIncrementalBaseReplicationError(ReplicationError):
 
 
 class StuckReplicationError(RecoverableReplicationError):
+    pass
+
+
+class ContainsPartiallyCompleteState(ReplicationError):
     pass
