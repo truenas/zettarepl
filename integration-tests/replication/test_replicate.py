@@ -21,7 +21,8 @@ from zettarepl.utils.test import run_replication_test
     # Older child snapshots might have been removed by retention or manually, we should not care about them.
     ("data/dst/child2@2021-08-23_19-25", None),
 ])
-def test_properties_exclude(snapshot_to_destroy, error_text):
+@pytest.mark.parametrize("take_new_snapshot", [True, False])
+def test_properties_exclude(take_new_snapshot, snapshot_to_destroy, error_text):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -35,6 +36,9 @@ def test_properties_exclude(snapshot_to_destroy, error_text):
     subprocess.check_call("zfs send -R -i data/src@2021-08-23_19-25 data/src@2021-08-23_19-30 | "
                           "zfs recv data/dst", shell=True)
     subprocess.check_call(f"zfs destroy {snapshot_to_destroy}", shell=True)
+
+    if take_new_snapshot:
+        subprocess.check_call(f"zfs snapshot -r data/src@2021-08-23_19-35", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
