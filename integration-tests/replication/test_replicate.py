@@ -15,7 +15,7 @@ from zettarepl.utils.test import run_replication_test
         (
             f"Last full ZFS replication failed to transfer all the children of the snapshot data/src@2021-08-23_19-30. "
             "The snapshot data/dst/child2@2021-08-23_19-30 was not transferred. Please run "
-            "`zfs destroy data/dst@2021-08-23_19-30` on the target system and run replication again."
+            "`zfs destroy -r data/dst@2021-08-23_19-30` on the target system and run replication again."
         ),
     ),
     # Older child snapshots might have been removed by retention or manually, we should not care about them.
