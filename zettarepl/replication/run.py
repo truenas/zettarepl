@@ -561,7 +561,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                         ensure_has_no_data(step_template.dst_context.shell, step_template.dst_dataset,
                                            allowed_empty_children)
 
-        if incremental_base is not none and step_template.replication_task.replicate:
+        if incremental_base is not None and step_template.replication_task.replicate:
             check_base_consistency_for_full_replication(step_template, incremental_base)
 
         if not snapshots:
