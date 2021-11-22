@@ -164,7 +164,6 @@ def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_
                     retry_contains_partially_complete_state(
                         lambda: run_replication_task_part(replication_task, source_dataset, src_context, dst_context,
                                                           observer),
-                        recoverable_error,
                     )
                 except socket.timeout:
                     raise RecoverableReplicationError("Network connection timeout") from None
