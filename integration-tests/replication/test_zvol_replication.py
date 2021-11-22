@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
+import time
 
 import pytest
 import yaml
@@ -87,11 +88,11 @@ def test_zvol_replication__onto_existing_encrypted_unrelated_dataset():
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
-    subprocess.check_call("zfs create -V 10M data/src", shell=True)
+    subprocess.check_call("zfs create -V 5M data/src", shell=True)
     subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
     create_dataset("data/dst", encrypted=True)
-    subprocess.check_call("zfs create -V 10M data/dst/vol", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/data/dst/vol bs=1M count=10", shell=True)
+    subprocess.check_call("zfs create -V 5M data/dst/vol", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/data/dst/vol bs=1M count=5", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
