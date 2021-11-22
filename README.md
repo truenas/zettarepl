@@ -410,3 +410,24 @@ debugging messages, you can change it to `debug,paramiko:info` (and this way you
 other python logger).
 
 Color logging is automatically disabled when stderr is not a tty.
+
+## Development
+
+### Running integration tests
+
+Prerequisites:
+* FreeBSD or Linux VM with recent Python 3 installation. TrueNAS preferred (there are some TrueNAS-specific tests that
+  will otherwise fail) but not required.
+* root SSH key that will allow passwordless `ssh root@localhost`
+* `data` ZFS pool mounted in `/mnt/data`
+* pytest installed (just run `easy_install pytest`)
+
+To run all tests:
+```
+root@truenas[~/dev/zettarepl]# pytest integration-tests/
+```
+
+To run a specific test file:
+```
+root@truenas[~/dev/zettarepl]# pytest integration-tests/retention/test_zfs_hold.py 
+```
