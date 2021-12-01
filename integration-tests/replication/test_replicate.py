@@ -22,7 +22,7 @@ from zettarepl.utils.test import run_replication_test
     ("data/dst/child2@2021-08-23_19-25", None),
 ])
 @pytest.mark.parametrize("take_new_snapshot", [True, False])
-def test_properties_exclude(snapshot_to_destroy, error_text, take_new_snapshot):
+def test_replicate(snapshot_to_destroy, error_text, take_new_snapshot):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
