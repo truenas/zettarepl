@@ -29,13 +29,6 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task, src_sh
 
 
 def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replication_task, src_shell, src_dataset):
-    filtered_src_snapshots = list(filter(replication_task.name_pattern.match, src_snapshots))
-    filtered_dst_snapshots = list(filter(replication_task.name_pattern.match, dst_snapshots))
-    to_replicate = set(filtered_src_snapshots) - set(filtered_dst_snapshots)
-    if not to_replicate:
-        return SnapshotsToSend(None, [], False, len(filtered_src_snapshots) > 0)
-
-    # Only query createtxg if we have something to replicate as this operation is expensive
     src_snapshots = [
         snapshot.name
         for snapshot in list_snapshots(src_shell, src_dataset, False, "createtxg")
