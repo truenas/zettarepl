@@ -419,6 +419,7 @@ Prerequisites:
 * FreeBSD or Linux VM with recent Python 3 installation. TrueNAS preferred (there are some TrueNAS-specific tests that
   will otherwise fail) but not required.
 * root SSH key that will allow passwordless `ssh root@localhost`
+* `user` user with the same SSH key
 * `data` ZFS pool mounted in `/mnt/data`
 * pytest installed (just run `easy_install pytest`)
 

@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 
+from zettarepl.replication.error import RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.utils.shlex import implode, pipe
 
@@ -149,7 +150,14 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
         success = False
         try:
             with ZfsSendRecvExceptionHandler(self):
-                stdout = self.async_exec.wait()
+                try:
+                    stdout = self.async_exec.wait()
+                except ExecException as e:
+                    if e.stdout.startswith("client_loop: send disconnect: "):
+                        raise RecoverableReplicationError(str(e)) from None
+
+                    raise
+
                 logger.debug("Success: %r", stdout)
 
                 for warning in warnings_from_zfs_success(stdout):
