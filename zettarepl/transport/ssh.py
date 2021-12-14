@@ -9,7 +9,7 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.utils.shlex import implode, pipe
 
 from .async_exec_tee import AsyncExecTee
-from .base_ssh import BaseSshTransport
+from .base_ssh import BaseSshTransport, PATH
 from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
@@ -128,9 +128,9 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                 send = pipe(send, ["throttle", "-B", str(self.speed_limit)])
 
             if self.direction == ReplicationDirection.PUSH:
-                commands = [send, cmd + [implode(recv)]]
+                commands = [send, cmd + [f"{PATH} " + implode(recv)]]
             elif self.direction == ReplicationDirection.PULL:
-                commands = [cmd + [implode(send)], recv]
+                commands = [cmd + [f"{PATH} " + implode(send)], recv]
             else:
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
