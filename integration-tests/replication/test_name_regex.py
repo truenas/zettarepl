@@ -11,11 +11,10 @@ from zettarepl.transport.local import LocalShell
 from zettarepl.utils.test import transports, create_dataset, run_replication_test
 
 
-@pytest.mark.parametrize("direction", ["push", "pull"])
 @pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("all_names", [True, False])
 @pytest.mark.parametrize("resume", [False, True])
-def test_name_regex(direction, caplog, transport, all_names, resume):
+def test_name_regex(caplog, transport, all_names, resume):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
@@ -34,6 +33,7 @@ def test_name_regex(direction, caplog, transport, all_names, resume):
 
         replication-tasks:
           src:
+            direction: push
             source-dataset: data/src
             target-dataset: data/dst
             recursive: false
@@ -41,7 +41,6 @@ def test_name_regex(direction, caplog, transport, all_names, resume):
             retention-policy: none
             retries: 1
     """))
-    definition["replication-tasks"]["src"]["direction"] = direction
     definition["replication-tasks"]["src"]["transport"] = transport
     if all_names:
         definition["replication-tasks"]["src"]["name-regex"] = ".*"
@@ -55,7 +54,7 @@ def test_name_regex(direction, caplog, transport, all_names, resume):
 
     logs = [record.message
             for record in caplog.get_records("call")
-            if "For replication task 'src': doing" in record.message]
+            if "For replication task 'src': doing push" in record.message]
     if all_names:
         if resume:
             assert len(logs) == 1
