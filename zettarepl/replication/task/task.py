@@ -175,7 +175,7 @@ class ReplicationTask:
             if "also-include-naming-schema" in data:
                 raise ValueError("Pull replication task can't have also-include-naming-schema")
 
-            data.setdefault("also-include-naming-schema", data.pop("naming-schema"))
+            data.setdefault("also-include-naming-schema", data.pop("naming-schema", []))
 
         schedule, restrict_schedule = cls._parse_schedules(data)
 
