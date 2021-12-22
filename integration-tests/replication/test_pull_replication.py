@@ -2,14 +2,16 @@
 import subprocess
 import textwrap
 
+import pytest
 import yaml
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.test import run_replication_test
+from zettarepl.utils.test import transports, run_replication_test
 
 
-def test_pull_replication():
+@pytest.mark.parametrize("transport", transports())
+def test_pull_replication(transport):
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs receive -A data/dst", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
@@ -26,8 +28,6 @@ def test_pull_replication():
         replication-tasks:
           src:
             direction: pull
-            transport:
-              type: local
             source-dataset: data/src
             target-dataset: data/dst
             recursive: true
@@ -36,6 +36,7 @@ def test_pull_replication():
             auto: false
             retention-policy: none
     """))
+    definition["replication-tasks"]["src"]["transport"] = transport
 
     run_replication_test(definition)
 
