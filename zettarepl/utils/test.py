@@ -60,10 +60,10 @@ def run_periodic_snapshot_test(definition, now, success=True):
             assert not isinstance(call, PeriodicSnapshotTaskError), success
 
 
-def run_replication_test(definition, success=True):
+def run_replication_test(definition, success=True, now=None):
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(now, select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     if success:

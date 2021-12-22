@@ -88,7 +88,7 @@ def test_parallel_replication():
 
     local_shell = LocalShell()
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
 
     start = time.monotonic()
     wait_replication_tasks_to_complete(zettarepl)
@@ -108,7 +108,7 @@ def test_parallel_replication():
     subprocess.check_call("zfs create data/dst/b", shell=True)
 
     zettarepl._replication_tasks_can_run_in_parallel = Mock(return_value=False)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
 
     start = time.monotonic()
     wait_replication_tasks_to_complete(zettarepl)
@@ -220,7 +220,7 @@ def test_parallel_replication_3(max_parallel_replications):
     definition = Definition.from_data(definition)
 
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
 
     start = time.monotonic()
     wait_replication_tasks_to_complete(zettarepl)

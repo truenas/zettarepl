@@ -28,6 +28,7 @@ from zettarepl.transport.zfscli.warning import warnings_from_zfs_success
 from .dataset_size_observer import DatasetSizeObserver
 from .error import *
 from .monitor import ReplicationMonitor
+from .pre_retention import pre_retention
 from .process_runner import ReplicationProcessRunner
 from .stuck import retry_stuck_replication
 from .task.dataset import get_target_dataset
@@ -44,7 +45,8 @@ __all__ = ["run_replication_tasks"]
 
 
 class GlobalReplicationContext:
-    def __init__(self):
+    def __init__(self, now: datetime):
+        self.now = now
         self.snapshots_sent_by_replication_step_template = defaultdict(lambda: 0)
         self.snapshots_total_by_replication_step_template = defaultdict(lambda: 0)
         self.last_recoverable_error = None
@@ -116,9 +118,9 @@ class ReplicationStep(ReplicationStepTemplate):
             assert self.receive_resume_token is None
 
 
-def run_replication_tasks(local_shell: LocalShell, transport: Transport, remote_shell: Shell,
+def run_replication_tasks(now: datetime, local_shell: LocalShell, transport: Transport, remote_shell: Shell,
                           replication_tasks: [ReplicationTask], observer=None):
-    contexts = defaultdict(GlobalReplicationContext)
+    contexts = defaultdict(lambda: GlobalReplicationContext(now))
 
     replication_tasks_parts = calculate_replication_tasks_parts(replication_tasks)
 
@@ -242,6 +244,10 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
                                                           src_context, dst_context)
 
     destroy_empty_encrypted_target(replication_task, source_dataset, dst_context)
+
+    # Remote retention has to be executed prior to running actual replication in order to free disk space or quotas
+    pre_retention(src_context.context.now, replication_task, src_context.datasets, dst_context.datasets, target_dataset,
+                  dst_context.shell)
 
     with DatasetSizeObserver(
         src_context.shell, dst_context.shell,

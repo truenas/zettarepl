@@ -83,7 +83,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     observer = Mock()
     zettarepl.set_observer(observer)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     if dst_exists and properties and encrypted and not dst_parent_encrypted:
@@ -106,7 +106,7 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
 
     subprocess.check_call("zfs snapshot -r data/src@2018-10-01_03-00", shell=True)
 
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     error = observer.call_args_list[-1][0][0]

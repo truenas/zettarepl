@@ -103,7 +103,7 @@ class Zettarepl:
                 replication_tasks.extend(
                     self._replication_tasks_for_periodic_snapshot_tasks(
                         bisect_by_class(ReplicationTask, self.tasks)[0], periodic_snapshot_tasks))
-                self._spawn_replication_tasks(replication_tasks)
+                self._spawn_replication_tasks(scheduled.datetime.offset_aware_datetime, replication_tasks)
 
                 assert tasks == []
 
@@ -187,20 +187,20 @@ class Zettarepl:
 
         return result
 
-    def _spawn_replication_tasks(self, replication_tasks):
+    def _spawn_replication_tasks(self, now: datetime, replication_tasks):
         with self.tasks_lock:
             for replication_task in replication_tasks:
-                if replication_task in self.pending_tasks:
+                if any(rt == replication_task for now, rt in self.pending_tasks):
                     logger.info("Replication task %r is already pending", replication_task)
                     continue
 
                 if self._can_spawn_replication_task(replication_task):
-                    self._spawn_replication_task(replication_task)
+                    self._spawn_replication_task(now, replication_task)
                 else:
                     logger.info("Replication task %r can't execute in parallel with already running tasks, "
                                 "delaying it", replication_task)
                     notify(self.observer, ReplicationTaskScheduled(replication_task.id))
-                    self.pending_tasks.append(replication_task)
+                    self.pending_tasks.append((now, replication_task))
 
             if not self.pending_tasks and not self.running_tasks and not self.retention_running:
                 self._spawn_retention()
@@ -256,17 +256,17 @@ class Zettarepl:
                 )
             )
 
-    def _spawn_replication_task(self, replication_task):
+    def _spawn_replication_task(self, now: datetime, replication_task):
         self.running_tasks.append(replication_task)
         threading.Thread(name=f"replication_task__{replication_task.id}",
-                         target=functools.partial(self._run_replication_task, replication_task)).start()
+                         target=functools.partial(self._run_replication_task, now, replication_task)).start()
 
-    def _run_replication_task(self, replication_task: ReplicationTask):
+    def _run_replication_task(self, now: datetime, replication_task: ReplicationTask):
         try:
             shell = replication_task.transport.shell(replication_task.transport)
             try:
                 ReplicationTaskLoggingLevelFilter.levels[replication_task.id] = replication_task.logging_level
-                run_replication_tasks(self.local_shell, replication_task.transport, shell, [replication_task],
+                run_replication_tasks(now, self.local_shell, replication_task.transport, shell, [replication_task],
                                       self.observer)
             finally:
                 shell.close()
@@ -282,10 +282,10 @@ class Zettarepl:
                     self._spawn_retention()
 
     def _spawn_pending_tasks(self):
-        for pending_task in list(self.pending_tasks):
+        for now, pending_task in list(self.pending_tasks):
             if self._can_spawn_replication_task(pending_task):
-                self._spawn_replication_task(pending_task)
-                self.pending_tasks.remove(pending_task)
+                self._spawn_replication_task(now, pending_task)
+                self.pending_tasks.remove((now, pending_task))
 
     def _spawn_retention(self):
         self.retention_running = True

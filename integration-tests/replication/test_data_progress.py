@@ -46,7 +46,7 @@ def test_replication_data_progress():
     with patch("zettarepl.replication.run.DatasetSizeObserver.INTERVAL", 5):
         definition = Definition.from_data(definition)
         zettarepl = create_zettarepl(definition)
-        zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+        zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
         wait_replication_tasks_to_complete(zettarepl)
 
     calls = [call for call in zettarepl.observer.call_args_list
