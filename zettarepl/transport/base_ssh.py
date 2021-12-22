@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["SshTransportAsyncExec", "SshTransportShell", "BaseSshTransport"]
 
+# We need to add sbin to path in case of non-privileged user replication
+PATH = "PATH=$PATH:/usr/local/sbin:/usr/sbin:/sbin"
+
 
 class SshTransportAsyncExec(AsyncExec):
     def __init__(self, *args, **kwargs):
@@ -28,7 +31,11 @@ class SshTransportAsyncExec(AsyncExec):
 
         self.logger.debug("Running %r", self.args)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
-            "sh -c " + shlex.quote(" ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"), timeout=10)
+            "sh -c " + shlex.quote(
+                f"{PATH} " + " ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"
+            ),
+            timeout=10
+        )
         self._copy_stdout_from(self.stdout_fd)
 
     def wait(self, timeout=None):
