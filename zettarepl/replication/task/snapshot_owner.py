@@ -100,11 +100,11 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
         self.src_snapshots = src_snapshots
         self.dst_snapshots = dst_snapshots
 
-        parsed_src_snapshots_names = {
+        self.parsed_src_snapshots_names = {
             dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
             for dataset, snapshots in self.src_snapshots.items()
         }
-        parsed_dst_snapshots_names = {
+        self.parsed_dst_snapshots_names = {
             dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
             for dataset, snapshots in self.dst_snapshots.items()
         }
@@ -112,8 +112,8 @@ class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
         self.delete_snapshots = {
             dst_dataset: self.replication_task.retention_policy.calculate_delete_snapshots(
                 now,
-                parsed_src_snapshots_names.get(get_source_dataset(self.replication_task, dst_dataset), []),
-                parsed_dst_snapshots_names.get(dst_dataset, []),
+                self.parsed_src_snapshots_names.get(get_source_dataset(self.replication_task, dst_dataset), []),
+                self.parsed_dst_snapshots_names.get(dst_dataset, []),
             )
             for dst_dataset in self.dst_snapshots.keys()
             if replication_task_replicates_target_dataset(replication_task, dst_dataset)
