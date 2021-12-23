@@ -11,7 +11,7 @@ from .task.should_replicate import replication_task_should_replicate_parsed_snap
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["get_snapshots_to_send"]
+__all__ = ["get_snapshots_to_send", "get_parsed_incremental_base"]
 
 SnapshotsToSend = namedtuple("SnapshotsToSend", ["incremental_base", "snapshots", "include_intermediate",
                                                  "empty_is_successful"])
@@ -57,21 +57,27 @@ def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replic
     return SnapshotsToSend(incremental_base, filtered_snapshots_to_send, include_intermediate, False)
 
 
+def get_parsed_incremental_base(parsed_src_snapshots, parsed_dst_snapshots):
+    try:
+        return sorted(
+            set(parsed_src_snapshots) & set(parsed_dst_snapshots),
+            key=parsed_snapshot_sort_key,
+        )[-1]
+    except IndexError:
+        return None
+
+
 def get_snapshots_to_send_with_naming_schemas(src_snapshots, dst_snapshots, replication_task):
     naming_schemas = replication_task_naming_schemas(replication_task)
 
     parsed_src_snapshots = parse_snapshots_names_with_multiple_schemas(src_snapshots, naming_schemas)
     parsed_dst_snapshots = parse_snapshots_names_with_multiple_schemas(dst_snapshots, naming_schemas)
 
-    try:
-        parsed_incremental_base = sorted(
-            set(parsed_src_snapshots) & set(parsed_dst_snapshots),
-            key=parsed_snapshot_sort_key,
-        )[-1]
+    parsed_incremental_base = get_parsed_incremental_base(parsed_src_snapshots, parsed_dst_snapshots)
+
+    incremental_base = None
+    if parsed_incremental_base:
         incremental_base = parsed_incremental_base.name
-    except IndexError:
-        parsed_incremental_base = None
-        incremental_base = None
 
     snapshots_to_send = [
         parsed_snapshot
