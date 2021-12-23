@@ -61,7 +61,7 @@ def test_replication_retry(caplog, direction):
 
     caplog.set_level(logging.INFO)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
 
     time.sleep(2)
     if direction == "push":

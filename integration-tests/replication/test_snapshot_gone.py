@@ -72,7 +72,7 @@ def test_snapshot_gone(transport):
         return resume_replications(*args, **kwargs)
 
     with patch("zettarepl.replication.run.resume_replications", resume_replications_mock):
-        zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+        zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
         wait_replication_tasks_to_complete(zettarepl)
 
     error = observer.call_args_list[-1][0][0]

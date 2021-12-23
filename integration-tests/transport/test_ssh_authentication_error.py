@@ -78,7 +78,7 @@ def test_replication_retry(caplog):
 
     caplog.set_level(logging.INFO)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     assert any(
