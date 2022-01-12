@@ -10,6 +10,8 @@ import time
 
 import paramiko
 
+from zettarepl.utils.logging import PrefixLoggerAdapter
+
 from .interface import *
 
 logger = logging.getLogger(__name__)
@@ -186,7 +188,7 @@ class BaseSshTransport(Transport):
         self.host_key = host_key
         self.connect_timeout = connect_timeout
 
-        self.logger = logger.getChild(f"{self.username}@{self.hostname}")
+        self.logger = PrefixLoggerAdapter(logger, f"ssh:{self.username}@{self.hostname}")
 
     def _descriptor(self):
         return self.hostname, self.port, self.username, self.private_key, self.host_key
