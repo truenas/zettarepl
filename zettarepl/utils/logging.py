@@ -5,7 +5,8 @@ import re
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LongStringsFilter", "ReplicationTaskLoggingLevelFilter", "logging_record_replication_task"]
+__all__ = ["LongStringsFilter", "ReplicationTaskLoggingLevelFilter", "logging_record_replication_task",
+           "PrefixLoggerAdapter"]
 
 
 class LongStringsFilter(logging.Filter):
@@ -75,3 +76,11 @@ def logging_record_replication_task(record: logging.LogRecord):
             return m1.group(1)
         else:
             return m2.group(1)
+
+
+class PrefixLoggerAdapter(logging.LoggerAdapter):
+    def __init__(self, logger, prefix):
+        super().__init__(logger, {"prefix": prefix})
+
+    def process(self, msg, kwargs):
+        return f"[{self.extra['prefix']}] {msg}", kwargs
