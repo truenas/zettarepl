@@ -130,7 +130,7 @@ def test_create_encrypted_target(encryption, key_location, transport):
         )
 
 
-def test_encrypted_target_but_unencrypted_target_exists():
+def test_encrypted_source_but_unencrypted_target_exists():
     subprocess.call("zfs destroy -r data/src", shell=True)
     subprocess.call("zfs destroy -r data/dst", shell=True)
 
