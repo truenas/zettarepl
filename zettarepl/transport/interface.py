@@ -8,6 +8,7 @@ from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.encryption import ReplicationEncryption
 from zettarepl.transport.timeout import get_shell_timeout
 from zettarepl.utils.lang import undefined
+from zettarepl.utils.logging import PrefixLoggerAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class AsyncExec:
         self.encoding = encoding
         self.stdout = stdout
 
-        self.logger = self.shell.logger.getChild("async_exec").getChild(str(next(self._logger_counter)))
+        self.logger = PrefixLoggerAdapter(self.shell.logger, f"async_exec:{next(self._logger_counter)}")
 
     def run(self):
         raise NotImplementedError
@@ -77,7 +78,7 @@ class Shell:
     def __init__(self, transport):
         self.transport = transport
 
-        self.logger = self.transport.logger.getChild("shell").getChild(str(next(self._logger_counter)))
+        self.logger = PrefixLoggerAdapter(self.transport.logger, f"shell:{next(self._logger_counter)}")
 
     def close(self):
         raise NotImplementedError
@@ -157,7 +158,7 @@ class ReplicationProcess:
         self.compressed = compressed
         self.raw = raw
 
-        self.logger = self.transport.logger.getChild("replication_process").getChild(replication_task_id)
+        self.logger = PrefixLoggerAdapter(self.transport.logger, f"replication_process:{replication_task_id}")
 
         self.progress_observers = []
         self.warning_observers = []
