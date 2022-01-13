@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["LocalShell", "LocalTransport"]
 
-_pgids = []
+_pgids = set()
 
 
 @atexit.register
@@ -48,7 +48,7 @@ class LocalAsyncExec(AsyncExec):
         except ProcessLookupError:
             pass
         else:
-            _pgids.append(self.pgid)
+            _pgids.add(self.pgid)
         self._copy_stdout_from(self.process.stdout)
 
     def wait(self, timeout=None):
@@ -59,6 +59,9 @@ class LocalAsyncExec(AsyncExec):
                 self.logger.debug("Timeout")
                 self.process.kill()
                 raise TimeoutError()
+            finally:
+                if self.pgid is not None:
+                    _pgids.discard(self.pgid)
         else:
             try:
                 self.process.wait(timeout=timeout)
@@ -67,6 +70,8 @@ class LocalAsyncExec(AsyncExec):
                 self.process.kill()
                 raise TimeoutError()
             finally:
+                if self.pgid is not None:
+                    _pgids.discard(self.pgid)
                 self.process.stdout.close()
             stdout = None
 
@@ -80,6 +85,7 @@ class LocalAsyncExec(AsyncExec):
     def stop(self):
         self.logger.debug("Stopping")
         if self.pgid is not None:
+            _pgids.discard(self.pgid)
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(self.pgid, signal.SIGTERM)
         with contextlib.suppress(ProcessLookupError):
