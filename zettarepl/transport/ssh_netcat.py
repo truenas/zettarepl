@@ -139,7 +139,10 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         self.listen_exec = AsyncExecTee(listen_shell, listen_args)
         self.listen_exec.run()
 
-        listen = self.listen_exec.head(self._parse_listen_exec, 10)
+        try:
+            listen = self.listen_exec.head(self._parse_listen_exec, 10)
+        except TimeoutError:
+            raise TimeoutError("Timeout waiting for listening side helper to start")
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.listen_exec.wait",
                          target=self._wait_listen_exec).start()
 
