@@ -40,7 +40,10 @@ class ProgressReportMixin:
     def _start_progress_observer(self):
         self.stop_progress_observer = threading.Event()
 
-        pid = self.async_exec.head(self._get_zettarepl_pid, 10)
+        try:
+            pid = self.async_exec.head(self._get_zettarepl_pid, 10)
+        except TimeoutError:
+            raise TimeoutError("Timeout waiting for `zfs send` to start")
 
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.progress_observer",
                          target=self._progress_observer, args=(pid,)).start()
