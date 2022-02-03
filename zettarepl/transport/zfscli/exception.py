@@ -180,6 +180,6 @@ class ZfsSendRecvExceptionHandler:
             re.search(r"cannot mount '.+': Insufficient privileges", exc_val.stdout)
         ):
             raise ReplicationError(
-                f"{exc_val.stdout.rstrip('.')}. Please make sure replication user has write permissions to its "
-                f"parent dataset"
+                exc_val.stdout.rstrip("\n").rstrip(".") + ". Please make sure that replication user has write "
+                "permissions to its parent dataset"
             ) from None
