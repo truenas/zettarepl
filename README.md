@@ -400,6 +400,7 @@ Color logging is automatically disabled when stderr is not a tty.
 Prerequisites:
 * FreeBSD or Linux VM with recent Python 3 installation. TrueNAS preferred (there are some TrueNAS-specific tests that
   will otherwise fail) but not required.
+* `sysctl vfs.usermount=1` for FreeBSD
 * root SSH key that will allow passwordless `ssh root@localhost`
 * `user` user with the same SSH key
 * `data` ZFS pool mounted in `/mnt/data`

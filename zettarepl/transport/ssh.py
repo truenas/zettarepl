@@ -128,9 +128,9 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                 send = pipe(send, ["throttle", "-B", str(self.speed_limit)])
 
             if self.direction == ReplicationDirection.PUSH:
-                commands = [send, cmd + [f"{PATH} " + implode(recv)]]
+                commands = [send, cmd + [implode(["sh", "-c", f"{PATH} " + implode(recv)])]]
             elif self.direction == ReplicationDirection.PULL:
-                commands = [cmd + [f"{PATH} " + implode(send)], recv]
+                commands = [cmd + [implode(["sh", "-c", f"{PATH} " + implode(send)])], recv]
             else:
                 raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
