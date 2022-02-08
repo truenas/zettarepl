@@ -5,7 +5,7 @@ import textwrap
 import pytest
 import yaml
 
-from zettarepl.utils.test import run_replication_test
+from zettarepl.utils.test import run_replication_test, transports
 
 
 @pytest.mark.parametrize("readonly", ["ignore", "set", "require"])
@@ -163,4 +163,44 @@ def test_readonly_require_zvol():
         "Target dataset 'data/dst' exists and does not have readonly=on property, but replication task is set up to "
         "require this property. Refusing to replicate. Please run \"zfs set readonly=on data/dst\" on the target "
         "system to fix this."
+    )
+
+
+@pytest.mark.parametrize("transport", transports(netcat=False, unprivileged=True))
+def test_unprivileged_readonly_set(transport):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs receive -A data/dst", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2021-03-10_12-00", shell=True)
+
+    subprocess.check_call("zfs create data/dst", shell=True)
+    subprocess.check_call("zfs create data/dst/dst", shell=True)
+    subprocess.check_call("zfs allow user receive,create,mount data/dst", shell=True)
+    subprocess.check_call("zfs allow user receive,create,mount data/dst/dst", shell=True)
+    subprocess.check_call("chown -R user:user /mnt/data/dst", shell=True)
+    subprocess.check_call("zfs umount data/dst/dst", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            source-dataset: data/src
+            target-dataset: data/dst/dst
+            recursive: false
+            readonly: set
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 2
+    """))
+    definition["replication-tasks"]["src"]["transport"] = transport
+
+    assert run_replication_test(definition, success=False).error == (
+        "cannot set `readonly` property for 'data/dst/dst': permission denied. Please either allow your replication "
+        "user to change dataset properties or set `readonly` replication task option to `IGNORE`"
     )
