@@ -19,6 +19,7 @@ from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuc
 from zettarepl.snapshot.list import *
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
+from zettarepl.transport.base_ssh import BaseSshTransport
 from zettarepl.transport.zfscli import get_properties, get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 from zettarepl.transport.zfscli.parse import zfs_bool
@@ -745,21 +746,37 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
 
 def handle_readonly(step_template: ReplicationStepTemplate):
     if step_template.replication_task.readonly in (ReadOnlyBehavior.SET, ReadOnlyBehavior.REQUIRE):
-        # We only want to inherit if dataset is a child of some replicated dataset
-        parent = os.path.dirname(step_template.dst_dataset)
-        if (
-            parent in step_template.dst_context.datasets_readonly and
-            step_template.dst_context.datasets_readonly.get(step_template.dst_dataset) is False
-        ):
-            # Parent should be `readonly=on` by now which means for this dataset `readonly=off` was set explicitly
-            # Let's reset it
-            step_template.dst_context.shell.exec(["zfs", "inherit", "readonly", step_template.dst_dataset])
+        try:
+            # We only want to inherit if dataset is a child of some replicated dataset
+            parent = os.path.dirname(step_template.dst_dataset)
+            if (
+                parent in step_template.dst_context.datasets_readonly and
+                step_template.dst_context.datasets_readonly.get(step_template.dst_dataset) is False
+            ):
+                # Parent should be `readonly=on` by now which means for this dataset `readonly=off` was set explicitly
+                # Let's reset it
+                action = "inherit"
+                step_template.dst_context.shell.exec(["zfs", "inherit", "readonly", step_template.dst_dataset])
 
-        step_template.dst_context.datasets_readonly[step_template.dst_dataset] = True
+            step_template.dst_context.datasets_readonly[step_template.dst_dataset] = True
 
-        # We only set value is there is no parent that already has this value set
-        if not step_template.dst_context.datasets_readonly.get(parent, False):
-            step_template.dst_context.shell.exec(["zfs", "set", "readonly=on", step_template.dst_dataset])
+            # We only set value is there is no parent that already has this value set
+            if not step_template.dst_context.datasets_readonly.get(parent, False):
+                action = "set"
+                step_template.dst_context.shell.exec(["zfs", "set", "readonly=on", step_template.dst_dataset])
+        except ExecException as e:
+            if (
+                    e.stdout.strip().endswith("permission denied") and
+                    isinstance(step_template.dst_context.shell.transport, BaseSshTransport) and
+                    step_template.dst_context.shell.transport.username != "root"
+            ):
+                raise ReplicationError(
+                    f"cannot {action} `readonly` property for {step_template.dst_dataset!r}: permission denied. "
+                    "Please either allow your replication user to change dataset properties or set `readonly` "
+                    "replication task option to `IGNORE`"
+                )
+
+            raise
 
 
 def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recursive: bool):
