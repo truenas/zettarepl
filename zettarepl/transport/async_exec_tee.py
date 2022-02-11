@@ -97,6 +97,7 @@ class AsyncExecTee(AsyncExec):
                 raise event.exception
 
         if exit_event.returncode == 0:
+            self.logger.debug("AsyncExecTee success: %r", self.output)
             return self.output
 
         self.logger.debug("Error %r: %r", exit_event.returncode, self.output)

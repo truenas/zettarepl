@@ -45,7 +45,7 @@ class AsyncExec:
         def target():
             try:
                 while True:
-                    line = file_like.readline()
+                    line = self._stdout_file_like_readline(file_like)
                     if not line:
                         break
 
@@ -57,6 +57,9 @@ class AsyncExec:
 
         if self.stdout is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.stdout_copy", target=target).start()
+
+    def _stdout_file_like_readline(self, file_like):
+        return file_like.readline()
 
 
 class ExecException(Exception):
