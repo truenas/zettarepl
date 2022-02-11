@@ -99,6 +99,16 @@ class SshTransportAsyncExec(AsyncExec):
     def _stop(self):
         self.stdout_fd.close()
 
+    def _stdout_file_like_readline(self, file_like):
+        while True:
+            try:
+                return file_like.readline()
+            except socket.timeout:
+                if file_like.channel.exit_status_ready():
+                    return None
+                else:
+                    pass
+
 
 class SshTransportShell(Shell):
     async_exec = SshTransportAsyncExec
