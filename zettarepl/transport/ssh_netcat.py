@@ -37,7 +37,12 @@ class SshNetcatExecException(ExecException):
         super().__init__(1, str(self))
 
     def __str__(self):
-        return f"{self.connect_exc}\n{self.listen_exc or 'No error'}"
+        errors = []
+        if self.connect_exc:
+            errors.append(f"Passive side: {self.connect_exc}")
+        if self.listen_exc:
+            errors.append(f"Active side: {self.listen_exc}")
+        return "\n".join(errors) or "No error"
 
     def __repr__(self):
         return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
