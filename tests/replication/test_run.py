@@ -15,6 +15,7 @@ from zettarepl.replication.run import (
     broken_pipe_error,
 )
 from zettarepl.replication.error import ReplicationError
+from zettarepl.replication.snapshots_to_send import SnapshotsToSend
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.scheduler.cron import CronSchedule
 
@@ -51,7 +52,7 @@ def test__run_replication_tasks(tasks, parts):
         task.retries = 1
 
     with patch("zettarepl.replication.run.run_replication_task_part") as run_replication_task_part:
-        run_replication_tasks(Mock(), Mock(), Mock(), tasks)
+        run_replication_tasks(Mock(), Mock(), Mock(), Mock(), tasks)
 
         assert run_replication_task_part.mock_calls == [
             call(tasks[task_id], source_dataset, ANY, ANY, None)
@@ -74,7 +75,7 @@ def test__run_replication_tasks__do_not_try_second_part_if_first_has_failed():
 
     with patch("zettarepl.replication.run.run_replication_task_part",
                Mock(side_effect=run_replication_task_part__side_effect)) as run_replication_task_part:
-        run_replication_tasks(Mock(), Mock(), Mock(), [task1, task2])
+        run_replication_tasks(Mock(), Mock(), Mock(), Mock(), [task1, task2])
 
         assert run_replication_task_part.call_args_list == [
             call(task2, "data", ANY, ANY, None),
@@ -91,7 +92,7 @@ def test__run_replication_tasks__notifies_start_once():
         with patch("zettarepl.replication.run.run_replication_task_part"):
             observer = Mock()
 
-            run_replication_tasks(Mock(), Mock(), Mock(), [task1, task2], observer)
+            run_replication_tasks(Mock(), Mock(), Mock(), Mock(), [task1, task2], observer)
 
             assert [c[0][0].task_id for c in observer.call_args_list if isinstance(c[0][0], ReplicationTaskStart)] ==\
                    [task1.id, task2.id]
@@ -106,7 +107,7 @@ def test__run_replication_tasks__only_notify_success_after_last_part():
         with patch("zettarepl.replication.run.run_replication_task_part"):
             observer = Mock()
 
-            run_replication_tasks(Mock(), Mock(), Mock(), [task1, task2], observer)
+            run_replication_tasks(Mock(), Mock(), Mock(), Mock(), [task1, task2], observer)
 
             assert [c[0][0].task_id for c in observer.call_args_list if isinstance(c[0][0], ReplicationTaskSuccess)] ==\
                    [task2.id, task1.id]
@@ -166,10 +167,12 @@ def test__get_snapshot_to_send__works():
         ["2018-09-02_17-45"],
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
+             name_pattern=None,
              restrict_schedule=None,
              only_matching_schedule=False,
              retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
-    ) == ("2018-09-02_17-45", ["2018-09-02_17-46", "2018-09-02_17-47"])
+        Mock(), Mock(),
+    ) == SnapshotsToSend("2018-09-02_17-45", ["2018-09-02_17-46", "2018-09-02_17-47"], False, False)
 
 
 def test__get_snapshot_to_send__restrict_schedule():
@@ -178,10 +181,12 @@ def test__get_snapshot_to_send__restrict_schedule():
         ["2018-09-02_17-45"],
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
+             name_pattern=None,
              restrict_schedule=CronSchedule("*/2", "*", "*", "*", "*", time(0, 0), time(23, 59)),
              only_matching_schedule=False,
              retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
-    ) == ("2018-09-02_17-45", ["2018-09-02_17-46"])
+        Mock(), Mock(),
+    ) == SnapshotsToSend("2018-09-02_17-45", ["2018-09-02_17-46"], False, False)
 
 
 def test__get_snapshot_to_send__multiple_tasks():
@@ -192,10 +197,13 @@ def test__get_snapshot_to_send__multiple_tasks():
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="1w-%Y-%m-%d_%H-%M"),
                                       Mock(naming_schema="2d-%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
+             name_pattern=None,
              restrict_schedule=None,
              only_matching_schedule=False,
              retention_policy=Mock(calculate_delete_snapshots=Mock(return_value=[]))),
-    ) == ("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"])
+        Mock(), Mock(),
+    ) == SnapshotsToSend("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "1w-2018-09-03_00-00", "2d-2018-09-03_12-00"],
+                         False, False)
 
 
 def test__get_snapshot_to_send__multiple_tasks_retention_policy():
@@ -207,24 +215,28 @@ def test__get_snapshot_to_send__multiple_tasks_retention_policy():
         Mock(periodic_snapshot_tasks=[Mock(naming_schema="1w-%Y-%m-%d_%H-%M"),
                                       Mock(naming_schema="2d-%Y-%m-%d_%H-%M")],
              also_include_naming_schema=[],
+             name_pattern=None,
              restrict_schedule=None,
              only_matching_schedule=False,
              retention_policy=Mock(calculate_delete_snapshots=Mock(side_effect=retention_policy))),
-    ) == ("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "2d-2018-09-03_12-00"])
+        Mock(), Mock(),
+    ) == SnapshotsToSend("2d-2018-09-02_00-00", ["2d-2018-09-02_12-00", "2d-2018-09-03_12-00"], False, False)
 
 
 def test__replicate_snapshots():
     step1 = Mock()
     step2 = Mock()
-    step_template = Mock(instantiate=Mock(side_effect=lambda incremental_base, snapshot, encryption: {
-        ("snap-5", "snap-6"): step1,
-        ("snap-6", "snap-7"): step2,
-    }[incremental_base, snapshot]))
+    step_template = Mock(
+        instantiate=Mock(side_effect=lambda incremental_base, snapshot, include_intermediate, encryption: {
+            ("snap-5", "snap-6"): step1,
+            ("snap-6", "snap-7"): step2,
+        }[incremental_base, snapshot])
+    )
     step_template.src_context.context = Mock(snapshots_sent_by_replication_step_template=defaultdict(lambda: 0),
                                              snapshots_total_by_replication_step_template=defaultdict(lambda: 0))
 
     with patch("zettarepl.replication.run.run_replication_step") as run_replication_step:
-        replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"], None, None)
+        replicate_snapshots(step_template, "snap-5", ["snap-6", "snap-7"], False, None, None)
 
         assert run_replication_step.call_count == 2
         # call arguments are checked by `step_template.instantiate` side effect
