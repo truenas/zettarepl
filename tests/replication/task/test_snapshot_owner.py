@@ -173,6 +173,7 @@ def test__executed_pull_replication_task_snapshot_owner_1():
         Mock(),
         Mock(source_datasets=["tank/data"],
              target_dataset="tank/repl",
+             exclude=[],
              periodic_snapshot_tasks=[],
              also_include_naming_schema=["%Y%m%d%H%M"]),
         # Remote snapshots
