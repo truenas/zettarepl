@@ -4,6 +4,7 @@ import enum
 import logging
 
 from zettarepl.dataset.relationship import is_child
+from zettarepl.replication.snapshots_to_send import get_parsed_incremental_base
 from zettarepl.retention.snapshot_owner import SnapshotOwner
 from zettarepl.snapshot.list import multilist_snapshots, group_snapshots_by_datasets
 from zettarepl.snapshot.name import *
@@ -59,15 +60,33 @@ class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
         self.src_snapshots = src_snapshots
         self.dst_snapshots = dst_snapshots
 
+        self.parsed_src_snapshots_names = {
+            dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
+            for dataset, snapshots in self.src_snapshots.items()
+        }
+        self.parsed_dst_snapshots_names = {
+            dataset: parse_snapshots_names_with_multiple_schemas(snapshots, self.get_naming_schemas())
+            for dataset, snapshots in self.dst_snapshots.items()
+        }
+
     def wants_to_delete(self):
         return False
 
     def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
         target_dataset = get_target_dataset(self.replication_task, dataset)
+        parsed_src_snapshots_names = self.parsed_src_snapshots_names.get(dataset, [])
+        parsed_dst_snapshots_names = self.parsed_dst_snapshots_names.get(target_dataset, [])
+        incremental_base = get_parsed_incremental_base(parsed_src_snapshots_names, parsed_dst_snapshots_names)
         return (
             replication_task_should_replicate_dataset(self.replication_task, dataset) and
-            parsed_snapshot_name.name in self.src_snapshots.get(dataset, []) and
-            parsed_snapshot_name.name not in self.dst_snapshots.get(target_dataset, [])
+            (
+                (
+                    parsed_snapshot_name in parsed_src_snapshots_names and
+                    parsed_snapshot_name not in parsed_dst_snapshots_names
+                ) or (
+                    parsed_snapshot_name == incremental_base
+                )
+            )
         )
 
 
