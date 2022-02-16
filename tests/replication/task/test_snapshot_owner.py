@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 from unittest.mock import Mock, patch
 
+from zettarepl.snapshot.name import parse_snapshot_name
 from zettarepl.utils.test import mock_name
 
 from zettarepl.replication.task.snapshot_owner import *
@@ -21,7 +22,7 @@ from zettarepl.replication.task.snapshot_owner import *
             "repl/work": ["2018-09-26_11-47", "2018-09-26_11-48", "2018-09-26_11-49"],
         },
         "data/work",
-        "2018-09-26_11-49",
+        "2018-09-26_11-48",
         False,
     ),
     # Replication probably failed
@@ -38,6 +39,35 @@ from zettarepl.replication.task.snapshot_owner import *
         "data/work",
         "2018-09-26_11-49",
         True,
+    ),
+    # Do not delete incremental base
+    (
+        Mock(source_datasets=["data/work"],
+             target_dataset="repl/work",
+             recursive=False),
+        {
+            "data/work": ["2018-09-26_11-47", "2018-09-26_11-48", "2018-09-26_11-49"],
+        },
+        {
+            "repl/work": ["2018-09-26_11-47"],
+        },
+        "data/work",
+        "2018-09-26_11-47",
+        True,
+    ),
+    (
+        Mock(source_datasets=["data/work"],
+             target_dataset="repl/work",
+             recursive=False),
+        {
+            "data/work": ["2018-09-26_11-47", "2018-09-26_11-48", "2018-09-26_11-49"],
+        },
+        {
+            "repl/work": ["2018-09-26_11-47", "2018-09-26_11-48"],
+        },
+        "data/work",
+        "2018-09-26_11-47",
+        False,
     ),
     # There was no data/work/ix at 2018-09-26_11-47
     (
@@ -97,10 +127,10 @@ def test__pending_replication_task_snapshot_owner(replication_task, src_snapshot
                                                   dataset, snapshot_name, should_retain):
     replication_task.owns.return_value = True
 
-    parsed_snapshot_name = Mock()
-    mock_name(parsed_snapshot_name, snapshot_name)
+    parsed_snapshot_name = parse_snapshot_name(snapshot_name, "%Y-%m-%d_%H-%M")
 
-    with patch("zettarepl.replication.task.snapshot_owner.replication_task_naming_schemas"):
+    with patch("zettarepl.replication.task.snapshot_owner.replication_task_naming_schemas",
+               Mock(return_value=["%Y-%m-%d_%H-%M"])):
         snapshot_owner = PendingPushReplicationTaskSnapshotOwner(replication_task, src_snapshots, dst_snapshots)
         snapshot_owner.owns = lambda *args, **kwargs: True
 
