@@ -246,8 +246,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
     destroy_empty_encrypted_target(replication_task, source_dataset, dst_context)
 
     # Remote retention has to be executed prior to running actual replication in order to free disk space or quotas
-    pre_retention(src_context.context.now, replication_task, src_context.datasets, dst_context.datasets, target_dataset,
-                  dst_context.shell)
+    pre_retention(src_context.context.now.replace(tzinfo=None), replication_task, src_context.datasets,
+                  dst_context.datasets, target_dataset, dst_context.shell)
 
     with DatasetSizeObserver(
         src_context.shell, dst_context.shell,
