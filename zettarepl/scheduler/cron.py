@@ -6,6 +6,7 @@ import isodate
 from croniter import croniter
 
 from zettarepl.definition.schema import schedule_validator
+from zettarepl.utils.datetime import idealized_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class CronSchedule:
                    isodate.parse_time(data["begin"]), isodate.parse_time(data["end"]))
 
     def should_run(self, d: datetime):
-        idealized = d.replace(second=0, microsecond=0, tzinfo=None)
+        idealized = idealized_datetime(d)
         if self.begin < self.end:
             if not (self.begin <= idealized.time() <= self.end):
                 return False
