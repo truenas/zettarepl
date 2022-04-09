@@ -118,10 +118,11 @@ properties:
         - schedule
         - lifetime
         additionalProperties: false
-        schedule:
-          $ref: http://freenas.org/zettarepl/schedule.schema.json
-        lifetime:
-          type: string
+        properties:
+          schedule:
+            $ref: http://freenas.org/zettarepl/schedule.schema.json
+          lifetime:
+            type: string
   compression:
     type: string
     enum:
