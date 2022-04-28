@@ -17,6 +17,10 @@ def test__async_exec_timeout(transport, stdout):
     else:
         expected_timeout = 10
 
+    subprocess.run(
+        "kill -9 $(ps axw | grep ZETTAREPL_TEST_MARKER_1 | grep -v grep | awk '{print $1}')", shell=True,
+    )
+
     transport_inst = create_transport(copy.deepcopy(transport))
     shell = transport_inst.shell(transport_inst)
 
