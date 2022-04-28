@@ -149,13 +149,18 @@ class ZfsSendRecvExceptionHandler:
         ):
             raise RecoverableReplicationError(str(exc_val)) from None
 
+        # If we try to send a dataset/snapshot and it turns out that it does not exist, it means that some datasets or
+        # snapshots were deleted after the replication plan was calculated. We should just recalculate the plan and
+        # try again.
         if (
             isinstance(exc_val, ExecException) and
             (
                 # OpenZFS
                 re.search(r"cannot send .+: snapshot .+ does not exist", exc_val.stdout) or
                 # ZoL
-                re.search(r"cannot open '.+@.+': dataset does not exist", exc_val.stdout)
+                re.search(r"cannot open '.+@.+': dataset does not exist", exc_val.stdout) or
+                # libzfs helper
+                re.search(r"Dataset .+ not found|dataset does not exist", exc_val.stdout)
             )
         ):
             raise RecoverableReplicationError(str(exc_val)) from None

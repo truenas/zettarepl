@@ -90,27 +90,27 @@ if __name__ == "__main__":
             sys.exit(1)
 
     elif args.command == "send":
-        dataset = zfs.get_object(args.dataset)
-
-        flags = set()
-        if args.replicate:
-            flags.add(libzfs.SendFlag.REPLICATE)
-        if args.include_intermediate:
-            flags.add(libzfs.SendFlag.DOALL)
-        if args.properties:
-            flags.add(libzfs.SendFlag.PROPS)
-        if args.dedup:
-            flags.add(libzfs.SendFlag.DEDUP)
-        if args.large_block:
-            flags.add(libzfs.SendFlag.LARGEBLOCK)
-        if args.embed:
-            flags.add(libzfs.SendFlag.EMBED_DATA)
-        if args.compressed:
-            flags.add(libzfs.SendFlag.COMPRESS)
-        if args.raw:
-            flags.add(libzfs.SendFlag.RAW)
-
         try:
+            dataset = zfs.get_object(args.dataset)
+
+            flags = set()
+            if args.replicate:
+                flags.add(libzfs.SendFlag.REPLICATE)
+            if args.include_intermediate:
+                flags.add(libzfs.SendFlag.DOALL)
+            if args.properties:
+                flags.add(libzfs.SendFlag.PROPS)
+            if args.dedup:
+                flags.add(libzfs.SendFlag.DEDUP)
+            if args.large_block:
+                flags.add(libzfs.SendFlag.LARGEBLOCK)
+            if args.embed:
+                flags.add(libzfs.SendFlag.EMBED_DATA)
+            if args.compressed:
+                flags.add(libzfs.SendFlag.COMPRESS)
+            if args.raw:
+                flags.add(libzfs.SendFlag.RAW)
+
             if args.receive_resume_token is None:
                 assert args.snapshot is not None
 
