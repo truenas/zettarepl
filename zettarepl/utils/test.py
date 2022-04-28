@@ -60,7 +60,10 @@ def run_periodic_snapshot_test(definition, now, success=True):
             assert not isinstance(call, PeriodicSnapshotTaskError), success
 
 
-def run_replication_test(definition, success=True, now=None):
+def run_replication_test(definition, *, success=True, now=None):
+    if now is None:
+        now = Mock()
+
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
     zettarepl._spawn_replication_tasks(now, select_by_class(ReplicationTask, definition.tasks))
