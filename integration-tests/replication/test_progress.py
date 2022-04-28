@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -56,7 +57,7 @@ def test_replication_progress(transport):
 
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     calls = [call for call in zettarepl.observer.call_args_list
@@ -150,7 +151,7 @@ def test_replication_progress_resume():
 
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     calls = [call for call in zettarepl.observer.call_args_list
@@ -214,7 +215,7 @@ def test_replication_progress_pre_calculate():
 
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     calls = [call for call in zettarepl.observer.call_args_list
