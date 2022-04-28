@@ -37,6 +37,7 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
 
     subprocess.check_call("zfs create data/dst", shell=True)
     subprocess.check_call("zfs snapshot data/dst@2018-10-01_00-00", shell=True)
+    subprocess.check_call("zfs snapshot data/dst@2018-10-01_01-00", shell=True)
 
     definition = Definition.from_data(yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"

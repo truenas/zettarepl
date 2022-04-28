@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
+from unittest.mock import Mock
 
 import yaml
 
@@ -51,7 +52,7 @@ def test_push_replication():
 
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 1
@@ -59,7 +60,7 @@ def test_push_replication():
     subprocess.check_call("zfs destroy -r data/src/child", shell=True)
     subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
 
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 2
