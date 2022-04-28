@@ -12,6 +12,10 @@ def test__local_async_exec_stop():
             "ps axw | grep ZETTAREPL_TEST_MARKER_1 | grep -v grep | wc -l", shell=True, encoding="utf-8",
         ).strip()) == count
 
+    subprocess.run(
+        "kill -9 $(ps axw | grep ZETTAREPL_TEST_MARKER_1 | grep -v grep | awk '{print $1}')", shell=True,
+    )
+
     assert_marker_count(0)
 
     local_shell = LocalShell()

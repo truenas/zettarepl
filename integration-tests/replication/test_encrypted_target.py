@@ -162,7 +162,7 @@ def test_encrypted_source_but_unencrypted_target_exists():
             retention-policy: none
             retries: 1
     """))
-    error = run_replication_test(definition, False)
+    error = run_replication_test(definition, success=False)
     assert "but it already exists and is not encrypted" in error.error
 
 
