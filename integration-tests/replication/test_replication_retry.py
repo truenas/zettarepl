@@ -3,6 +3,7 @@ import logging
 import subprocess
 import textwrap
 import time
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -61,7 +62,7 @@ def test_replication_retry(caplog, direction):
 
     caplog.set_level(logging.INFO)
     zettarepl = create_zettarepl(definition)
-    zettarepl._spawn_replication_tasks(None, select_by_class(ReplicationTask, definition.tasks))
+    zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
 
     time.sleep(2)
     if direction == "push":

@@ -46,7 +46,7 @@ def test_rewording_is_not_earlier_than_it(transport, direction):
     else:
         definition["replication-tasks"]["src"]["naming-schema"] = "%Y-%m-%d_%H-%M"
 
-    error = run_replication_test(definition, False)
+    error = run_replication_test(definition, success=False)
     assert (
         "is newer than" in error.error and
         "but has an older date" in error.error
