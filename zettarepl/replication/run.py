@@ -75,6 +75,20 @@ class ReplicationContext:
         self.datasets_readonly = None
         self.datasets_receive_resume_tokens = None
 
+    def remove_dataset(self, dataset):
+        for dictionary in (
+            self.datasets,
+            self.datasets_encrypted,
+            self.datasets_readonly,
+            self.datasets_receive_resume_tokens,
+        ):
+            if dictionary is None:
+                continue
+
+            for k in list(dictionary.keys()):
+                if k == dataset or k.startswith(f"{dataset}/"):
+                    dictionary.pop(k)
+
 
 class ReplicationStepTemplate:
     def __init__(self, replication_task: ReplicationTask,
@@ -532,18 +546,7 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                         step_template.replication_task.id, step_template.src_dataset,
                     )
                     step_template.dst_context.shell.exec(["zfs", "destroy", "-r", step_template.dst_dataset])
-                    for dictionary in (
-                        step_template.dst_context.datasets,
-                        step_template.dst_context.datasets_encrypted,
-                        step_template.dst_context.datasets_readonly,
-                        step_template.dst_context.datasets_receive_resume_tokens,
-                    ):
-                        if dictionary is None:
-                            continue
-
-                        for k in list(dictionary.keys()):
-                            if k == step_template.dst_dataset or k.startswith(f"{step_template.dst_dataset}/"):
-                                dictionary.pop(k)
+                    step_template.dst_context.remove_dataset(step_template.dst_dataset)
                 else:
                     raise NoIncrementalBaseReplicationError(
                         f"No incremental base on dataset {step_template.src_dataset!r} and replication from scratch "
