@@ -86,7 +86,7 @@ class SshTransportAsyncExec(AsyncExec):
                         break
                     else:
                         continue
-                except IOError as e:
+                except OSError as e:
                     self.logger.debug("Unable to read stdout: %r", e)
                     return None
 
@@ -175,7 +175,7 @@ class SshTransportShell(Shell):
         try:
             self.get_sftp().stat(path)
             return True
-        except IOError as e:
+        except OSError as e:
             if e.errno == errno.ENOENT:
                 return False
 

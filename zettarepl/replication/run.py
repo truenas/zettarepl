@@ -204,7 +204,7 @@ def run_replication_tasks(now: datetime, local_shell: LocalShell, transport: Tra
                         raise RecoverableReplicationError(broken_pipe_error(e.stdout))
                     else:
                         raise 
-                except (IOError, OSError) as e:
+                except OSError as e:
                     raise RecoverableReplicationError(str(e)) from None
                 replication_tasks_parts_left[replication_task.id] -= 1
                 if replication_tasks_parts_left[replication_task.id] == 0:
