@@ -1,6 +1,9 @@
 # -*- coding=utf-8 -*-
 import logging
+import socket
 import threading
+
+import paramiko.ssh_exception
 
 from zettarepl.transport.zfscli import get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
@@ -39,6 +42,8 @@ class DatasetSizeObserver:
         while not self.event.is_set():
             try:
                 self._run_once()
+            except (socket.error, paramiko.ssh_exception.SSHException, OSError) as e:
+                logger.error("Dataset size observer error: %r", e)
             except Exception:
                 logger.error("Unhandled exception in dataset size observer", exc_info=True)
 
