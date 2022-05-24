@@ -22,7 +22,7 @@ def list_datasets_with_properties(shell: Shell, dataset: str=None, recursive: bo
     if recursive:
         args.extend(["-r"])
     else:
-        args.extend(["-d", "1"])
+        args.extend(["-d", "0"])
     if dataset is not None:
         args.append(dataset)
 
