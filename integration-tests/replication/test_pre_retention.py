@@ -6,6 +6,8 @@ import textwrap
 import pytest
 import yaml
 
+from zettarepl.snapshot.list import list_snapshots
+from zettarepl.transport.local import LocalShell
 from zettarepl.utils.test import create_dataset, run_replication_test
 
 
@@ -76,3 +78,40 @@ def test_pre_retention(direction, recursive, retention_policy):
         definition["replication-tasks"]["src"]["lifetime"] = "PT1H"
 
     run_replication_test(definition, now=datetime(2018, 10, 2))
+
+
+def test_pre_retention_multiple_source_datasets():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    create_dataset("data/src/Family_Media")
+    subprocess.check_call("zfs snapshot -r data/src@2022-05-16_00-00", shell=True)
+    subprocess.check_call("zfs snapshot -r data/src@2022-05-17_00-00", shell=True)
+    subprocess.check_call("zfs send -R data/src@2022-05-17_00-00 | zfs recv -s -F data/dst", shell=True)
+
+    subprocess.check_call("zfs snapshot -r data/src@2022-05-18_00-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent(f"""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: [data/src, data/src/Family_Media]
+            target-dataset: data/dst
+            recursive: false
+            properties: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: source
+            retries: 1
+    """))
+
+    run_replication_test(definition, now=datetime(2022, 5, 18))
+
+    local_shell = LocalShell()
+    assert len(list_snapshots(local_shell, "data/dst/Family_Media", False)) == 3
