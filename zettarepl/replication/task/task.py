@@ -144,6 +144,25 @@ class ReplicationTask:
                 raise ValueError(
                     "Replication tasks that replicate entire filesystem can't exclude properties"
                 )
+            for i, source_dataset in enumerate(data["source-dataset"]):
+                for j, another_source_dataset in enumerate(data["source-dataset"]):
+                    if j != i:
+                        if is_child(source_dataset, another_source_dataset):
+                            raise ValueError(
+                                "Replication task that replicates the entire filesystem can't replicate both "
+                                f"{another_source_dataset!r} and its child {source_dataset!r}"
+                            )
+            for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
+                if (
+                        not any(is_child(source_dataset, periodic_snapshot_task.dataset)
+                                for source_dataset in data["source-dataset"])
+                        or not periodic_snapshot_task.recursive
+                ):
+                    raise ValueError(
+                        "Replication tasks that replicate the entire filesystem can only use periodic snapshot tasks "
+                        "that take recursive snapshots of the dataset being replicated (or its ancestor). Snapshot "
+                        f"task {periodic_snapshot_task.id!r} violates this requirement."
+                    )
 
         if data["encryption"]:
             encryption = ReplicationEncryption(
