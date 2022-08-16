@@ -1,11 +1,15 @@
 # -*- coding=utf-8 -*-
+import imp
 import logging
 import os
 import re
 import typing
+import tempfile
 
 from zettarepl.transport.interface import *
 from zettarepl.transport.utils import put_file
+from zettarepl.dataset.list import list_datasets
+from zettarepl.dataset.exclude import should_exclude
 
 from .snapshot import Snapshot
 
@@ -28,21 +32,28 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: 
 
         pool_name = snapshot.dataset.split("/")[0]
 
-        args = ["zfs", "program", pool_name, program, snapshot.dataset, snapshot.name] + exclude
+        with tempfile.NamedTemporaryFile() as exclude_file:
+            for d in list_datasets(shell, dataset= snapshot.dataset):
+                if should_exclude(exclude):
+                    exclude_file.write(f'{d}\n')
 
-        try:
-            shell.exec(args)
-        except ExecException as e:
-            errors = []
-            for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
-                errors.append((snapshot, os.strerror(int(error))))
-            if errors:
-                raise CreateSnapshotError(
-                    "Failed to create following snapshots:\n" +
-                    "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
-                ) from None
-            else:
-                raise CreateSnapshotError(e) from None
+            exclude_file.flush()
+
+            args = ["zfs", "program", pool_name, program, snapshot.dataset, snapshot.name] + exclude_file.name
+
+            try:
+                shell.exec(args)
+            except ExecException as e:
+                errors = []
+                for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
+                    errors.append((snapshot, os.strerror(int(error))))
+                if errors:
+                    raise CreateSnapshotError(
+                        "Failed to create following snapshots:\n" +
+                        "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
+                    ) from None
+                else:
+                    raise CreateSnapshotError(e) from None
     else:
         args = ["zfs", "snapshot"]
 

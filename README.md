@@ -51,7 +51,7 @@ periodic-snapshot-tasks:
     # independently but in one transaction.
     exclude:
       - data/src/excluded
-	  - data/*/excluded
+      - data/*/excluded
 
     # You can specify lifetime for snapshots so they would get automatically
     # deleted up after a certain amount of time.

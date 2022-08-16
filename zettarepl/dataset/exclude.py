@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
-import logging, fnmatch
+import logging
+import fnmatch
 
 import zettarepl.dataset.relationship
 
@@ -9,4 +10,4 @@ __all__ = ["should_exclude"]
 
 
 def should_exclude(dataset: str, exclude: [str]):
-	return any(zettarepl.dataset.relationship.is_child(dataset, excl) or fnmatch.fnmatch(dataset, excl) for excl in exclude)
+    return any(zettarepl.dataset.relationship.is_child(dataset, excl) or fnmatch.fnmatch(dataset, excl) for excl in exclude)

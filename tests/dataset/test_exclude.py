@@ -11,8 +11,8 @@ from zettarepl.dataset.exclude import should_exclude
     ("data/.system-settings", ["data/.system"], False),
     ("my-data", ["data/.system"], False),
     ("my-data/.system", ["data/.system"], False),
-	("data/.system/cores", ["data/*/cores"], True),
-	("data/.system2/cores", ["data/*/cores"], False),
+    ("data/.system/cores", ["data/*/cores"], True),
+    ("data/.system/cores2", ["data/*/cores"], False),
 ])
 def test__should_exclude(dataset, exclude, result):
     assert should_exclude(dataset, exclude) == result
