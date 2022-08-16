@@ -5,24 +5,26 @@ end
 args = ...
 dataset = args["argv"][1]
 snapshot_name = args["argv"][2]
-exclude = {}
-for i = 3, #args["argv"] do
-    exclude[i - 2] = args["argv"][i]
+exclude_filename = args["argv"][3]
 end
 
+excl_file = io.open(exclude_filename, "r")
 snapshots_to_create = {}
-function populate_snapshots_to_create(dataset)
+function populate_snapshots_to_create(dataset, exclude_file)
     table.insert(snapshots_to_create, dataset .. "@" .. snapshot_name)
 
-    local iterator = zfs.list.children(dataset)
+    local child_iterator = zfs.list.children(dataset)
     while true do
-        local child = iterator()
+        local child = child_iterator()
         if child == nil then
             break
         end
 
+        local exclude_iterator = exclude_file:lines()
+
         local include = true
-        for _, excl in ipairs(exclude) do
+        for exclude_line in exclude_iterator do
+            local exclude = string.gsub(exclude_line, "[\n]", "")
             if child == excl then
                 include = false
                 break
@@ -33,7 +35,8 @@ function populate_snapshots_to_create(dataset)
         end
     end
 end
-populate_snapshots_to_create(dataset)
+populate_snapshots_to_create(dataset, excl_file)
+excl_file:close()
 
 errors = {}
 for _, snapshot in ipairs(snapshots_to_create) do
