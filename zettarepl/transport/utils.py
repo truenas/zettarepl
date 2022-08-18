@@ -2,6 +2,7 @@
 import hashlib
 import logging
 import os
+import typing
 
 from .encryption_context import EncryptionContext
 from .interface import ReplicationProcess, Shell
@@ -28,5 +29,15 @@ def put_file(name, shell: Shell):
         remote_path = f"/tmp/zettarepl--{name.replace('/', '--')}--{md5}"
         if not shell.exists(remote_path):
             shell.put_file(f, remote_path)
+
+    return remote_path
+
+def put_buffer(buffer: typing.IO[bytes], name: str, shell: Shell):
+    md5 = hashlib.md5(buffer.read()).hexdigest()
+    buffer.seek(0)
+
+    remote_path = f"/tmp/zettarepl--{name.replace('/', '--')}--{md5}"
+    if not shell.exists(remote_path):
+        shell.put_file(buffer, remote_path)
 
     return remote_path
