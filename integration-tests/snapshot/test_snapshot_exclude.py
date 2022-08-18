@@ -14,7 +14,7 @@ def test_snapshot_exclude():
     subprocess.call("zfs destroy -r data/src", shell=True)
 
     subprocess.check_call("zfs create data/src", shell=True)
-    for dataset in ["DISK1", "DISK1/Apps", "DISK1/ISO", "waggnas"]:
+    for dataset in ["DISK1", "DISK1/Apps", "DISK1/ISO", "waggnas", "DISK2", "DISK2/Apps", "DISK2/ISO"]:
         subprocess.check_call(f"zfs create data/src/{dataset}", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
@@ -26,6 +26,7 @@ def test_snapshot_exclude():
             recursive: true
             exclude:
             - data/src/waggnas
+            - data/src/*/ISO
             lifetime: "P7W"
             naming-schema: "auto-%Y%m%d.%H%M%S-2w"
             schedule:
@@ -43,5 +44,7 @@ def test_snapshot_exclude():
     local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "data/src", False)) == 1
     assert len(list_snapshots(local_shell, "data/src/DISK1/Apps", False)) == 1
-    assert len(list_snapshots(local_shell, "data/src/DISK1/ISO", False)) == 1
+    assert len(list_snapshots(local_shell, "data/src/DISK1/ISO", False)) == 0
+    assert len(list_snapshots(local_shell, "data/src/DISK2/Apps", False)) == 1
+    assert len(list_snapshots(local_shell, "data/src/DISK2/ISO", False)) == 0
     assert len(list_snapshots(local_shell, "data/src/waggnas", False)) == 0

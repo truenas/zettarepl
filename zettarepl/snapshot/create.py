@@ -7,9 +7,10 @@ import typing
 import tempfile
 
 from zettarepl.transport.interface import *
-from zettarepl.transport.utils import put_file
+from zettarepl.transport.utils import put_buffer
 from zettarepl.dataset.list import list_datasets
 from zettarepl.dataset.exclude import should_exclude
+from zettarepl.zcp.render_zcp import render_zcp
 
 from .snapshot import Snapshot
 
@@ -21,29 +22,29 @@ __all__ = ["CreateSnapshotError", "create_snapshot"]
 class CreateSnapshotError(Exception):
     pass
 
+def iterate_excluded_datasets(exclude_rules: [str], datasets: typing.Iterable):
+    for dataset in datasets:
+        if should_exclude(dataset, exclude_rules):
+            yield dataset
 
-def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude: [str], properties: {str: typing.Any}):
+def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_rules: [str], properties: {str: typing.Any}):
     logger.info("On %r creating %s snapshot %r", shell, "recursive" if recursive else "non-recursive", snapshot)
 
-    if exclude:
+    if exclude_rules:
         # TODO: support adding properties to snapshots created by channel program
-
-        program = put_file("zcp/recursive_snapshot_exclude.lua", shell)
 
         pool_name = snapshot.dataset.split("/")[0]
 
-        with tempfile.NamedTemporaryFile() as exclude_file:
-            for d in list_datasets(shell, dataset= snapshot.dataset):
-                if should_exclude(exclude):
-                    exclude_file.write(f'{d}\n')
+        with tempfile.TemporaryFile() as snapshot_program:
+            render_zcp(snapshot_program, snapshot.dataset, snapshot.name, iterate_excluded_datasets(exclude_rules, list_datasets(shell, snapshot.dataset, recursive)))
+            program = put_buffer(snapshot_program, f"recursive_snapshot_exclude_{snapshot.dataset}.lua", shell)
 
-            exclude_file.flush()
-
-            args = ["zfs", "program", pool_name, program, snapshot.dataset, snapshot.name] + exclude_file.name
+            args = ["zfs", "program", pool_name, program]
 
             try:
                 shell.exec(args)
             except ExecException as e:
+                logger.debug(e)
                 errors = []
                 for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
                     errors.append((snapshot, os.strerror(int(error))))
