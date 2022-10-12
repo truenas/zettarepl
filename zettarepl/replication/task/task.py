@@ -211,6 +211,9 @@ class ReplicationTask:
 
             if data["also-include-naming-schema"]:
                 raise ValueError("naming-schema/also-include-naming-schema can't be used with name-regex")
+
+            if data["retention-policy"] not in ["source", "none"]:
+                raise ValueError("Only source and none retention policies can be used with name-regex")
         else:
             name_pattern = None
 
