@@ -1,9 +1,21 @@
 # -*- coding=utf-8 -*-
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from zettarepl.snapshot.name import ParsedSnapshotName, parse_snapshots_names_with_multiple_schemas
+from zettarepl.snapshot.name import (
+    ParsedSnapshotName, parse_snapshot_name, parse_snapshots_names_with_multiple_schemas,
+)
+
+
+@pytest.mark.parametrize("name,naming_schema,parsed_datetime", [
+    ("auto_hourly_2022-11-04_10-00_--0200", "auto_hourly_%Y-%m-%d_%H-%M_%z",
+     datetime(2022, 11, 4, 10, 0, tzinfo=timezone(timedelta(seconds=7200)))),
+    ("auto_hourly_2022-11-04_10-00_:0200", "auto_hourly_%Y-%m-%d_%H-%M_%z",
+     datetime(2022, 11, 4, 10, 0, tzinfo=timezone(timedelta(seconds=7200)))),
+])
+def test_parse_snapshot_name(name, naming_schema, parsed_datetime):
+    assert parse_snapshot_name(name, naming_schema).parsed_datetime == parsed_datetime
 
 
 def test__parse_snapshots_names_with_multiple_schemas__multiple_schemas():

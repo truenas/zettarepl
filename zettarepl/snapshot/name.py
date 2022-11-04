@@ -19,7 +19,7 @@ ParsedSnapshotName = namedtuple(
 
 
 def get_snapshot_name(now: datetime, naming_schema: str) -> str:
-    return now.strftime(naming_schema).replace("+", ":")
+    return now.strftime(naming_schema).replace("+", "--")
 
 
 def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
@@ -34,7 +34,12 @@ def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
     else:
         strptime_name = name
         if naming_schema_has_utcoffset(naming_schema):
-            strptime_name = strptime_name.replace(":", "+")
+            if "--" in strptime_name:
+                strptime_name = strptime_name.replace("--", "+")
+            else:
+                # Before https://github.com/truenas/zettarepl/issues/218 we used to use `:` instead of `+` but it
+                # turned out to be incompatible with Samba
+                strptime_name = strptime_name.replace(":", "+")
 
         try:
             d = datetime.strptime(strptime_name, naming_schema)
@@ -122,9 +127,9 @@ def validate_snapshot_naming_schema(schema: str):
                 raise ValueError(f"{s} must be present in snapshot naming schema")
 
     has_utcoffset = naming_schema_has_utcoffset(schema)
-    if has_utcoffset and ":" in schema:
-        raise ValueError("%z and `:` can't be present in snapshot naming schema at the same time. "
-                         "ZFS snapshot names can't contain `+` so we use `:` instead.")
+    if has_utcoffset and "--" in schema:
+        raise ValueError("%z and `--` can't be present in snapshot naming schema at the same time. "
+                         "ZFS snapshot names can't contain `+` so we use `--` instead.")
 
     for d in [
         datetime(2000, 2, 29, 19, 40, tzinfo=pytz.timezone("Etc/GMT-10")),
