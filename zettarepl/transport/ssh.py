@@ -107,6 +107,8 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                             self.compressed,
                             self.raw,
                             report_progress)
+            if self._send_uses_sudo():
+                send = ["sudo"] + send
 
             if self.encryption:
                 self.encryption_context = EncryptionContext(self, self._get_recv_shell())
@@ -118,6 +120,9 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                 properties_override = {}
 
             recv = zfs_recv(self.target_dataset, properties_exclude, properties_override)
+            if self.transport.sudo:
+                if self.direction == ReplicationDirection.PUSH:
+                    recv = ["sudo"] + recv
 
             send = self._wrap_send(send)
 
@@ -183,6 +188,13 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             return self.remote_shell
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+    def _send_uses_sudo(self):
+        if self.transport.sudo:
+            if self.direction == ReplicationDirection.PULL:
+                return True
+
+        return False
 
     def _get_recv_shell(self):
         if self.direction == ReplicationDirection.PUSH:
