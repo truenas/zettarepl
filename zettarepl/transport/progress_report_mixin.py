@@ -18,6 +18,9 @@ class ProgressReportMixin:
     def _get_send_shell(self):
         raise NotImplementedError
 
+    def _send_uses_sudo(self):
+        raise NotImplementedError
+
     def _zfs_send_can_report_progress(self):
         send_shell = self._get_send_shell()
 
@@ -66,7 +69,7 @@ class ProgressReportMixin:
                     return
 
                 try:
-                    s = send_shell.exec(["ps", "-o", "command", "-p", str(pid)])
+                    s = send_shell.exec(["ps", "-o", "command", "--ppid" if self._send_uses_sudo() else "-p", str(pid)])
                 except ExecException as e:
                     if e.returncode == 1 and e.stdout.strip() == "COMMAND":
                         logger.debug("zfs send with PID %r is gone", pid)

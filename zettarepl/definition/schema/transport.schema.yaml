@@ -27,6 +27,8 @@ definitions:
         type: string
       connect-timeout:
         type: integer
+      sudo:
+        type: boolean
   ssh-transport:
     allOf:
     - $ref: "#/definitions/base-ssh-transport"
