@@ -187,6 +187,9 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
     def _get_send_shell(self):
         return self.local_shell
 
+    def _send_uses_sudo(self):
+        return False
+
 
 class LocalTransport(Transport):
     logger = logger

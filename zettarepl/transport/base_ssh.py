@@ -31,10 +31,12 @@ class SshTransportAsyncExec(AsyncExec):
     def run(self):
         client = self.shell.get_client()
 
-        self.logger.debug("Running %r", self.args)
+        sudo = self.shell.transport.sudo and self.args and self.args[0].startswith(("python3", "zfs"))
+
+        self.logger.debug("Running %r with sudo=%r", self.args, sudo)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
             "sh -c " + shlex.quote(
-                f"{PATH} " + " ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"
+                f"{PATH} {'sudo ' if sudo else ''}" + " ".join([shlex.quote(arg) for arg in self.args]) + " 2>&1"
             ),
             timeout=10
         )
@@ -197,13 +199,14 @@ class SshTransportShell(Shell):
 class BaseSshTransport(Transport):
     shell = SshTransportShell
 
-    def __init__(self, hostname, port, username, private_key, host_key, connect_timeout):
+    def __init__(self, hostname, port, username, private_key, host_key, connect_timeout, sudo):
         self.hostname = hostname
         self.port = port
         self.username = username
         self.private_key = private_key
         self.host_key = host_key
         self.connect_timeout = connect_timeout
+        self.sudo = sudo
 
         self.logger = PrefixLoggerAdapter(logger, f"ssh:{self.username}@{self.hostname}")
 
@@ -218,6 +221,7 @@ class BaseSshTransport(Transport):
         data.setdefault("port", 22)
         data.setdefault("username", "root")
         data.setdefault("connect-timeout", 10)
+        data.setdefault("sudo", False)
         data["private_key"] = data.pop("private-key")
         data["host_key"] = data.pop("host-key")
         data["connect_timeout"] = data.pop("connect-timeout")
