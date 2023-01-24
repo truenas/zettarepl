@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["destroy_snapshots"]
 
 ARG_MAX = 262000  # FreeBSD, on Linux it is even higher
+MAX_BATCH_SIZE = 100  # Deleting too many snapshots at once can cause performance issues
 
 
 def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
@@ -24,6 +25,9 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
             chunk = set()
             sum_len = len(dataset)
             for name in sorted(names):
+                if len(chunk) >= MAX_BATCH_SIZE:
+                    break
+
                 new_sum_len = sum_len + len(name) + 1
                 if new_sum_len >= ARG_MAX:
                     break
