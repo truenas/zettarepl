@@ -51,8 +51,9 @@ class PeriodicSnapshotTaskError(ObserverMessage):
 
 
 class ReplicationTaskScheduled(ObserverMessage):
-    def __init__(self, task_id):
+    def __init__(self, task_id, waiting_reason):
         self.task_id = task_id
+        self.waiting_reason = waiting_reason
 
 
 class ReplicationTaskStart(ObserverMessage):
