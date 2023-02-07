@@ -144,7 +144,8 @@ class ZfsSendRecvExceptionHandler:
             isinstance(exc_val, ExecException) and
             (
                 re.search(r"cannot send .+:\s*signal received", exc_val.stdout) or
-                "cannot receive new filesystem stream: checksum mismatch or incomplete stream" in exc_val.stdout
+                re.search(r"cannot receive (new filesystem|incremental) stream: "
+                          r"checksum mismatch or incomplete stream", exc_val.stdout)
             )
         ):
             raise RecoverableReplicationError(str(exc_val)) from None
