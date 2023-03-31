@@ -189,3 +189,10 @@ class ZfsSendRecvExceptionHandler:
                 exc_val.stdout.rstrip("\n").rstrip(".") + ". Please make sure that replication user has write "
                 "permissions to its parent dataset"
             ) from None
+
+        if isinstance(exc_val, ExecException) and "sudo: " in exc_val.stdout:
+            raise ReplicationError(
+                "Passwordless `sudo` for `/usr/sbin/zfs` is not set up correctly on the remote system.\n" +
+                "The error reported was:\n" +
+                exc_val.stdout.rstrip("\n")
+            ) from None
