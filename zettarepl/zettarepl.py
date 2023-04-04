@@ -9,6 +9,7 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, PeriodicSnapshotTaskStart, PeriodicSnapshotTaskSuccess,
                                 PeriodicSnapshotTaskError, ReplicationTaskScheduled)
 from zettarepl.replication.run import run_replication_tasks
+from zettarepl.replication.task.dataset import get_target_dataset
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.snapshot_owner import *
 from zettarepl.replication.task.snapshot_query import *
@@ -231,9 +232,13 @@ class Zettarepl:
             if not are_same_host(t1.transport, t2.transport):
                 return True
 
-            return (
-                not is_child(t1.target_dataset, t2.target_dataset) and
-                not is_child(t2.target_dataset, t1.target_dataset)
+            return not any(
+                (
+                    is_child(get_target_dataset(t1, dataset1), get_target_dataset(t2, dataset2)) or
+                    is_child(get_target_dataset(t2, dataset2), get_target_dataset(t1, dataset1))
+                )
+                for dataset1 in t1.source_datasets
+                for dataset2 in t2.source_datasets
             )
         else:
             if t1.direction == ReplicationDirection.PULL and t2.direction == ReplicationDirection.PUSH:
