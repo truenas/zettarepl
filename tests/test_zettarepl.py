@@ -80,10 +80,24 @@ def test__transport_for_replication_tasks():
 
 
 @pytest.mark.parametrize("t1,t2,can", [
-    (Mock(target_dataset="data/work"), Mock(target_dataset="data/work"), False),
-    (Mock(target_dataset="data/work"), Mock(target_dataset="tank/work"), True),
-    (Mock(target_dataset="data/work"), Mock(target_dataset="data/work/trash"), False),
-    (Mock(target_dataset="data/work/trash"), Mock(target_dataset="data/work"), False),
+    (Mock(source_datasets=["src"], target_dataset="data/work"),
+     Mock(source_datasets=["src"], target_dataset="data/work"),
+     False),
+    (Mock(source_datasets=["src"], target_dataset="data/work"),
+     Mock(source_datasets=["src"], target_dataset="tank/work"),
+     True),
+    (Mock(source_datasets=["src"], target_dataset="data/work"),
+     Mock(source_datasets=["src"], target_dataset="data/work/trash"),
+     False),
+    (Mock(source_datasets=["src"], target_dataset="data/work/trash"),
+     Mock(source_datasets=["src"], target_dataset="data/work"),
+     False),
+    (Mock(source_datasets=["src/sqlbackup_dev", "src/sqlbackup_prod"], target_dataset="backup"),
+     Mock(source_datasets=["src/beyondtrust", "src/creativedata"], target_dataset="backup"),
+     True),
+    (Mock(source_datasets=["src/sqlbackup_prod", "src/sqlbackup_dev"], target_dataset="backup"),
+     Mock(source_datasets=["src/sqlbackup_prod"], target_dataset="backup/sqlbackup_prod"),
+     False),
 ])
 def test__can_run_in_parallel__same_direction(t1, t2, can):
     with patch("zettarepl.zettarepl.are_same_host", Mock(return_value=True)):
@@ -92,6 +106,7 @@ def test__can_run_in_parallel__same_direction(t1, t2, can):
         zettarepl = Zettarepl(Mock(), Mock())
 
         assert zettarepl._replication_tasks_can_run_in_parallel(t1, t2) == can
+        assert zettarepl._replication_tasks_can_run_in_parallel(t2, t1) == can
 
 
 @pytest.mark.parametrize("t1,t2,can", [
