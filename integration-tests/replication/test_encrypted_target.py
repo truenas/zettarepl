@@ -195,3 +195,38 @@ def test_encrypted_target_replication_from_scratch():
             retries: 1
     """))
     run_replication_test(definition)
+
+
+def test_re_encrypt_preserving_properties():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src", encrypted=True)
+    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+
+    create_dataset("data/dst")
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst/target
+            recursive: true
+            properties: true
+            encryption:
+              key: password
+              key-format: passphrase
+              key-location: $TrueNAS
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    error = run_replication_test(definition, success=False)
+    assert error.error.startswith("Re-encrypting already encrypted source dataset 'data/src'")
