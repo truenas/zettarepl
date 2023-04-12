@@ -351,6 +351,15 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
         src_context.datasets_encrypted = get_datasets_encrypted(src_context.shell, source_dataset,
                                                                 replication_task.recursive)
 
+        if replication_task.encryption:
+            for dataset, encrypted in src_context.datasets_encrypted.items():
+                if encrypted:
+                    if replication_task_should_replicate_dataset(replication_task, dataset):
+                        raise ReplicationError(
+                            f"Re-encrypting already encrypted source dataset {dataset!r} while preserving its "
+                            "properties is not supported"
+                        )
+
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
     source_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
