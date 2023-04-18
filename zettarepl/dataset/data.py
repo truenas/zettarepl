@@ -44,7 +44,7 @@ def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]
     if index is not None:
         if index:
             raise ReplicationError(
-                f"Target dataset {dataset!r} does not have snapshots but has data (e.g. {index[0]!r} and "
+                f"Target dataset {dataset!r} does not have snapshots but has data (e.g. {index[0]!r}) and "
                 f"replication from scratch is not allowed. Refusing to overwrite existing data."
             )
 
