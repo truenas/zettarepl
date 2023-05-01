@@ -66,7 +66,7 @@ def test_pull_local_retention(retention_policy, remains):
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0), [])
 
     assert list_snapshots(local_shell, "data/dst", False) == remains
 
@@ -99,6 +99,6 @@ def test_does_not_remove_the_last_snapshot_left():
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_local_retention(datetime(2020, 6, 25, 0, 0))
+    zettarepl._run_local_retention(datetime(2020, 6, 25, 0, 0), [])
 
     assert list_snapshots(local_shell, "data/src", False) == [Snapshot("data/src", "2020-05-23_00-00")]

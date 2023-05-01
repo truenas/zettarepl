@@ -76,7 +76,7 @@ def test_push_remote_retention(retention_policy, remains):
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_remote_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_remote_retention(datetime(2018, 10, 1, 3, 0), [])
 
     assert list_snapshots(local_shell, "data/dst", False) == remains
 
@@ -127,7 +127,7 @@ def test_source_retention_multiple_sources():
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_remote_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_remote_retention(datetime(2018, 10, 1, 3, 0), [])
 
     assert list_snapshots(local_shell, "data/dst/a", False) == [Snapshot("data/dst/a", "2018-10-01_02-00")]
     assert list_snapshots(local_shell, "data/dst/b", False) == [Snapshot("data/dst/b", "2018-10-01_02-00")]
