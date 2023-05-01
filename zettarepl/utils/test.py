@@ -16,7 +16,7 @@ from zettarepl.zettarepl import Zettarepl
 logger = logging.getLogger(__name__)
 
 __all__ = ["create_dataset", "create_zettarepl", "mock_name", "run_replication_test", "set_localhost_transport_options",
-           "transports", "wait_replication_tasks_to_complete"]
+           "transports", "wait_replication_tasks_to_complete", "wait_retention_to_complete"]
 
 
 def create_dataset(name, encrypted=False):
@@ -113,6 +113,16 @@ def transports(netcat=True, unprivileged=False):
 def wait_replication_tasks_to_complete(zettarepl, timeout=300):
     for i in range(timeout):
         if not zettarepl.running_tasks and not zettarepl.pending_tasks:
+            return
+
+        time.sleep(1)
+
+    raise TimeoutError()
+
+
+def wait_retention_to_complete(zettarepl, timeout=300):
+    for i in range(timeout):
+        if not zettarepl.retention_running:
             return
 
         time.sleep(1)

@@ -206,8 +206,7 @@ class Zettarepl:
                     notify(self.observer, ReplicationTaskScheduled(replication_task.id, reason))
                     self.pending_tasks.append((now, replication_task))
 
-            if not self.pending_tasks and not self.running_tasks and not self.retention_running:
-                self._spawn_retention()
+            self._spawn_retention()
 
     def _can_spawn_replication_task(self, replication_task: ReplicationTask):
         return self._cannot_spawn_replication_task_reason(replication_task) is None
@@ -287,8 +286,7 @@ class Zettarepl:
 
                 self._spawn_pending_tasks()
 
-                if not self.running_tasks and not self.retention_running:
-                    self._spawn_retention()
+                self._spawn_retention()
 
     def _spawn_pending_tasks(self):
         for now, pending_task in list(self.pending_tasks):
@@ -297,15 +295,25 @@ class Zettarepl:
                 self.pending_tasks.remove((now, pending_task))
 
     def _spawn_retention(self):
-        self.retention_running = True
-        threading.Thread(name=f"retention", target=self._run_retention).start()
+        if self.retention_running:
+            return
 
-    def _run_retention(self):
+        self.retention_running = True
+        threading.Thread(
+            name=f"retention",
+            target=self._run_retention,
+            args=(
+                self.retention_datetime,
+                [t[1] for t in self.pending_tasks] + self.running_tasks,
+            )
+        ).start()
+
+    def _run_retention(self, retention_datetime, pending_running_tasks):
         self.retention_shells = {}
         try:
             try:
-                self._run_local_retention(self.retention_datetime)
-                self._run_remote_retention(self.retention_datetime)
+                self._run_local_retention(retention_datetime, pending_running_tasks)
+                self._run_remote_retention(retention_datetime, pending_running_tasks)
             finally:
                 for shell in self.retention_shells.values():
                     shell.close()
@@ -331,9 +339,11 @@ class Zettarepl:
 
         return self.retention_shells[transport]
 
-    def _run_local_retention(self, now: datetime):
+    def _run_local_retention(self, now: datetime, pending_running_tasks):
         periodic_snapshot_tasks = select_by_class(PeriodicSnapshotTask, self.tasks)
         replication_tasks = select_by_class(ReplicationTask, self.tasks)
+
+        pending_running_push_replication_tasks = list(filter(self._is_push_replication_task, pending_running_tasks))
 
         push_replication_tasks_that_can_hold = [replication_task for replication_task in replication_tasks
                                                 if replication_task.hold_pending_snapshots]
@@ -359,7 +369,9 @@ class Zettarepl:
             (periodic_snapshot_task.dataset, periodic_snapshot_task.recursive)
             for periodic_snapshot_task in periodic_snapshot_tasks
         ])
-        local_snapshots_queries.extend(replication_tasks_source_datasets_queries(push_replication_tasks_that_can_hold))
+        local_snapshots_queries.extend(replication_tasks_source_datasets_queries(
+            pending_running_push_replication_tasks + push_replication_tasks_that_can_hold
+        ))
         local_snapshots_queries.extend([
             (replication_task.target_dataset, replication_task.recursive)
             for replication_task in pull_replications_tasks
@@ -375,11 +387,18 @@ class Zettarepl:
             for periodic_snapshot_task in periodic_snapshot_tasks
         ])
 
+        for transport, replication_tasks in self._transport_for_replication_tasks(
+            pending_running_push_replication_tasks
+        ):
+            shell = self._get_retention_shell(transport)
+            owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
+                                                                        pending_running_push_replication_tasks))
+
         # These are always only PUSH replication tasks
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks_that_can_hold):
             shell = self._get_retention_shell(transport)
             owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
-                                                                        replication_tasks))
+                                                                        push_replication_tasks_that_can_hold))
 
         if snapshot_removal_date_owner:
             owners.append(snapshot_removal_date_owner)
@@ -403,11 +422,18 @@ class Zettarepl:
         logger.info("Retention destroying local snapshots: %r", snapshots_to_destroy)
         destroy_snapshots(self.local_shell, snapshots_to_destroy)
 
-    def _run_remote_retention(self, now: datetime):
-        push_replication_tasks = list(
-            filter(self._is_push_replication_task, select_by_class(ReplicationTask, self.tasks)))
+    def _run_remote_retention(self, now: datetime, pending_running_tasks):
+        push_replication_tasks = [
+            replication_task
+            for replication_task in filter(self._is_push_replication_task, select_by_class(ReplicationTask, self.tasks))
+            if all(
+                self._replication_tasks_can_run_in_parallel(replication_task, pending_running_task)
+                for pending_running_task in pending_running_tasks
+            )
+        ]
         local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
-            self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)))
+            self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)
+        ))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
             shell = self._get_retention_shell(transport)
             remote_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)

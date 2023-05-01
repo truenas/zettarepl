@@ -54,8 +54,6 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
 
 class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
     def __init__(self, replication_task: ReplicationTask, src_snapshots: {str: [str]}, dst_snapshots: {str: [str]}):
-        assert replication_task.hold_pending_snapshots
-
         super().__init__(replication_task, BaseReplicationTaskSnapshotOwner.Side.SOURCE)
         self.src_snapshots = src_snapshots
         self.dst_snapshots = dst_snapshots
@@ -92,9 +90,6 @@ class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
 
 def pending_push_replication_task_snapshot_owners(src_snapshots: {str: [str]}, shell: Shell,
                                                   replication_tasks: [ReplicationTask]):
-    replication_tasks = [replication_task for replication_task in replication_tasks
-                         if replication_task.hold_pending_snapshots]
-
     if replication_tasks:
         dst_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
         try:

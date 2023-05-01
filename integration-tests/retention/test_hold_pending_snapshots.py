@@ -69,7 +69,7 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0), [])
 
     assert list_snapshots(local_shell, "data/src", False) == remains
 
@@ -125,7 +125,7 @@ def test_hold_pending_snapshots__does_not_delete_orphan_snapshots():
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_local_retention(datetime(2018, 10, 4, 0, 0))
+    zettarepl._run_local_retention(datetime(2018, 10, 4, 0, 0), [])
 
     assert list_snapshots(local_shell, "data/src", False) == [
         Snapshot("data/src", "2018-10-01_01-00"),
@@ -184,7 +184,7 @@ def test_hold_pending_snapshots_multiple_sources():
     local_shell = LocalShell()
     zettarepl = Zettarepl(Mock(), local_shell)
     zettarepl.set_tasks(definition.tasks)
-    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0))
+    zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0), [])
 
     assert list_snapshots(local_shell, "data/src/a", False) == [Snapshot("data/src/a", "2018-10-01_02-00")]
     assert list_snapshots(local_shell, "data/src/b", False) == [Snapshot("data/src/b", "2018-10-01_02-00")]

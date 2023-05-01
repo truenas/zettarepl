@@ -99,7 +99,7 @@ def test_does_not_remove_the_last_snapshot_left(snapshots__removal_dates__result
     zettarepl = Zettarepl(Mock(), local_shell, use_removal_dates=True)
     zettarepl.set_tasks(definition.tasks)
     with patch("zettarepl.zettarepl.get_removal_dates", Mock(return_value=removal_dates)):
-        zettarepl._run_local_retention(datetime(2021, 4, 19, 17, 0))
+        zettarepl._run_local_retention(datetime(2021, 4, 19, 17, 0), [])
 
     assert list_snapshots(local_shell, "data/src", False) + list_snapshots(local_shell, "data/src2", False) == [
         snapshots[i] for i in result
