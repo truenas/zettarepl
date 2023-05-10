@@ -8,15 +8,24 @@ from .interface import ReplicationProcess, Shell
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["get_properties_override", "put_file"]
+__all__ = ["get_properties_exclude_override", "put_file"]
 
 
-def get_properties_override(process: ReplicationProcess, encryption_context: EncryptionContext):
+def get_properties_exclude_override(process: ReplicationProcess, encryption_context: EncryptionContext):
+    properties_exclude = []
     properties_override = {}
+
     if encryption_context:
-        properties_override.update(**encryption_context.enter())
+        context_properties_exclude, context_properties_override = encryption_context.enter()
+        properties_exclude += context_properties_exclude
+        properties_override.update(**context_properties_override)
+
+    for property in process.properties_exclude:
+        if property not in properties_exclude:
+            properties_exclude.append(property)
     properties_override.update(process.properties_override)
-    return properties_override
+
+    return properties_exclude, properties_override
 
 
 def put_file(name, shell: Shell):

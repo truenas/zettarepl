@@ -303,7 +303,15 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
     dst_dataset = get_target_dataset(replication_task, source_dataset)
 
     if dst_dataset not in dst_context.datasets:
-        if not replication_task.encryption:
+        if replication_task.encryption:
+            if replication_task.encryption.inherit:
+                if not existing_parent_is_encrypted(dst_context.shell, dst_dataset):
+                    raise ReplicationError(
+                        f"Encryption inheritance requested for destination dataset {dst_dataset!r}, but its existing "
+                        f"parent is not encrypted."
+                    )
+
+        else:
             if new_dataset_should_be_encrypted(dst_context.shell, dst_dataset):
                 if replication_task.properties:
                     if not src_context.datasets_encrypted[source_dataset]:
@@ -360,6 +368,10 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
 
 
 def new_dataset_should_be_encrypted(shell, dataset):
+    return existing_parent_is_encrypted(shell, dataset)
+
+
+def existing_parent_is_encrypted(shell, dataset):
     parent = dataset
     while "/" in parent:
         parent = os.path.dirname(parent)
