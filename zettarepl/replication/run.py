@@ -257,7 +257,7 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
     step_templates = calculate_replication_step_templates(replication_task, source_dataset,
                                                           src_context, dst_context)
 
-    destroy_empty_encrypted_target(replication_task, source_dataset, dst_context)
+    check_encrypted_target(replication_task, source_dataset, src_context, dst_context)
 
     # Remote retention has to be executed prior to running actual replication in order to free disk space or quotas
     pre_retention(src_context.context.now.replace(tzinfo=None), replication_task, src_context.datasets,
@@ -298,11 +298,35 @@ def check_target_existence_and_type(replication_task: ReplicationTask, source_da
                                    f"{target_dataset!r} already exists and is a {target_dataset_type}")
 
 
-def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dataset: str,
-                                   dst_context: ReplicationContext):
+def check_encrypted_target(replication_task: ReplicationTask, source_dataset: str,
+                           src_context: ReplicationContext, dst_context: ReplicationContext):
     dst_dataset = get_target_dataset(replication_task, source_dataset)
 
     if dst_dataset not in dst_context.datasets:
+        if replication_task.encryption:
+            if replication_task.encryption.inherit:
+                if not existing_parent_is_encrypted(dst_context.shell, dst_dataset):
+                    raise ReplicationError(
+                        f"Encryption inheritance requested for destination dataset {dst_dataset!r}, but its existing "
+                        f"parent is not encrypted."
+                    )
+
+        else:
+            if new_dataset_should_be_encrypted(dst_context.shell, dst_dataset):
+                if replication_task.properties:
+                    if not src_context.datasets_encrypted[source_dataset]:
+                        raise ReplicationError(
+                            f"Destination dataset {dst_dataset!r} must be encrypted (as one of its ancestors is "
+                            f"encrypted). Refusing to transfer unencrypted source dataset {source_dataset!r}. "
+                            f"Please, set up replication task encryption in order to replicate this dataset."
+                        )
+                else:
+                    raise ReplicationError(
+                        f"Destination dataset {dst_dataset!r} must be encrypted (as one of its ancestors is "
+                        f"encrypted). Refusing to transfer source dataset {source_dataset!r} without properties and "
+                        f"without replication task encryption."
+                    )
+
         return
 
     try:
@@ -341,6 +365,28 @@ def destroy_empty_encrypted_target(replication_task: ReplicationTask, source_dat
             dst_context.shell.exec(["zfs", "destroy", dst_dataset])
             dst_context.datasets.pop(dst_dataset, None)
             dst_context.datasets_readonly.pop(dst_dataset, None)
+
+
+def new_dataset_should_be_encrypted(shell, dataset):
+    return existing_parent_is_encrypted(shell, dataset)
+
+
+def existing_parent_is_encrypted(shell, dataset):
+    parent = dataset
+    while "/" in parent:
+        parent = os.path.dirname(parent)
+        try:
+            encryption = get_property(shell, os.path.dirname(parent), "encryption")
+            if encryption != "off":
+                return True
+        except DatasetDoesNotExistException:
+            pass
+        except ExecException as e:
+            logger.debug("Encryption not supported on shell %r: %r (exit code = %d)", shell, e.stdout.split("\n")[0],
+                         e.returncode)
+            return False
+
+    return False
 
 
 def calculate_replication_step_templates(replication_task: ReplicationTask, source_dataset: str,

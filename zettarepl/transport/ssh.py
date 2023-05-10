@@ -14,7 +14,7 @@ from .base_ssh import BaseSshTransport, PATH
 from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
-from .utils import get_properties_override
+from .utils import get_properties_exclude_override
 from .zfscli import *
 from .zfscli.exception import ZfsSendRecvExceptionHandler
 from .zfscli.warning import warnings_from_zfs_success
@@ -113,8 +113,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             if self.encryption:
                 self.encryption_context = EncryptionContext(self, self._get_recv_shell())
 
-            properties_exclude = self.properties_exclude
-            properties_override = get_properties_override(self, self.encryption_context)
+            properties_exclude, properties_override = get_properties_exclude_override(self, self.encryption_context)
             if not self._zfs_recv_can_exclude_properties():
                 properties_exclude = []
                 properties_override = {}
