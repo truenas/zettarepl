@@ -12,7 +12,7 @@ from .async_exec_tee import AsyncExecTee
 from .base_ssh import BaseSshTransport
 from .encryption_context import EncryptionContext
 from .interface import *
-from .utils import get_properties_override, put_file
+from .utils import get_properties_exclude_override, put_file
 from .zfscli.exception import ZfsSendRecvExceptionHandler
 
 logger = logging.getLogger(__name__)
@@ -111,8 +111,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         if self.encryption:
             self.encryption_context = EncryptionContext(self, self._get_recv_shell())
 
-        props = dict({p: None for p in self.properties_exclude},
-                     **get_properties_override(self, self.encryption_context))
+        properties_exclude, properties_override = get_properties_exclude_override(self, self.encryption_context)
+        props = dict({p: None for p in properties_exclude},
+                     **properties_override)
 
         receive_args = ["receive", "--prop", json.dumps(props), self.target_dataset]
 

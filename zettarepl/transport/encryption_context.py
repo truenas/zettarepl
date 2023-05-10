@@ -20,21 +20,24 @@ class EncryptionContext:
         self.tmp_key_location = None
 
     def enter(self):
-        if self.replication_process.encryption.key_location == "$TrueNAS":
-            self.tmp_key_location = "/tmp/zettarepl-key-" + (
-                "".join([random.choice(string.ascii_letters + string.digits) for _ in range(32)])
-            )
-            key_location = self.tmp_key_location
+        if self.replication_process.encryption.inherit:
+            return ["encryption"], {}
         else:
-            key_location = self.replication_process.encryption.key_location
+            if self.replication_process.encryption.key_location == "$TrueNAS":
+                self.tmp_key_location = "/tmp/zettarepl-key-" + (
+                    "".join([random.choice(string.ascii_letters + string.digits) for _ in range(32)])
+                )
+                key_location = self.tmp_key_location
+            else:
+                key_location = self.replication_process.encryption.key_location
 
-        self.shell.put_file(io.BytesIO(self.replication_process.encryption.key.encode("utf-8")), key_location)
+            self.shell.put_file(io.BytesIO(self.replication_process.encryption.key.encode("utf-8")), key_location)
 
-        return {
-            "encryption": "on",
-            "keyformat": self.replication_process.encryption.key_format.value,
-            "keylocation": f"file://{key_location}"
-        }
+            return [], {
+                "encryption": "on",
+                "keyformat": self.replication_process.encryption.key_format.value,
+                "keylocation": f"file://{key_location}"
+            }
 
     def exit(self, success):
         if self.tmp_key_location is not None:

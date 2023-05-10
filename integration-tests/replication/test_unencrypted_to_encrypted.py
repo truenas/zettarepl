@@ -5,13 +5,22 @@ import textwrap
 import pytest
 import yaml
 
-from zettarepl.utils.test import create_dataset, run_replication_test
+from zettarepl.utils.test import create_dataset, run_replication_test, transports
 
 
+@pytest.mark.parametrize("transport", transports())
 @pytest.mark.parametrize("properties", [False, True])
-@pytest.mark.parametrize("encryption", [False, True])
+@pytest.mark.parametrize("encryption", [
+    None,
+    {
+        "key": "password",
+        "key-format": "passphrase",
+        "key-location": "$TrueNAS",
+    },
+    "inherit",
+])
 @pytest.mark.parametrize("source_encrypted", [False, True])
-def test_unencrypted_to_encrypted(properties, encryption, source_encrypted):
+def test_unencrypted_to_encrypted(transport, properties, encryption, source_encrypted):
     if properties and encryption and source_encrypted:
         # Re-encrypting already encrypted source dataset 'data/src' while preserving its properties is not supported
         return
@@ -30,8 +39,6 @@ def test_unencrypted_to_encrypted(properties, encryption, source_encrypted):
         replication-tasks:
           src:
             direction: push
-            transport:
-              type: local
             source-dataset: data/src
             target-dataset: data/dst/child/grandchild
             recursive: false
@@ -41,21 +48,22 @@ def test_unencrypted_to_encrypted(properties, encryption, source_encrypted):
             retention-policy: none
             retries: 1
     """))
+    definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["properties"] = properties
-    if encryption:
-        definition["replication-tasks"]["src"]["encryption"] = {
-            "key": "password",
-            "key-format": "passphrase",
-            "key-location": "$TrueNAS",
-        }
+    definition["replication-tasks"]["src"]["encryption"] = encryption
 
     if (properties and source_encrypted) or encryption:
         run_replication_test(definition)
 
+        if encryption == "inherit":
+            encryptionroot = "data/dst"
+        else:
+            encryptionroot = "data/dst/child/grandchild"
+
         assert subprocess.check_output(
             "zfs get -H -p encryptionroot data/dst/child/grandchild",
             encoding="utf-8", shell=True
-        ).split("\n")[0].split("\t")[2] == "data/dst/child/grandchild"
+        ).split("\n")[0].split("\t")[2] == encryptionroot
     else:
         error = run_replication_test(definition, success=False)
 

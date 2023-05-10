@@ -165,11 +165,20 @@ class ReplicationTask:
                     )
 
         if data["encryption"]:
-            encryption = ReplicationEncryption(
-                data["encryption"]["key"],
-                KeyFormat(data["encryption"]["key-format"]),
-                data["encryption"]["key-location"],
-            )
+            if data["encryption"] == "inherit":
+                encryption = ReplicationEncryption(
+                    True,
+                    None,
+                    None,
+                    None,
+                )
+            else:
+                encryption = ReplicationEncryption(
+                    False,
+                    data["encryption"]["key"],
+                    KeyFormat(data["encryption"]["key-format"]),
+                    data["encryption"]["key-location"],
+                )
         else:
             encryption = None
 
