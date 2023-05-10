@@ -14,7 +14,7 @@ from .async_exec_tee import AsyncExecTee
 from .encryption_context import EncryptionContext
 from .interface import *
 from .progress_report_mixin import ProgressReportMixin
-from .utils import get_properties_override
+from .utils import get_properties_exclude_override
 from .zfscli import *
 from .zfscli.exception import ZfsSendRecvExceptionHandler
 
@@ -157,9 +157,9 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
         if self.encryption:
             self.encryption_context = EncryptionContext(self, self.local_shell)
 
-        properties_override = get_properties_override(self, self.encryption_context)
+        properties_exclude, properties_override = get_properties_exclude_override(self, self.encryption_context)
 
-        recv = zfs_recv(self.target_dataset, self.properties_exclude, properties_override)
+        recv = zfs_recv(self.target_dataset, properties_exclude, properties_override)
 
         send = self._wrap_send(send)
 

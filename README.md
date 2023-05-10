@@ -156,7 +156,8 @@ replication-tasks:
       # Path to store encryption key.
       # A special value "$TrueNAS" will store the key in TrueNAS database.
       key-location: "/data/keys/dataset.key"
-
+    # Or you can just specify `encryption: inherit` to inherit target dataset encryption from its parent.
+  
     # You must specify at least one of the following two fields for push
     # replication:
 

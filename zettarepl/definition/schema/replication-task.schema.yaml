@@ -46,23 +46,25 @@ properties:
   replicate:
     type: boolean
   encryption:
-    type: object
-    nullable: true
-    required:
-      - key
-      - key-format
-      - key-location
-    additionalProperties: false
-    properties:
-      key:
-        type: string
-      key-format:
-        enum:
-        - hex
-        - passphrase
-        type: string
-      key-location:
-        type: string
+    anyOf:
+      - type: "null"
+      - const: "inherit"
+      - type: object
+        required:
+          - key
+          - key-format
+          - key-location
+        additionalProperties: false
+        properties:
+          key:
+            type: string
+          key-format:
+            enum:
+            - hex
+            - passphrase
+            type: string
+          key-location:
+            type: string
   periodic-snapshot-tasks:
     type: array
     items: {}
