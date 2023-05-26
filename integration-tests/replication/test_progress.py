@@ -86,7 +86,7 @@ def test_replication_progress(transport):
         result.insert(4, ReplicationTaskSnapshotProgress("src", "data/src/src1", "2018-10-01_02-00", 1, 3,
                                                          10240 * 9 * 10,    # We poll for progress every 10 seconds so
                                                                             # we would have transferred 10x speed limit
-                                                         2162784            # Empirical value
+                                                         1024 * 1024,
         ))
 
     for i, message in enumerate(result):
