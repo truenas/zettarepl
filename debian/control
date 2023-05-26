@@ -19,7 +19,7 @@ Testsuite: autopkgtest-pkg-python
 
 Package: python3-zettarepl
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}, lz4, pigz, plzip, throttle, xz-utils, xzdec
+Depends: ${misc:Depends}, ${python3:Depends}, lz4, mbuffer, plzip, xz-utils, xzdec
 Description: Zettabyte File System (ZFS) Replication Tool written in Python
  zettarepl is a cross-platform ZFS replication solution. It provides:
  .
