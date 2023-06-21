@@ -27,6 +27,7 @@ __all__ = ["SshTransport", "SshTransportCipher"]
 class SshTransportCipher(enum.Enum):
     STANDARD = "standard"
     FAST = "fast"
+    FIPS = "fips"
     DISABLED = "disabled"
 
 
@@ -80,6 +81,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             cmd.extend({
                SshTransportCipher.STANDARD: [],
                SshTransportCipher.FAST: ["-c", "aes128-ctr,aes192-ctr,aes256-ctr"],
+               SshTransportCipher.FIPS: ["-c", "aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,3des-cbc"],
                SshTransportCipher.DISABLED: ["-ononeenabled=yes", "-ononeswitch=yes"],
             }[self.transport.cipher])
 

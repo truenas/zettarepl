@@ -332,6 +332,7 @@ available.
 
       # SSH encryption cipher.
       # "fast" is "aes128-ctr,aes192-ctr,aes256-ctr"
+      # "fips" will use only FIPS-compliant ciphers
       # "none" completely disables SSH encryption, both server and client must
       # have HPN-SSH patch
       cipher: standard
