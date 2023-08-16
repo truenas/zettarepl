@@ -656,8 +656,14 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
                 create_dataset(step_template.dst_context.shell, parent)
 
         encryption = None
-        if is_immediate_target_dataset and step_template.dst_dataset not in step_template.dst_context.datasets:
-            encryption = step_template.replication_task.encryption
+        if (
+                step_template.replication_task.encryption and
+                step_template.dst_dataset not in step_template.dst_context.datasets
+        ):
+            if is_immediate_target_dataset:
+                encryption = step_template.replication_task.encryption
+            else:
+                encryption = ReplicationEncryption(True, None, None, None)
 
         step_template.src_context.context.snapshots_total_by_replication_step_template[step_template] += len(snapshots)
         plan.append((step_template, incremental_base, snapshots, include_intermediate, encryption))
