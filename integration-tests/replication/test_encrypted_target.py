@@ -230,3 +230,49 @@ def test_re_encrypt_preserving_properties():
     """))
     error = run_replication_test(definition, success=False)
     assert error.error.startswith("Re-encrypting already encrypted source dataset 'data/src'")
+
+
+@pytest.mark.parametrize("encryption", [
+    {"key": "aa" * 32, "key-format": "hex"},
+    {"key": "password", "key-format": "passphrase"},
+])
+def test_encrypt_recursive(encryption):
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    create_dataset("data/src")
+    create_dataset("data/src/child")
+    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            recursive: true
+            properties: true
+            encryption:
+              key-location: $TrueNAS
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: none
+            retries: 1
+    """))
+    definition["replication-tasks"]["src"]["encryption"].update(**encryption)
+
+    run_replication_test(definition)
+
+    assert (
+        subprocess.check_output("zfs get -H -o value keyformat data/dst", shell=True).decode().strip() ==
+        f'{encryption["key-format"]}'
+    )
+    assert (
+        subprocess.check_output("zfs get -H -o value keyformat data/dst/child", shell=True).decode().strip() ==
+        f'{encryption["key-format"]}'
+    )
