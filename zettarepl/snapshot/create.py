@@ -44,7 +44,7 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_r
             snapshot.name,
             iterate_excluded_datasets(exclude_rules, list_datasets(shell, snapshot.dataset, recursive)),
         )
-        program = put_buffer(snapshot_program, f"recursive_snapshot_exclude_{snapshot.dataset}.lua", shell)
+        program = put_buffer(snapshot_program, "recursive_snapshot_exclude.lua", shell)
 
         args = ["zfs", "program", pool_name, program]
 
