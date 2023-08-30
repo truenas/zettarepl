@@ -43,6 +43,7 @@ def put_file(name, shell: Shell):
 
 
 def put_buffer(buffer: typing.IO[bytes], name: str, shell: Shell):
+    buffer.seek(0)
     md5 = hashlib.md5(buffer.read()).hexdigest()
     buffer.seek(0)
 
