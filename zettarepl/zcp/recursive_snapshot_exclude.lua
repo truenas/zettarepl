@@ -1,10 +1,5 @@
-args = ...
-dataset = args["argv"][1]
-snapshot_name = args["argv"][2]
-excluded_datasets = ""
-
 snapshots_to_create = {}
-function populate_snapshots_to_create(dataset, exclude_file)
+function populate_snapshots_to_create(dataset)
     table.insert(snapshots_to_create, dataset .. "@" .. snapshot_name)
 
     local iterator = zfs.list.children(dataset)
@@ -26,7 +21,7 @@ function populate_snapshots_to_create(dataset, exclude_file)
         end
     end
 end
-populate_snapshots_to_create(dataset, excl_file)
+populate_snapshots_to_create(dataset)
 
 errors = {}
 for _, snapshot in ipairs(snapshots_to_create) do
