@@ -41,6 +41,7 @@ def put_file(name, shell: Shell):
 
     return remote_path
 
+
 def put_buffer(buffer: typing.IO[bytes], name: str, shell: Shell):
     md5 = hashlib.md5(buffer.read()).hexdigest()
     buffer.seek(0)

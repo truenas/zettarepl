@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-import imp
+import io
 import logging
 import os
 import re
@@ -22,10 +22,12 @@ __all__ = ["CreateSnapshotError", "create_snapshot"]
 class CreateSnapshotError(Exception):
     pass
 
+
 def iterate_excluded_datasets(exclude_rules: [str], datasets: typing.Iterable):
     for dataset in datasets:
         if should_exclude(dataset, exclude_rules):
             yield dataset
+
 
 def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_rules: [str], properties: {str: typing.Any}):
     logger.info("On %r creating %s snapshot %r", shell, "recursive" if recursive else "non-recursive", snapshot)
@@ -35,26 +37,31 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_r
 
         pool_name = snapshot.dataset.split("/")[0]
 
-        with tempfile.TemporaryFile() as snapshot_program:
-            render_zcp(snapshot_program, snapshot.dataset, snapshot.name, iterate_excluded_datasets(exclude_rules, list_datasets(shell, snapshot.dataset, recursive)))
-            program = put_buffer(snapshot_program, f"recursive_snapshot_exclude_{snapshot.dataset}.lua", shell)
+        snapshot_program = io.BytesIO()
+        render_zcp(
+            snapshot_program,
+            snapshot.dataset,
+            snapshot.name,
+            iterate_excluded_datasets(exclude_rules, list_datasets(shell, snapshot.dataset, recursive)),
+        )
+        program = put_buffer(snapshot_program, f"recursive_snapshot_exclude_{snapshot.dataset}.lua", shell)
 
-            args = ["zfs", "program", pool_name, program]
+        args = ["zfs", "program", pool_name, program]
 
-            try:
-                shell.exec(args)
-            except ExecException as e:
-                logger.debug(e)
-                errors = []
-                for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
-                    errors.append((snapshot, os.strerror(int(error))))
-                if errors:
-                    raise CreateSnapshotError(
-                        "Failed to create following snapshots:\n" +
-                        "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
-                    ) from None
-                else:
-                    raise CreateSnapshotError(e) from None
+        try:
+            shell.exec(args)
+        except ExecException as e:
+            logger.debug(e)
+            errors = []
+            for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
+                errors.append((snapshot, os.strerror(int(error))))
+            if errors:
+                raise CreateSnapshotError(
+                    "Failed to create following snapshots:\n" +
+                    "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
+                ) from None
+            else:
+                raise CreateSnapshotError(e) from None
     else:
         args = ["zfs", "snapshot"]
 
