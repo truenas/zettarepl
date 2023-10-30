@@ -37,7 +37,15 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
 
             args = ["zfs", "destroy", f"{dataset}@" + ",".join(sorted(chunk))]
             try:
-                shell.exec(args)
+                try:
+                    shell.exec(args)
+                except ExecException as e:
+                    if "could not find any snapshots to destroy; check snapshot names" in e.stdout:
+                        # Snapshots might be already removed by another process
+                        pass
+                    else:
+                        raise
+
                 names -= chunk
             except ExecException as e:
                 if m := re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout):
