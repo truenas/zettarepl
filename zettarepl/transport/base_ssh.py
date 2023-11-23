@@ -48,24 +48,27 @@ class SshTransportAsyncExec(AsyncExec):
             assert timeout > 0
             until = time.monotonic() + timeout
 
-        stdout = self._read_stdout(until)
+        try:
+            stdout = self._read_stdout(until)
 
-        self.logger.debug("Waiting for exit status")
+            self.logger.debug("Waiting for exit status")
 
-        if until is not None:
-            now = time.monotonic()
-            if until < now or not self.stdout_fd.channel.status_event.wait(until - now):
-                self._stop()
-                raise TimeoutError()
+            if until is not None:
+                now = time.monotonic()
+                if until < now or not self.stdout_fd.channel.status_event.wait(until - now):
+                    self._stop()
+                    raise TimeoutError()
 
-        exitcode = self.stdout_fd.channel.recv_exit_status()
+            exitcode = self.stdout_fd.channel.recv_exit_status()
 
-        if exitcode != 0:
-            self.logger.debug("Error %r: %r", exitcode, stdout)
-            raise ExecException(exitcode, stdout)
+            if exitcode != 0:
+                self.logger.debug("Error %r: %r", exitcode, stdout)
+                raise ExecException(exitcode, stdout)
 
-        self.logger.debug("Success: %r", stdout)
-        return stdout
+            self.logger.debug("Success: %r", stdout)
+            return stdout
+        finally:
+            self._stop()
 
     def _read_stdout(self, until):
         if self.stdout is None:
@@ -99,7 +102,12 @@ class SshTransportAsyncExec(AsyncExec):
         self._stop()
 
     def _stop(self):
-        self.stdout_fd.close()
+        if self.stdin_fd:
+            self.stdin_fd.close()
+            self.stdout_fd.close()
+            self.stderr_fd.close()
+
+            self.stdin_fd, self.stdout_fd, self.stderr_fd = (None, None, None)
 
     def _stdout_file_like_readline(self, file_like):
         while True:
