@@ -113,3 +113,20 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     assert isinstance(error, ReplicationTaskSuccess), error
 
     assert len(list_snapshots(local_shell, "data/dst_parent/dst", False)) == 3
+
+    warnings = []
+    if properties and encrypted:
+        pass
+    elif dst_parent_is_readonly and not dst_exists:
+        warnings.append(
+            "cannot mount '/mnt/data/dst_parent/dst': failed to create mountpoint: Read-only file system"
+        )
+    if has_encrypted_child:
+        if properties:
+            pass
+        elif dst_parent_is_readonly and not dst_exists:
+            warnings.append(
+                "cannot mount '/mnt/data/dst_parent/dst/child': failed to create mountpoint: Read-only file system"
+            )
+
+    assert error.warnings == warnings
