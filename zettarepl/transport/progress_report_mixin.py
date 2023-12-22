@@ -14,7 +14,7 @@ __all__ = ["ProgressReportMixin"]
 
 def parse_zfs_progress(s):
     m = re.search(
-        r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9.]+[KMG]?)/(?P<total>[0-9.]+[KMG]?)\)",
+        r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9.]+[KMGT]?)/(?P<total>[0-9.]+[KMGT]?)\)",
         s,
     )
     if m:
