@@ -34,6 +34,9 @@ def parse_zfs_progress_value(s):
     elif s.endswith("G"):
         multiplier = 1000000000
         s = s[:-1]
+    elif s.endswith("T"):
+        multiplier = 1000000000000
+        s = s[:-1]
 
     return int(float(s) * multiplier)
 
