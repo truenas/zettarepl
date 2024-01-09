@@ -30,8 +30,9 @@ class ZfsCliExceptionHandler:
 
 
 class ZfsSendRecvExceptionHandler:
-    def __init__(self, replication_process: ReplicationProcess):
+    def __init__(self, replication_process: ReplicationProcess, *, sudo_handler=None):
         self.replication_process = replication_process
+        self.sudo_handler = sudo_handler
 
     def __enter__(self):
         pass
@@ -191,8 +192,13 @@ class ZfsSendRecvExceptionHandler:
             ) from None
 
         if isinstance(exc_val, ExecException) and "sudo: " in exc_val.stdout:
+            if self.sudo_handler is None:
+                error = "Passwordless `sudo` for `/usr/sbin/zfs` is not set up correctly on the remote system."
+            else:
+                error = self.sudo_handler(exc_val)
+
             raise ReplicationError(
-                "Passwordless `sudo` for `/usr/sbin/zfs` is not set up correctly on the remote system.\n" +
+                f"{error}\n" +
                 "The error reported was:\n" +
                 exc_val.stdout.rstrip("\n")
             ) from None

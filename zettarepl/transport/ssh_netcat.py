@@ -198,7 +198,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
     def wait(self):
         success = False
         try:
-            with ZfsSendRecvExceptionHandler(self):
+            with ZfsSendRecvExceptionHandler(self, sudo_handler=self._sudo_error_handler):
                 self.connect_exec.wait()
         except ExecException as connect_exec_error:
             if not self.listen_exec_terminated.wait(5):
@@ -243,7 +243,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
     def _wait_listen_exec(self):
         try:
-            with ZfsSendRecvExceptionHandler(self):
+            with ZfsSendRecvExceptionHandler(self, sudo_handler=self._sudo_error_handler):
                 self.listen_exec.wait()
         except (ExecException, ReplicationError) as e:
             self.listen_exec_error = e
@@ -259,6 +259,12 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             return self.local_shell
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
+
+    def _sudo_error_handler(self, exc_val):
+        return (
+            "Passwordless `sudo` for all commands (which is required for SSH+NETCAT replication) is not set up "
+            "correctly on the remote system."
+        )
 
 
 class SshNetcatTransport(BaseSshTransport):
