@@ -386,6 +386,9 @@ in trusted network we recommend using `ssh+netcat` transport. It is only support
       # This can be overriden for sophisticated network configurations (e.g.
       # LAGG)
       passive-side-connect-address: "192.168.1.1"
+
+      # If true, will use a secure TLS connection for data transfer
+      secure: false
 ```
 
 ## Usage

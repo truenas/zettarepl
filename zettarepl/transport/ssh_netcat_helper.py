@@ -7,6 +7,7 @@ import socket
 import sys
 
 import libzfs
+import ssl
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -18,6 +19,8 @@ if __name__ == "__main__":
     parser.add_argument("--connect")
     parser.add_argument("--connect-port", type=int)
     parser.add_argument("--connect-token")
+
+    parser.add_argument("--dh-params")
 
     subparsers = parser.add_subparsers(title="subcommands")
 
@@ -64,6 +67,13 @@ if __name__ == "__main__":
         token = "".join([random.choice(string.ascii_letters + string.digits) for _ in range(128)])
         sys.stdout.write(f"{json.dumps({'port': port, 'token': token})}\n")
         client, addr = s.accept()
+
+        if args.dh_params:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.set_ciphers("ADH-AES256-GCM-SHA384:@SECLEVEL=0")
+            ssl_context.load_dh_params(args.dh_params)
+            client = ssl_context.wrap_socket(client, server_side=True)
+
         remote_token = client.recv(128)
         if remote_token.decode("ascii", "ignore") != token:
             sys.stderr.write(f"Received invalid token: {remote_token!r}\n")
@@ -72,6 +82,13 @@ if __name__ == "__main__":
 
     elif args.connect:
         s = socket.socket()
+
+        if args.dh_params:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ssl_context.set_ciphers("ADH-AES256-GCM-SHA384:@SECLEVEL=0")
+            ssl_context.load_dh_params(args.dh_params)
+            s = ssl_context.wrap_socket(s, server_hostname=args.connect)
+
         s.connect((args.connect, args.connect_port))
         s.send(args.connect_token.encode("ascii"))
         fh = s.fileno()

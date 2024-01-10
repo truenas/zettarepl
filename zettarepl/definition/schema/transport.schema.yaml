@@ -69,6 +69,8 @@ definitions:
           type: integer
         passive-side-connect-address:
           type: string
+        secure:
+          type: boolean
   local-transport:
     type: object
     required:
