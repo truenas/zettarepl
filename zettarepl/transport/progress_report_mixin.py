@@ -12,6 +12,35 @@ logger = logging.getLogger(__name__)
 __all__ = ["ProgressReportMixin"]
 
 
+def parse_zfs_progress(s):
+    m = re.search(
+        r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9.]+[KMGT]?)/(?P<total>[0-9.]+[KMGT]?)\)",
+        s,
+    )
+    if m:
+        current = parse_zfs_progress_value(m.group("current"))
+        total = parse_zfs_progress_value(m.group("total"))
+        return current, total
+
+
+def parse_zfs_progress_value(s):
+    multiplier = 1
+    if s.endswith("K"):
+        multiplier = 1000
+        s = s[:-1]
+    elif s.endswith("M"):
+        multiplier = 1000000
+        s = s[:-1]
+    elif s.endswith("G"):
+        multiplier = 1000000000
+        s = s[:-1]
+    elif s.endswith("T"):
+        multiplier = 1000000000000
+        s = s[:-1]
+
+    return int(float(s) * multiplier)
+
+
 class ProgressReportMixin:
     stop_progress_observer = None
 
@@ -71,10 +100,8 @@ class ProgressReportMixin:
 
                     raise
 
-                m = re.search(r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9]+)/(?P<total>[0-9]+)\)", s)
-                if m:
-                    current = int(m.group("current"))
-                    total = int(m.group("total"))
+                if progress := parse_zfs_progress(s):
+                    current, total = progress
                     if total == 0:
                         total = current + 1
                     self.notify_progress_observer(current, total)
