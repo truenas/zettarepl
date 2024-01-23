@@ -350,7 +350,7 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
         logger.debug("Encrypted dataset %r is not mounted, not trying to destroy", dst_dataset)
     else:
         if not index:
-            logger.info("Encrypted destination dataset %r does not have snapshots or data, destroying it",
+            logger.info("Encrypted destination dataset %r does not have matching snapshots or data, destroying it",
                         dst_dataset)
             dst_context.shell.exec(["zfs", "destroy", dst_dataset])
             dst_context.datasets.pop(dst_dataset, None)
