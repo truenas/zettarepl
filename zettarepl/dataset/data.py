@@ -44,7 +44,7 @@ def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]
     if index is not None:
         if index:
             raise ReplicationError(
-                f"Target dataset {dataset!r} does not have snapshots but has data (e.g. {index[0]!r} and "
+                f"Target dataset {dataset!r} does not have matching snapshots but has data (e.g. {index[0]!r}) and "
                 f"replication from scratch is not allowed. Refusing to overwrite existing data."
             )
 
@@ -60,11 +60,12 @@ def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]
     else:
         raise ReplicationError(f"Target dataset {dataset!r} has invalid type {dst_properties['type']!r}")
 
-    # Empty datasets on large pool configurations can have really big size
+    # Empty datasets on large pool configurations can have huge size
     if dst_properties[used_property] > 1024 * 1024 * 10:
         raise ReplicationError(
-            f"Target dataset {dataset!r} does not have snapshots but has data ({dst_properties[used_property]} "
-            f"bytes used) and replication from scratch is not allowed. Refusing to overwrite existing data."
+            f"Target dataset {dataset!r} does not have matching snapshots but has data "
+            f"({dst_properties[used_property]} bytes used) and replication from scratch is not allowed. "
+            "Refusing to overwrite existing data."
         )
 
 

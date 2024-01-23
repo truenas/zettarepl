@@ -45,7 +45,7 @@ def test_encrypted_target(has_data):
     error = run_replication_test(definition, success=not has_data)
 
     if has_data:
-        assert "does not have snapshots but has data" in error.error
+        assert "does not have matching snapshots but has data" in error.error
 
 
 def test_encrypted_target_local():
