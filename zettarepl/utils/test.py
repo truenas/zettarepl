@@ -33,9 +33,9 @@ def create_dataset(name, encrypted=False):
         subprocess.check_call(f"zfs create {name}", shell=True)
 
 
-def create_zettarepl(definition):
+def create_zettarepl(definition, scheduler=None):
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell, definition.max_parallel_replication_tasks)
+    zettarepl = Zettarepl(scheduler or Mock(), local_shell, definition.max_parallel_replication_tasks)
     zettarepl._spawn_retention = Mock()
     observer = Mock(return_value=None)
     zettarepl.set_observer(observer)
@@ -51,7 +51,7 @@ def mock_name(mock, name):
 def run_periodic_snapshot_test(definition, now, success=True):
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._run_periodic_snapshot_tasks(now, select_by_class(PeriodicSnapshotTask, definition.tasks))
+    zettarepl._run_periodic_snapshot_tasks(now, select_by_class(PeriodicSnapshotTask, definition.tasks), None)
     wait_replication_tasks_to_complete(zettarepl)
 
     if success:

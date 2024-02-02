@@ -19,7 +19,8 @@ def test__run_periodic_snapshot_tasks__alphabetical():
                 [
                     Mock(dataset="data", recursive=False, naming_schema="snap-%Y-%m-%d_%H-%M-2d"),
                     Mock(dataset="data", recursive=False, naming_schema="snap-%Y-%m-%d_%H-%M-1w"),
-                ]
+                ],
+                None,
             )
 
             assert create_snapshot.call_count == 2
@@ -38,7 +39,8 @@ def test__run_periodic_snapshot_tasks__recursive():
                 [
                     Mock(dataset="data", recursive=False, naming_schema="snap-%Y-%m-%d_%H-%M"),
                     Mock(dataset="data", recursive=True, naming_schema="snap-%Y-%m-%d_%H-%M"),
-                ]
+                ],
+                None,
             )
 
             create_snapshot.assert_called_once_with(ANY, Snapshot("data", "snap-2018-09-01_15-11"), True, ANY, ANY)
