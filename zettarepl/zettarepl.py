@@ -69,6 +69,7 @@ class Zettarepl:
         self.tasks_lock = threading.Lock()
         self.running_tasks = []
         self.pending_tasks = []
+        self.legit_step_back_until = None
         self.retention_datetime = None
         self.retention_running = False
         self.retention_shells = {}
@@ -94,6 +95,14 @@ class Zettarepl:
         for scheduled in self.scheduler.schedule():
             logger.debug("Scheduled: %r", scheduled)
 
+            if scheduled.datetime.legit_step_back:
+                self.legit_step_back_until = scheduled.datetime.utc_datetime + scheduled.datetime.legit_step_back
+
+            legit_step_back = (
+                self.legit_step_back_until is not None and
+                scheduled.datetime.utc_datetime < self.legit_step_back_until
+            )
+
             self.retention_datetime = scheduled.datetime.datetime
 
             tasks = scheduled.tasks
@@ -101,7 +110,8 @@ class Zettarepl:
                 logger.info("Scheduled tasks: %r", tasks)
 
                 periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
-                self._run_periodic_snapshot_tasks(scheduled.datetime.offset_aware_datetime, periodic_snapshot_tasks)
+                self._run_periodic_snapshot_tasks(scheduled.datetime.offset_aware_datetime, periodic_snapshot_tasks,
+                                                  legit_step_back)
 
                 replication_tasks, tasks = bisect_by_class(ReplicationTask, tasks)
                 replication_tasks.extend(
@@ -111,7 +121,7 @@ class Zettarepl:
 
                 assert tasks == []
 
-    def _run_periodic_snapshot_tasks(self, now, tasks):
+    def _run_periodic_snapshot_tasks(self, now, tasks, legit_step_back):
         scheduled_tasks = []
         for task in tasks:
             snapshot_name = get_snapshot_name(now, task.naming_schema)
@@ -166,7 +176,11 @@ class Zettarepl:
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
 
-                notify(self.observer, PeriodicSnapshotTaskError(task.id, str(e)))
+                if "already exists" in str(e) and legit_step_back:
+                    logger.warning("This is due to the DST offset change, notifying replication task success anyway")
+                    notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
+                else:
+                    notify(self.observer, PeriodicSnapshotTaskError(task.id, str(e)))
             else:
                 logger.info("Created %r", snapshot)
                 created_snapshots.add(snapshot)
