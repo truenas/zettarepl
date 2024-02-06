@@ -38,7 +38,7 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
             args = ["zfs", "destroy", f"{dataset}@" + ",".join(sorted(chunk))]
             try:
                 try:
-                    shell.exec(args)
+                    shell.exec(args, timeout=3600)  # Destroying snapshots can take a really long time
                 except ExecException as e:
                     if "could not find any snapshots to destroy; check snapshot names" in e.stdout:
                         # Snapshots might be already removed by another process
