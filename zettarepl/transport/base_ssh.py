@@ -31,7 +31,12 @@ class SshTransportAsyncExec(AsyncExec):
     def run(self):
         client = self.shell.get_client()
 
-        sudo = self.shell.transport.sudo and self.args and self.args[0].startswith(("python3", "zfs"))
+        sudo = (
+            self.shell.transport.username != "root" and
+            self.shell.transport.sudo and
+            self.args and
+            self.args[0].startswith(("python3", "zfs"))
+        )
 
         self.logger.debug("Running %r with sudo=%r", self.args, sudo)
         self.stdin_fd, self.stdout_fd, self.stderr_fd = client.exec_command(
