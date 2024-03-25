@@ -46,7 +46,7 @@ def test_long_running_replication_task_does_not_affect_unrelated_local_retention
           src:
             dataset: data/src
             recursive: true
-            lifetime: P7D
+            lifetime: P7DT1H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               hour: "0"

@@ -46,7 +46,7 @@ def test_hold_pending_snapshots(hold_pending_snapshots, remains):
           src:
             dataset: data/src
             recursive: true
-            lifetime: PT1H
+            lifetime: PT2H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
@@ -101,7 +101,7 @@ def test_hold_pending_snapshots__does_not_delete_orphan_snapshots():
           src:
             dataset: data/src
             recursive: true
-            lifetime: PT48H
+            lifetime: PT49H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
@@ -161,7 +161,7 @@ def test_hold_pending_snapshots_multiple_sources():
           src:
             dataset: data/src
             recursive: true
-            lifetime: PT1H
+            lifetime: PT2H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
