@@ -406,13 +406,13 @@ class Zettarepl:
         ):
             shell = self._get_retention_shell(transport)
             owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
-                                                                        pending_running_push_replication_tasks))
+                                                                        replication_tasks))
 
         # These are always only PUSH replication tasks
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks_that_can_hold):
             shell = self._get_retention_shell(transport)
             owners.extend(pending_push_replication_task_snapshot_owners(local_snapshots_grouped, shell,
-                                                                        push_replication_tasks_that_can_hold))
+                                                                        replication_tasks))
 
         if snapshot_removal_date_owner:
             owners.append(snapshot_removal_date_owner)
