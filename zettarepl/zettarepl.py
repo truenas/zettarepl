@@ -424,7 +424,7 @@ class Zettarepl:
                 remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
             except Exception as e:
                 logger.warning("Local retention failed: error listing snapshots on %r: %r", transport, e)
-                return
+                continue
             remote_snapshots_grouped = group_snapshots_by_datasets(remote_snapshots)
             owners.extend([
                 executed_pull_replication_task_snapshot_owner(now, replication_task, remote_snapshots_grouped,
