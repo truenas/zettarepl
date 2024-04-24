@@ -104,6 +104,16 @@ class ZfsSendRecvExceptionHandler:
             return True
 
         if (
+            self.replication_process.replicate and
+            isinstance(exc_val, ExecException)
+        ):
+            exc_val.stdout = re.sub(
+                r"skipping snapshot .+ because it was created after the destination snapshot \(.+\)\n",
+                "",
+                exc_val.stdout,
+            )
+
+        if (
             self.replication_process.incremental_base and
             isinstance(exc_val, ExecException)
         ):
