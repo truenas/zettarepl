@@ -6,7 +6,6 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
-from zettarepl.transport.timeout import ShellTimeoutContext
 
 from .snapshots_to_send import get_parsed_incremental_base
 from .task.dataset import get_source_dataset
@@ -61,5 +60,4 @@ def pre_retention(now: datetime, replication_task: ReplicationTask, source_snaps
 
     snapshots_to_destroy = calculate_snapshots_to_remove(owners, remote_snapshots)
     logger.info("Pre-retention destroying snapshots: %r", snapshots_to_destroy)
-    with ShellTimeoutContext(3600):
-        destroy_snapshots(target_shell, snapshots_to_destroy)
+    destroy_snapshots(target_shell, snapshots_to_destroy)

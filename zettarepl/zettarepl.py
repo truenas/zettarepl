@@ -29,7 +29,6 @@ from zettarepl.snapshot.task.snapshot_owner import PeriodicSnapshotTaskSnapshotO
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
 from zettarepl.transport.compare import are_same_host
 from zettarepl.transport.local import LocalShell
-from zettarepl.transport.timeout import ShellTimeoutContext
 from zettarepl.truenas.removal_dates import get_removal_dates
 from zettarepl.utils.itertools import bisect_by_class, select_by_class, sortedgroupby
 from zettarepl.utils.logging import ReplicationTaskLoggingLevelFilter
@@ -452,9 +451,7 @@ class Zettarepl:
             shell = self._get_retention_shell(transport)
             remote_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
             try:
-                # Prevent hanging remote from breaking all the replications
-                with ShellTimeoutContext(3600):
-                    remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
+                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
             except Exception as e:
                 logger.warning("Remote retention failed on %r: error listing snapshots: %r",
                                transport, e)
@@ -469,9 +466,7 @@ class Zettarepl:
             snapshots_to_destroy = calculate_snapshots_to_remove(owners, remote_snapshots)
             logger.info("Retention on %r destroying snapshots: %r", transport, snapshots_to_destroy)
             try:
-                # Prevent hanging remote from breaking all the replications
-                with ShellTimeoutContext(3600):
-                    destroy_snapshots(shell, snapshots_to_destroy)
+                destroy_snapshots(shell, snapshots_to_destroy)
             except Exception as e:
                 logger.warning("Remote retention failed on %r: error destroying snapshots: %r",
                                transport, e)

@@ -6,7 +6,6 @@ import threading
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
 from zettarepl.replication.task.encryption import ReplicationEncryption
-from zettarepl.transport.timeout import get_shell_timeout
 from zettarepl.utils.lang import undefined
 from zettarepl.utils.logging import PrefixLoggerAdapter
 
@@ -88,7 +87,7 @@ class Shell:
 
     def exec(self, args, encoding="utf8", stdout=None, timeout=undefined):
         if timeout is undefined:
-            timeout = get_shell_timeout()
+            timeout = 600
         return self.exec_async(args, encoding, stdout).wait(timeout)
 
     def exec_async(self, args, encoding="utf8", stdout=None):
