@@ -376,7 +376,7 @@ def existing_parent_is_encrypted(shell, dataset):
     while "/" in parent:
         parent = os.path.dirname(parent)
         try:
-            encryption = get_property(shell, os.path.dirname(parent), "encryption")
+            encryption = get_property(shell, parent, "encryption")
             if encryption != "off":
                 return True
         except DatasetDoesNotExistException:
