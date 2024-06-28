@@ -83,7 +83,7 @@ periodic-snapshot-tasks:
       day-of-month: "*" # At any day of month
       month: "*"
       day-of-week: "*"
-      start: "09:30"
+      begin: "09:30"
       end: "17:00"
 ```
 
