@@ -3,6 +3,8 @@ from collections import namedtuple
 import enum
 import json
 import logging
+import os
+import subprocess
 import threading
 
 from zettarepl.replication.error import ReplicationError, ReplicationConfigurationError
@@ -22,6 +24,8 @@ __all__ = ["SshNetcatTransport"]
 FirstLineListenEvent = namedtuple("FirstLineListenEvent", ["data"])
 CompleteOutputListenEvent = namedtuple("CompleteOutputListenEvent", ["data"])
 CompletedListenEvent = namedtuple("CompletedListenEvent", ["returncode"])
+
+dhparam_lock = threading.Lock()
 
 
 class SshNetcatTransportActiveSide(enum.Enum):
@@ -70,11 +74,27 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         local_helper = put_file("transport/ssh_netcat_helper.py", self.local_shell)
         remote_helper = put_file("transport/ssh_netcat_helper.py", self.remote_shell)
 
+        common_args = []
+        if self.transport.secure:
+            dhparam_path = os.path.join(os.path.dirname(__file__), "dhparam.pem")
+            with dhparam_lock:
+                if not os.path.exists(dhparam_path):
+                    logger.info("Generating dhparam")
+                    subprocess.check_call(
+                        ["openssl", "dhparam", "-5", "-outform", "PEM", "-out", dhparam_path],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+
+            dhparam_uploaded_path = put_file("transport/dhparam.pem", self.local_shell)
+            put_file("transport/dhparam.pem", self.remote_shell)
+
+            common_args = ["--dh-params", dhparam_uploaded_path]
+
         # Listen
 
         listen_args = ["--listen", self.transport.active_side_listen_address,
                        "--listen-min-port", str(self.transport.active_side_min_port),
-                       "--listen-max-port", str(self.transport.active_side_max_port)]
+                       "--listen-max-port", str(self.transport.active_side_max_port)] + common_args
 
         send_args = ["send", self.source_dataset]
         if self.replicate:
@@ -166,7 +186,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         connect_args = ["--connect", connect_address,
                         "--connect-port", str(listen["port"]),
-                        "--connect-token", listen["token"]]
+                        "--connect-token", listen["token"]] + common_args
 
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             connect_shell = self.remote_shell
@@ -269,13 +289,14 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
 class SshNetcatTransport(BaseSshTransport):
     def __init__(self, active_side, active_side_listen_address, active_side_min_port, active_side_max_port,
-                 passive_side_connect_address, **kwargs):
+                 passive_side_connect_address, secure, **kwargs):
         super().__init__(**kwargs)
         self.active_side = active_side
         self.active_side_listen_address = active_side_listen_address
         self.active_side_min_port = active_side_min_port
         self.active_side_max_port = active_side_max_port
         self.passive_side_connect_address = passive_side_connect_address
+        self.secure = secure
 
     @classmethod
     def from_data(cls, data):
@@ -286,6 +307,7 @@ class SshNetcatTransport(BaseSshTransport):
         data["active_side_min_port"] = data.pop("active-side-min-port", 1024)
         data["active_side_max_port"] = data.pop("active-side-max-port", 65535)
         data["passive_side_connect_address"] = data.pop("passive-side-connect-address", None)
+        data["secure"] = data.pop("secure", False)
 
         return SshNetcatTransport(**data)
 
