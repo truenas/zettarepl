@@ -282,7 +282,8 @@ class SshNetcatTransport(BaseSshTransport):
         data = super().from_data(data)
 
         data["active_side"] = SshNetcatTransportActiveSide(data.pop("active-side"))
-        data["active_side_listen_address"] = data.pop("active-side-listen-address", "0.0.0.0")
+        # `ssh_netcat_helper.py` listens with `dualstack_ipv6=True` so connections to IPv4 addresses will work too
+        data["active_side_listen_address"] = data.pop("active-side-listen-address", "::")
         data["active_side_min_port"] = data.pop("active-side-min-port", 1024)
         data["active_side_max_port"] = data.pop("active-side-max-port", 65535)
         data["passive_side_connect_address"] = data.pop("passive-side-connect-address", None)

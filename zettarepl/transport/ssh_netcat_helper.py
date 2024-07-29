@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import argparse
+import ipaddress
 import json
 import random
 import string
@@ -7,6 +8,16 @@ import socket
 import sys
 
 import libzfs
+
+
+def address_family(address):
+    try:
+        ipaddress.IPv6Address(address)
+    except ipaddress.AddressValueError:
+        return socket.AF_INET
+    else:
+        return socket.AF_INET6
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -43,14 +54,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
     if args.listen:
         e = None
         for port in range(args.listen_min_port, args.listen_max_port + 1):
             try:
-                s.bind((args.listen, port))
+                s = socket.create_server((args.listen, port), family=address_family(args.listen), dualstack_ipv6=True)
                 break
             except socket.error as e:
                 if e.errno == socket.errno.EADDRINUSE:
@@ -71,7 +79,7 @@ if __name__ == "__main__":
         fh = client.fileno()
 
     elif args.connect:
-        s = socket.socket()
+        s = socket.socket(address_family(args.connect))
         s.connect((args.connect, args.connect_port))
         s.send(args.connect_token.encode("ascii"))
         fh = s.fileno()
