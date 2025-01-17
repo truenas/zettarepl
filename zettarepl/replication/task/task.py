@@ -136,14 +136,20 @@ class ReplicationTask:
                 raise ValueError(
                     "Replication tasks that replicate entire filesystem should be recursive"
                 )
+
             if data["exclude"]:
                 raise ValueError(
                     "Replication tasks that replicate entire filesystem can't exclude datasets"
                 )
+
             if not data["properties"]:
                 raise ValueError(
                     "Replication tasks that replicate entire filesystem can't exclude properties"
                 )
+
+            if data["retention-policy"] != "source":
+                raise ValueError("Only `Same as Source` retention policy can be used for full filesystem replication")
+
             for i, source_dataset in enumerate(data["source-dataset"]):
                 for j, another_source_dataset in enumerate(data["source-dataset"]):
                     if j != i:
