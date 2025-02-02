@@ -8,7 +8,7 @@
 * Flexible snapshot retention on both local and remote sides
 * Comprehensive logging that helps you to understand what is going on and why
 * Configuration via simple and clear YAML file
-* Full integration with [FreeNAS](http://www.freenas.org/), the World’s #1 data storage solution
+* Full integration with [TrueNAS](https://www.truenas.com/), the World’s #1 data storage solution
 
 ## Configuration
 
