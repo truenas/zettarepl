@@ -5,7 +5,9 @@ import logging
 import random
 import string
 
+from zettarepl.replication.error import ReplicationError
 from zettarepl.replication.task.encryption import KeyFormat
+from zettarepl.transport.interface import ExecException
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +50,18 @@ class EncryptionContext:
             self.replication_process.encryption.key_location == "$TrueNAS" and
             self.replication_process.encryption.key_format != KeyFormat.PASSPHRASE
         ):
-            self.shell.exec(["midclt", "call", "pool.dataset.insert_or_update_encrypted_record", json.dumps({
-                "name": self.replication_process.target_dataset,
-                "encryption_key": self.replication_process.encryption.key,
-                "key_format": self.replication_process.encryption.key_format.value.upper(),
-            })])
+            try:
+                self.shell.exec(["midclt", "call", "pool.dataset.insert_or_update_encrypted_record", json.dumps({
+                    "name": self.replication_process.target_dataset,
+                    "encryption_key": self.replication_process.encryption.key,
+                    "key_format": self.replication_process.encryption.key_format.value.upper(),
+                })])
+            except ExecException as e:
+                if e.returncode == 127:  # sh: midclt: not found
+                    raise ReplicationError(
+                        'Replication is configured to store target system dataset encryption key in the TrueNAS '
+                        'database, but target system is not a TrueNAS system. Please, use different target dataset '
+                        'encryption settings.'
+                    ) from None
+
+                raise
