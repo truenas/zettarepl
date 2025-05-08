@@ -166,7 +166,7 @@ class Zettarepl:
         for task, snapshot_name in tasks_with_snapshot_names:
             snapshot = Snapshot(task.dataset, snapshot_name)
             if snapshot in created_snapshots:
-                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
                 continue
 
             options = notify(self.observer, PeriodicSnapshotTaskStart(task.id))
@@ -177,14 +177,14 @@ class Zettarepl:
 
                 if "already exists" in str(e) and legit_step_back:
                     logger.warning("This is due to the DST offset change, notifying replication task success anyway")
-                    notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
+                    notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
                 else:
                     notify(self.observer, PeriodicSnapshotTaskError(task.id, str(e)))
             else:
                 logger.info("Created %r", snapshot)
                 created_snapshots.add(snapshot)
 
-                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id))
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
 
         empty_snapshots = get_empty_snapshots_for_deletion(self.local_shell, tasks_with_snapshot_names)
         if empty_snapshots:

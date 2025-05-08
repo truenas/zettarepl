@@ -40,8 +40,10 @@ class PeriodicSnapshotTaskStart(ObserverMessage):
 
 
 class PeriodicSnapshotTaskSuccess(ObserverMessage):
-    def __init__(self, task_id):
+    def __init__(self, task_id, dataset, snapshot):
         self.task_id = task_id
+        self.dataset = dataset
+        self.snapshot = snapshot
 
 
 class PeriodicSnapshotTaskError(ObserverMessage):
