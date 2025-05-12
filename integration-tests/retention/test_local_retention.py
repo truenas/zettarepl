@@ -102,3 +102,42 @@ def test_does_not_remove_the_last_snapshot_left():
     zettarepl._run_local_retention(datetime(2020, 6, 25, 0, 0), [])
 
     assert list_snapshots(local_shell, "data/src", False) == [Snapshot("data/src", "2020-05-23_00-00")]
+
+
+def test_replication_task_with_name_regex():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r data/dst", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2025-05-12_00-00", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2025-05-12_00-05", shell=True)
+    subprocess.check_call("zfs snapshot data/src@2025-05-12_01-00", shell=True)
+    subprocess.check_call("zfs send -R data/src@2025-05-12_01-00 | zfs recv data/dst", shell=True)
+    subprocess.check_call("zfs destroy data/src@2025-05-12_00-05", shell=True)
+
+    data = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: pull
+            transport:
+              type: local
+            source-dataset: data/src
+            target-dataset: data/dst
+            name-regex: .+
+            recursive: true
+            auto: false
+            retention-policy: source
+    """))
+    definition = Definition.from_data(data)
+
+    local_shell = LocalShell()
+    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl.set_tasks(definition.tasks)
+    zettarepl._run_local_retention(datetime(2025, 5, 12, 1, 0), [])
+
+    assert list_snapshots(local_shell, "data/dst", False) == [
+        Snapshot("data/dst", "2025-05-12_00-00"),
+        Snapshot("data/dst", "2025-05-12_01-00"),
+    ]

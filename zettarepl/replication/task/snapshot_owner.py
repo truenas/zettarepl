@@ -34,7 +34,12 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
         self.naming_schemas = replication_task_naming_schemas(replication_task)
 
     def get_naming_schemas(self):
-        return self.naming_schemas
+        naming_schemas = set(self.naming_schemas)
+
+        if self.replication_task.name_pattern:
+            naming_schemas.add(None)
+
+        return naming_schemas
 
     def owns_dataset(self, dataset: str):
         if self.side == BaseReplicationTaskSnapshotOwner.Side.SOURCE:
