@@ -141,3 +141,51 @@ def test_replication_task_with_name_regex():
         Snapshot("data/dst", "2025-05-12_00-00"),
         Snapshot("data/dst", "2025-05-12_01-00"),
     ]
+
+
+def test_nonexistent_dataset():
+    subprocess.call("zfs destroy -r data/src", shell=True)
+
+    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create data/src/child", shell=True)
+    subprocess.check_call("zfs snapshot data/src/child@2025-01-12_00-00", shell=True)
+    subprocess.check_call("zfs snapshot data/src/child@2025-05-12_01-00", shell=True)
+
+    data = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        periodic-snapshot-tasks:
+          nonexistent:
+            dataset: data/nonexistent
+            recursive: false
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "*"
+              hour: "*"
+              day-of-month: "*"
+              month: "*"
+              day-of-week: "*"
+            lifetime: P30D
+
+          child:
+            dataset: data/src/child
+            recursive: false
+            naming-schema: "%Y-%m-%d_%H-%M"
+            schedule:
+              minute: "*"
+              hour: "*"
+              day-of-month: "*"
+              month: "*"
+              day-of-week: "*"
+            lifetime: P30D
+    """))
+    definition = Definition.from_data(data)
+
+    local_shell = LocalShell()
+    zettarepl = Zettarepl(Mock(), local_shell)
+    zettarepl.set_tasks(definition.tasks)
+    zettarepl._run_local_retention(datetime(2025, 5, 12, 1, 0), [])
+
+    assert list_snapshots(local_shell, "data/src/child", False) == [
+        Snapshot("data/src/child", "2025-05-12_01-00"),
+    ]
