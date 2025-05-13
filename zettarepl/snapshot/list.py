@@ -4,6 +4,7 @@ import logging
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.transport.interface import Shell
+from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException, ZfsCliExceptionHandler
 
 from .snapshot import Snapshot
 
@@ -22,10 +23,20 @@ def list_snapshots(shell: Shell, dataset: str, recursive: bool, sort: str = "nam
     return list(map(lambda s: Snapshot(*s.split("@")), filter(None, shell.exec(args).split("\n"))))
 
 
-def multilist_snapshots(shell: Shell, queries: [(str, bool)]) -> [Snapshot]:
+def multilist_snapshots(shell: Shell, queries: [(str, bool)], *, ignore_nonexistent=False) -> [Snapshot]:
     snapshots = []
     for dataset, recursive in simplify_snapshot_list_queries(queries):
-        snapshots.extend(list_snapshots(shell, dataset, recursive))
+        try:
+            with ZfsCliExceptionHandler():
+                dataset_snapshots = list_snapshots(shell, dataset, recursive)
+        except DatasetDoesNotExistException as e:
+            if ignore_nonexistent:
+                continue
+
+            raise
+
+        snapshots.extend(dataset_snapshots)
+
     return snapshots
 
 
