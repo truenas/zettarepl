@@ -391,7 +391,7 @@ class Zettarepl:
         ])
         if snapshot_removal_date_owner:
             local_snapshots_queries.extend([(dataset, False) for dataset in snapshot_removal_date_owner.datasets])
-        local_snapshots = multilist_snapshots(self.local_shell, local_snapshots_queries)
+        local_snapshots = multilist_snapshots(self.local_shell, local_snapshots_queries, ignore_nonexistent=True)
         local_snapshots_grouped = group_snapshots_by_datasets(local_snapshots)
 
         owners = []
@@ -420,7 +420,7 @@ class Zettarepl:
             shell = self._get_retention_shell(transport)
             remote_snapshots_queries = replication_tasks_source_datasets_queries(replication_tasks)
             try:
-                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
+                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries, ignore_nonexistent=True)
             except Exception as e:
                 logger.warning("Local retention failed: error listing snapshots on %r: %r", transport, e)
                 continue
@@ -445,13 +445,15 @@ class Zettarepl:
             )
         ]
         local_snapshots_grouped = group_snapshots_by_datasets(multilist_snapshots(
-            self.local_shell, replication_tasks_source_datasets_queries(push_replication_tasks)
+            self.local_shell,
+            replication_tasks_source_datasets_queries(push_replication_tasks),
+            ignore_nonexistent=True,
         ))
         for transport, replication_tasks in self._transport_for_replication_tasks(push_replication_tasks):
             shell = self._get_retention_shell(transport)
             remote_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
             try:
-                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries)
+                remote_snapshots = multilist_snapshots(shell, remote_snapshots_queries, ignore_nonexistent=True)
             except Exception as e:
                 logger.warning("Remote retention failed on %r: error listing snapshots: %r",
                                transport, e)
