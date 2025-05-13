@@ -3,7 +3,6 @@ import logging
 import re
 import textwrap
 
-from zettarepl.snapshot.list import list_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.replication.error import ReplicationError, RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -38,6 +37,8 @@ class ZfsSendRecvExceptionHandler:
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        from zettarepl.snapshot.list import list_snapshots
+
         m = {}
         valid_errors = ("failed to create mountpoint.*", "mountpoint or dataset is busy")
         valid_pylibzfs_errors = ("failed to create mountpoint.*",)
