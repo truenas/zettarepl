@@ -115,7 +115,12 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         props = dict({p: None for p in properties_exclude},
                      **properties_override)
 
-        receive_args = ["receive", "--prop", json.dumps(props), self.target_dataset]
+        receive_args = ["receive", "--prop", json.dumps(props)]
+
+        if self.mount:
+            receive_args.append("--mount")
+
+        receive_args.append(self.target_dataset)
 
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             listen_shell = self.local_shell

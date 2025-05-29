@@ -120,7 +120,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                 properties_exclude = []
                 properties_override = {}
 
-            recv = zfs_recv(self.target_dataset, properties_exclude, properties_override)
+            recv = zfs_recv(self.target_dataset, self.mount, properties_exclude, properties_override)
             if self.transport.sudo:
                 if self.direction == ReplicationDirection.PUSH:
                     recv = ["sudo"] + recv

@@ -41,6 +41,7 @@ class ReplicationTask:
                  restrict_schedule: CronSchedule,
                  only_matching_schedule: bool,
                  readonly: ReadOnlyBehavior,
+                 mount: bool,
                  allow_from_scratch: bool,
                  only_from_scratch: bool,
                  hold_pending_snapshots: bool,
@@ -73,6 +74,7 @@ class ReplicationTask:
         self.restrict_schedule = restrict_schedule
         self.only_matching_schedule = only_matching_schedule
         self.readonly = readonly
+        self.mount = mount
         self.allow_from_scratch = allow_from_scratch
         self.only_from_scratch = only_from_scratch
         self.hold_pending_snapshots = hold_pending_snapshots
@@ -107,6 +109,7 @@ class ReplicationTask:
         data.setdefault("name-regex", None)
         data.setdefault("only-matching-schedule", False)
         data.setdefault("readonly", "ignore")
+        data.setdefault("mount", True)
         data.setdefault("allow-from-scratch", False)
         data.setdefault("only-from-scratch", False)
         data.setdefault("hold-pending-snapshots", False)
@@ -256,6 +259,7 @@ class ReplicationTask:
                    restrict_schedule,
                    data["only-matching-schedule"],
                    ReadOnlyBehavior(data["readonly"]),
+                   data["mount"],
                    data["allow-from-scratch"],
                    data["only-from-scratch"],
                    data["hold-pending-snapshots"],
