@@ -121,6 +121,7 @@ class ReplicationProcess:
                  source_dataset: str,
                  target_dataset: str,
                  snapshot: str,
+                 mount: bool,
                  properties: bool,
                  properties_exclude: [str],
                  properties_override: {str: str},
@@ -144,6 +145,7 @@ class ReplicationProcess:
         self.source_dataset = source_dataset
         self.target_dataset = target_dataset
         self.snapshot = snapshot
+        self.mount = mount
         self.properties = properties
         self.properties_exclude = properties_exclude
         self.properties_override = properties_override

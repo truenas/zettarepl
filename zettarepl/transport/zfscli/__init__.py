@@ -70,8 +70,11 @@ def zfs_send(source_dataset: str,
     return send
 
 
-def zfs_recv(target_dataset, properties_exclude: [str], properties_override: {str: str}):
+def zfs_recv(target_dataset, mount: bool, properties_exclude: [str], properties_override: {str: str}):
     result = ["zfs", "recv", "-s", "-F"]
+
+    if not mount:
+        result.append("-u")
 
     result.extend(sum([["-x", property] for property in properties_exclude], []))
     result.extend(sum([["-o", f"{property}={value}"] for property, value in properties_override.items()], []))

@@ -277,7 +277,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
 
         run_replication_steps(step_templates, observer)
 
-    mount_dst_datasets(dst_context, target_dataset, replication_task.recursive)
+    if replication_task.mount:
+        mount_dst_datasets(dst_context, target_dataset, replication_task.recursive)
 
 
 def check_target_existence_and_type(replication_task: ReplicationTask, source_dataset: str,
@@ -763,6 +764,7 @@ def run_replication_step(step: ReplicationStep, observer=None, observer_snapshot
         step.src_dataset,
         step.dst_dataset,
         step.snapshot,
+        step.replication_task.mount,
         step.replication_task.properties,
         list(set(step.replication_task.properties_exclude) & step.valid_properties),
         {k: v for k, v in step.replication_task.properties_override.items() if k in step.valid_properties},

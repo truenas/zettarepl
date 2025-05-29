@@ -96,6 +96,8 @@ properties:
     - ignore
     - set
     - require
+  mount:
+    type: boolean
   allow-from-scratch:
     type: boolean
   only-from-scratch:
