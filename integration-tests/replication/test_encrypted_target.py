@@ -11,18 +11,18 @@ from zettarepl.utils.test import create_dataset, run_replication_test, transport
 
 @pytest.mark.parametrize("has_data", [True, False])
 def test_encrypted_target(has_data):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst_parent", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst_parent", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    create_dataset("data/dst_parent", True)
-    subprocess.check_call("zfs create data/dst_parent/dst", shell=True)
+    create_dataset("tank/dst_parent", True)
+    subprocess.check_call("zfs create tank/dst_parent/dst", shell=True)
 
     if has_data:
-        with open("/mnt/data/dst_parent/dst/file", "w"):
+        with open("/mnt/tank/dst_parent/dst/file", "w"):
             pass
 
     definition = yaml.safe_load(textwrap.dedent("""\
@@ -33,8 +33,8 @@ def test_encrypted_target(has_data):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst_parent/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst_parent/dst
             recursive: true
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
@@ -49,14 +49,14 @@ def test_encrypted_target(has_data):
 
 
 def test_encrypted_target_local():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    create_dataset("data/dst", True)
+    create_dataset("tank/dst", True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -66,8 +66,8 @@ def test_encrypted_target_local():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
@@ -88,14 +88,14 @@ def test_encrypted_target_local():
 def test_create_encrypted_target(encryption, key_location, transport):
     encryption["key-location"] = key_location
 
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
     if os.path.exists("/tmp/test.key"):
         os.unlink("/tmp/test.key")
 
-    create_dataset("data/src", encrypted=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    create_dataset("tank/src", encrypted=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -103,8 +103,8 @@ def test_create_encrypted_target(encryption, key_location, transport):
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             properties: false
             also-include-naming-schema:
@@ -120,25 +120,25 @@ def test_create_encrypted_target(encryption, key_location, transport):
     if key_location == "$TrueNAS":
         if encryption["key-format"] != "passphrase":
             assert (
-                subprocess.check_output(["midclt", "call", "-job", "pool.dataset.export_key", "data/dst"]).decode().strip() ==
+                subprocess.check_output(["midclt", "call", "-job", "pool.dataset.export_key", "tank/dst"]).decode().strip() ==
                 encryption["key"]
             )
     else:
         assert (
-            subprocess.check_output("zfs get -H -o value keylocation data/dst", shell=True).decode().strip() ==
+            subprocess.check_output("zfs get -H -o value keylocation tank/dst", shell=True).decode().strip() ==
             f'file://{encryption["key-location"]}'
         )
 
 
 def test_encrypted_source_but_unencrypted_target_exists():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src", encrypted=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    create_dataset("tank/src", encrypted=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    create_dataset("data/dst")
+    create_dataset("tank/dst")
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -148,8 +148,8 @@ def test_encrypted_source_but_unencrypted_target_exists():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             properties: false
             encryption:
@@ -167,14 +167,14 @@ def test_encrypted_source_but_unencrypted_target_exists():
 
 
 def test_encrypted_target_replication_from_scratch():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src", True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    create_dataset("tank/src", True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    create_dataset("data/dst", True)
-    subprocess.check_call("zfs snapshot data/dst@2018-10-01_01-00", shell=True)
+    create_dataset("tank/dst", True)
+    subprocess.check_call("zfs snapshot tank/dst@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -184,8 +184,8 @@ def test_encrypted_target_replication_from_scratch():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
@@ -198,13 +198,13 @@ def test_encrypted_target_replication_from_scratch():
 
 
 def test_re_encrypt_preserving_properties():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src", encrypted=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src", encrypted=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
-    create_dataset("data/dst")
+    create_dataset("tank/dst")
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -214,8 +214,8 @@ def test_re_encrypt_preserving_properties():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst/target
+            source-dataset: tank/src
+            target-dataset: tank/dst/target
             recursive: true
             properties: true
             encryption:
@@ -229,7 +229,7 @@ def test_re_encrypt_preserving_properties():
             retries: 1
     """))
     error = run_replication_test(definition, success=False)
-    assert error.error.startswith("Re-encrypting already encrypted source dataset 'data/src'")
+    assert error.error.startswith("Re-encrypting already encrypted source dataset 'tank/src'")
 
 
 @pytest.mark.parametrize("encryption", [
@@ -237,12 +237,12 @@ def test_re_encrypt_preserving_properties():
     {"key": "password", "key-format": "passphrase"},
 ])
 def test_encrypt_recursive(encryption):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    create_dataset("data/src/child")
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src")
+    create_dataset("tank/src/child")
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -252,8 +252,8 @@ def test_encrypt_recursive(encryption):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             properties: true
             encryption:
@@ -269,10 +269,10 @@ def test_encrypt_recursive(encryption):
     run_replication_test(definition)
 
     assert (
-        subprocess.check_output("zfs get -H -o value keyformat data/dst", shell=True).decode().strip() ==
+        subprocess.check_output("zfs get -H -o value keyformat tank/dst", shell=True).decode().strip() ==
         f'{encryption["key-format"]}'
     )
     assert (
-        subprocess.check_output("zfs get -H -o value keyformat data/dst/child", shell=True).decode().strip() ==
+        subprocess.check_output("zfs get -H -o value keyformat tank/dst/child", shell=True).decode().strip() ==
         f'{encryption["key-format"]}'
     )

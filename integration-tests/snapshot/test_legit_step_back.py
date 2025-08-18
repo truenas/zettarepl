@@ -16,16 +16,16 @@ from zettarepl.utils.test import create_zettarepl
 
 
 def test_snapshot_exclude():
-    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "Europe/Moscow"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             naming-schema: "%Y-%m-%d-%H-%M-%S"
             schedule:
@@ -54,4 +54,4 @@ def test_snapshot_exclude():
     assert isinstance(zettarepl.observer.call_args_list[3][0][0], PeriodicSnapshotTaskSuccess)
 
     local_shell = LocalShell()
-    assert len(list_snapshots(local_shell, "data/src", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/src", False)) == 1
