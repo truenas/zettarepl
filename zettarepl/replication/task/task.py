@@ -199,7 +199,7 @@ class ReplicationTask:
 
             data.setdefault("also-include-naming-schema", [])
 
-            if not resolved_periodic_snapshot_tasks and not data["also-include-naming-schema"] and not data["name-regex"]:
+            if not (resolved_periodic_snapshot_tasks or data["also-include-naming-schema"] or data["name-regex"]):
                 raise ValueError(
                     "You must at least provide either periodic-snapshot-tasks or also-include-naming-schema or "
                     "name-regex for push replication task"
@@ -226,6 +226,9 @@ class ReplicationTask:
                 name_pattern = compile_name_regex(data["name-regex"])
             except Exception as e:
                 raise ValueError(f"Invalid name-regex: {e}")
+
+            if resolved_periodic_snapshot_tasks:
+                raise ValueError("periodic-snapshot-tasks can't be used with name-regex")
 
             if data["also-include-naming-schema"]:
                 raise ValueError("naming-schema/also-include-naming-schema can't be used with name-regex")
