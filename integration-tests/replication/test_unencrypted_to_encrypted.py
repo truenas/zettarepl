@@ -22,16 +22,16 @@ from zettarepl.utils.test import create_dataset, run_replication_test, transport
 @pytest.mark.parametrize("source_encrypted", [False, True])
 def test_unencrypted_to_encrypted(transport, properties, encryption, source_encrypted):
     if properties and encryption and source_encrypted:
-        # Re-encrypting already encrypted source dataset 'data/src' while preserving its properties is not supported
+        # Re-encrypting already encrypted source dataset 'tank/src' while preserving its properties is not supported
         return
 
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src", encrypted=source_encrypted)
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src", encrypted=source_encrypted)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
-    create_dataset("data/dst", encrypted=True)
+    create_dataset("tank/dst", encrypted=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -39,8 +39,8 @@ def test_unencrypted_to_encrypted(transport, properties, encryption, source_encr
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst/child/grandchild
+            source-dataset: tank/src
+            target-dataset: tank/dst/child/grandchild
             recursive: false
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
@@ -56,12 +56,12 @@ def test_unencrypted_to_encrypted(transport, properties, encryption, source_encr
         run_replication_test(definition)
 
         if encryption == "inherit":
-            encryptionroot = "data/dst"
+            encryptionroot = "tank/dst"
         else:
-            encryptionroot = "data/dst/child/grandchild"
+            encryptionroot = "tank/dst/child/grandchild"
 
         assert subprocess.check_output(
-            "zfs get -H -p encryptionroot data/dst/child/grandchild",
+            "zfs get -H -p encryptionroot tank/dst/child/grandchild",
             encoding="utf-8", shell=True
         ).split("\n")[0].split("\t")[2] == encryptionroot
     else:
@@ -69,13 +69,13 @@ def test_unencrypted_to_encrypted(transport, properties, encryption, source_encr
 
         if properties:
             assert error.error == (
-                "Destination dataset 'data/dst/child/grandchild' must be encrypted (as one of its ancestors is "
-                "encrypted). Refusing to transfer unencrypted source dataset 'data/src'. Please, set up replication "
+                "Destination dataset 'tank/dst/child/grandchild' must be encrypted (as one of its ancestors is "
+                "encrypted). Refusing to transfer unencrypted source dataset 'tank/src'. Please, set up replication "
                 "task encryption in order to replicate this dataset."
             )
         else:
             assert error.error == (
-                "Destination dataset 'data/dst/child/grandchild' must be encrypted (as one of its ancestors is "
-                "encrypted). Refusing to transfer source dataset 'data/src' without properties and without replication "
+                "Destination dataset 'tank/dst/child/grandchild' must be encrypted (as one of its ancestors is "
+                "encrypted). Refusing to transfer source dataset 'tank/src' without properties and without replication "
                 "task encryption."
             )

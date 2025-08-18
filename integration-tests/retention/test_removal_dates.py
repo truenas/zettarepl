@@ -17,63 +17,63 @@ from zettarepl.zettarepl import Zettarepl
 @pytest.mark.parametrize("snapshots__removal_dates__result", [
     # Does not remove snapshot that is scheduled to be removed later
     (
-        [Snapshot("data/src", "2021-02-19-00-00"), Snapshot("data/src", "2021-04-19-00-00")],
-        {"data/src@2021-02-19-00-00": datetime(2021, 5, 1, 0, 0)},
+        [Snapshot("tank/src", "2021-02-19-00-00"), Snapshot("tank/src", "2021-04-19-00-00")],
+        {"tank/src@2021-02-19-00-00": datetime(2021, 5, 1, 0, 0)},
         [0, 1],
     ),
     # Does not remove snapshot that was scheduled to be removed later but is kept by someone else
     (
-        [Snapshot("data/src", "2021-04-12-00-00"), Snapshot("data/src", "2021-04-19-00-00")],
-        {"data/src@2021-02-19-00-00": datetime(2021, 4, 15, 0, 0)},
+        [Snapshot("tank/src", "2021-04-12-00-00"), Snapshot("tank/src", "2021-04-19-00-00")],
+        {"tank/src@2021-02-19-00-00": datetime(2021, 4, 15, 0, 0)},
         [0, 1],
     ),
     # Removes snapshot
     (
-        [Snapshot("data/src", "2021-02-19-00-00"), Snapshot("data/src", "2021-04-19-00-00")],
-        {"data/src@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
+        [Snapshot("tank/src", "2021-02-19-00-00"), Snapshot("tank/src", "2021-04-19-00-00")],
+        {"tank/src@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
         [1],
     ),
     # Works even for unknown schemas
     (
-        [Snapshot("data/src", "2021-02-19--00-00"), Snapshot("data/src", "2021-04-19-00-00")],
-        {"data/src@2021-02-19--00-00": datetime(2021, 4, 1, 0, 0)},
+        [Snapshot("tank/src", "2021-02-19--00-00"), Snapshot("tank/src", "2021-04-19-00-00")],
+        {"tank/src@2021-02-19--00-00": datetime(2021, 4, 1, 0, 0)},
         [1],
     ),
     # Does not touch irrelevant snapshots
     (
-        [Snapshot("data/src", "2021-04-01-00-00"), Snapshot("data/src/child", "2021-04-01-00-00"),
-         Snapshot("data/src", "2021-04-19-00-00")],
-        {"data/src/child@2021-04-01-00-00": datetime(2021, 4, 15, 0, 0)},
+        [Snapshot("tank/src", "2021-04-01-00-00"), Snapshot("tank/src/child", "2021-04-01-00-00"),
+         Snapshot("tank/src", "2021-04-19-00-00")],
+        {"tank/src/child@2021-04-01-00-00": datetime(2021, 4, 15, 0, 0)},
         [0, 2],
     ),
     # Works even for unknown dataset
     (
-        [Snapshot("data/src2", "2021-02-19-00-00")],
-        {"data/src2@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
+        [Snapshot("tank/src2", "2021-02-19-00-00")],
+        {"tank/src2@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
         [],
     ),
     # Keeps even for unknown dataset
     (
-        [Snapshot("data/src2", "2021-02-19-00-00")],
-        {"data/src2@2021-02-19-00-00": datetime(2021, 5, 1, 0, 0)},
+        [Snapshot("tank/src2", "2021-02-19-00-00")],
+        {"tank/src2@2021-02-19-00-00": datetime(2021, 5, 1, 0, 0)},
         [0],
     ),
     # Multiple unknown snapshots
     (
-        [Snapshot("data/src2", "2021-02-19-00-00"), Snapshot("data/src2", "snap")],
-        {"data/src2@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
+        [Snapshot("tank/src2", "2021-02-19-00-00"), Snapshot("tank/src2", "snap")],
+        {"tank/src2@2021-02-19-00-00": datetime(2021, 4, 1, 0, 0)},
         [1],
     ),
 ])
 def test_does_not_remove_the_last_snapshot_left(snapshots__removal_dates__result):
     snapshots, removal_dates, result = snapshots__removal_dates__result
 
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/src2", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/src2", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs create data/src/child", shell=True)
-    subprocess.check_call("zfs create data/src2", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create tank/src/child", shell=True)
+    subprocess.check_call("zfs create tank/src2", shell=True)
     for snapshot in snapshots:
         subprocess.check_call(f"zfs snapshot {snapshot}", shell=True)
 
@@ -82,7 +82,7 @@ def test_does_not_remove_the_last_snapshot_left(snapshots__removal_dates__result
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: false
             naming-schema: "%Y-%m-%d-%H-%M"
             schedule:
@@ -101,6 +101,6 @@ def test_does_not_remove_the_last_snapshot_left(snapshots__removal_dates__result
     with patch("zettarepl.zettarepl.get_removal_dates", Mock(return_value=removal_dates)):
         zettarepl._run_local_retention(datetime(2021, 4, 19, 17, 0), [])
 
-    assert list_snapshots(local_shell, "data/src", False) + list_snapshots(local_shell, "data/src2", False) == [
+    assert list_snapshots(local_shell, "tank/src", False) + list_snapshots(local_shell, "tank/src2", False) == [
         snapshots[i] for i in result
     ]

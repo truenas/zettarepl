@@ -32,28 +32,28 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
         # If parent is encrypted, child is also encrypted
         return
 
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst_parent", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst_parent", shell=True)
 
-    create_dataset("data/src", encrypted)
-    subprocess.check_call("zfs set test:property=test-value data/src", shell=True)
+    create_dataset("tank/src", encrypted)
+    subprocess.check_call("zfs set test:property=test-value tank/src", shell=True)
     if has_encrypted_child:
-        create_dataset("data/src/child", True)
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_02-00", shell=True)
+        create_dataset("tank/src/child", True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_02-00", shell=True)
 
-    create_dataset("data/dst_parent", dst_parent_encrypted)
+    create_dataset("tank/dst_parent", dst_parent_encrypted)
     if dst_exists:
-        subprocess.check_call("zfs create data/dst_parent/dst", shell=True)
+        subprocess.check_call("zfs create tank/dst_parent/dst", shell=True)
     if dst_parent_is_readonly:
-        subprocess.check_call("zfs set readonly=on data/dst_parent", shell=True)
+        subprocess.check_call("zfs set readonly=on tank/dst_parent", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -63,8 +63,8 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst_parent/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst_parent/dst
             recursive: true
             periodic-snapshot-tasks:
               - src
@@ -89,22 +89,22 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     if dst_exists and properties and encrypted and not dst_parent_encrypted:
         error = observer.call_args_list[-1][0][0]
         assert isinstance(error, ReplicationTaskError), error
-        assert error.error == ("Unable to send encrypted dataset 'data/src' to existing unencrypted or unrelated "
-                               "dataset 'data/dst_parent/dst'")
+        assert error.error == ("Unable to send encrypted dataset 'tank/src' to existing unencrypted or unrelated "
+                               "dataset 'tank/dst_parent/dst'")
         return
 
     error = observer.call_args_list[-1][0][0]
     assert isinstance(error, ReplicationTaskSuccess), error
 
-    assert len(list_snapshots(local_shell, "data/dst_parent/dst", False)) == 2
+    assert len(list_snapshots(local_shell, "tank/dst_parent/dst", False)) == 2
 
     assert (
-        ("test-value" in subprocess.check_output("zfs get test:property data/dst_parent/dst",
+        ("test-value" in subprocess.check_output("zfs get test:property tank/dst_parent/dst",
                                                  shell=True, encoding="utf-8")) ==
         properties
     )
 
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_03-00", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_03-00", shell=True)
 
     zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
@@ -112,21 +112,21 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     error = observer.call_args_list[-1][0][0]
     assert isinstance(error, ReplicationTaskSuccess), error
 
-    assert len(list_snapshots(local_shell, "data/dst_parent/dst", False)) == 3
+    assert len(list_snapshots(local_shell, "tank/dst_parent/dst", False)) == 3
 
     warnings = []
     if properties and encrypted:
         pass
     elif dst_parent_is_readonly and not dst_exists:
         warnings.append(
-            "cannot mount '/mnt/data/dst_parent/dst': failed to create mountpoint: Read-only file system"
+            "cannot mount '/mnt/tank/dst_parent/dst': failed to create mountpoint: Read-only file system"
         )
     if has_encrypted_child:
         if properties:
             pass
         elif dst_parent_is_readonly and not dst_exists:
             warnings.append(
-                "cannot mount '/mnt/data/dst_parent/dst/child': failed to create mountpoint: Read-only file system"
+                "cannot mount '/mnt/tank/dst_parent/dst/child': failed to create mountpoint: Read-only file system"
             )
 
     assert error.warnings == warnings

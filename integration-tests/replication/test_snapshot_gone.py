@@ -19,19 +19,19 @@ from zettarepl.zettarepl import Zettarepl
 
 @pytest.mark.parametrize("transport", transports())
 def test_snapshot_gone(transport):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -41,8 +41,8 @@ def test_snapshot_gone(transport):
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             periodic-snapshot-tasks:
               - src
@@ -66,7 +66,7 @@ def test_snapshot_gone(transport):
         if not deleted:
             # Snapshots are already listed, and now we remove one of them to simulate PULL replication
             # from remote system that has `allow_empty_snapshots: false`. Only do this once.
-            subprocess.check_call("zfs destroy data/src@2018-10-01_01-00", shell=True)
+            subprocess.check_call("zfs destroy tank/src@2018-10-01_01-00", shell=True)
             deleted = True
 
         return resume_replications(*args, **kwargs)
@@ -78,4 +78,4 @@ def test_snapshot_gone(transport):
     error = observer.call_args_list[-1][0][0]
     assert isinstance(error, ReplicationTaskSuccess), error
 
-    assert len(list_snapshots(local_shell, "data/dst", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst", False)) == 1

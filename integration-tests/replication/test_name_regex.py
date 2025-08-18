@@ -16,26 +16,26 @@ from zettarepl.utils.test import transports, create_dataset, run_replication_tes
 @pytest.mark.parametrize("all_names", [True, False])
 @pytest.mark.parametrize("resume", [False, True])
 def test_name_regex(direction, caplog, transport, all_names, resume):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@snap-2", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@manual-1", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@snap-1", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@manual-2", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@snap-3", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@snap-2", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@manual-1", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@snap-1", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@manual-2", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@snap-3", shell=True)
 
     if resume:
-        subprocess.check_call("zfs send data/src@snap-2 | zfs recv -s -F data/dst", shell=True)
+        subprocess.check_call("zfs send tank/src@snap-2 | zfs recv -s -F tank/dst", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:
           src:
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: false
             auto: false
             retention-policy: none
@@ -51,7 +51,7 @@ def test_name_regex(direction, caplog, transport, all_names, resume):
     caplog.set_level(logging.INFO)
     run_replication_test(definition)
 
-    assert len(list_snapshots(LocalShell(), "data/dst", False)) == (5 if all_names else 3)
+    assert len(list_snapshots(LocalShell(), "tank/dst", False)) == (5 if all_names else 3)
 
     logs = [record.message
             for record in caplog.get_records("call")
@@ -69,11 +69,11 @@ def test_name_regex(direction, caplog, transport, all_names, resume):
 
 
 def test_no_matching_names():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@snap-1", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@snap-1", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -83,8 +83,8 @@ def test_no_matching_names():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: false
             auto: false
             retention-policy: none
@@ -97,16 +97,16 @@ def test_no_matching_names():
 
 
 def test_already_replicated():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@snap-1", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@snap-2", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@snap-1", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@snap-2", shell=True)
 
-    create_dataset("data/dst")
-    subprocess.check_call("zfs snapshot -r data/dst@snap-1", shell=True)
-    subprocess.check_call("zfs snapshot -r data/dst@snap-2", shell=True)
+    create_dataset("tank/dst")
+    subprocess.check_call("zfs snapshot -r tank/dst@snap-1", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/dst@snap-2", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -116,8 +116,8 @@ def test_already_replicated():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: false
             auto: false
             retention-policy: none

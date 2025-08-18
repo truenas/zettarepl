@@ -19,18 +19,18 @@ from zettarepl.utils.test import run_periodic_snapshot_test, run_replication_tes
     "auto-%Y-%m-%d-%H-%M%z",
 ])))
 def test_dst(naming_schemas):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent(f"""\
         timezone: "Europe/Moscow"
 
         periodic-snapshot-tasks:
           task1:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             naming-schema: "{naming_schemas[0]}"
             schedule:
@@ -40,7 +40,7 @@ def test_dst(naming_schemas):
               month: "*"
               day-of-week: "*"
           task2:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             naming-schema: "{naming_schemas[1]}"
             schedule:
@@ -57,9 +57,9 @@ def test_dst(naming_schemas):
     )
 
     local_shell = LocalShell()
-    assert list_snapshots(local_shell, "data/src", False) == [
-        Snapshot("data/src", "auto-2010-10-31-02-00"),
-        Snapshot("data/src", "auto-2010-10-31-02-00:0400"),
+    assert list_snapshots(local_shell, "tank/src", False) == [
+        Snapshot("tank/src", "auto-2010-10-31-02-00"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00:0400"),
     ]
 
     run_periodic_snapshot_test(
@@ -68,10 +68,10 @@ def test_dst(naming_schemas):
         False,
     )
 
-    assert list_snapshots(local_shell, "data/src", False) == [
-        Snapshot("data/src", "auto-2010-10-31-02-00"),
-        Snapshot("data/src", "auto-2010-10-31-02-00:0300"),
-        Snapshot("data/src", "auto-2010-10-31-02-00:0400"),
+    assert list_snapshots(local_shell, "tank/src", False) == [
+        Snapshot("tank/src", "auto-2010-10-31-02-00"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00:0300"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00:0400"),
     ]
 
     definition = yaml.safe_load(textwrap.dedent("""\
@@ -82,8 +82,8 @@ def test_dst(naming_schemas):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             also-include-naming-schema:
             - "auto-%Y-%m-%d-%H-%M"
@@ -94,8 +94,8 @@ def test_dst(naming_schemas):
     """))
     run_replication_test(definition)
 
-    assert list_snapshots(local_shell, "data/dst", False) == [
-        Snapshot("data/dst", "auto-2010-10-31-02-00"),
-        Snapshot("data/dst", "auto-2010-10-31-02-00:0300"),
-        Snapshot("data/dst", "auto-2010-10-31-02-00:0400"),
+    assert list_snapshots(local_shell, "tank/dst", False) == [
+        Snapshot("tank/dst", "auto-2010-10-31-02-00"),
+        Snapshot("tank/dst", "auto-2010-10-31-02-00:0300"),
+        Snapshot("tank/dst", "auto-2010-10-31-02-00:0400"),
     ]
