@@ -18,22 +18,22 @@ def test_rewording_is_not_earlier_than_it(transport, direction):
             # FIXME: https://jira.ixsystems.com/browse/NAS-106452
             return
 
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_03-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:
           src:
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             auto: false
             retention-policy: none

@@ -8,10 +8,10 @@ from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.local import LocalShell
 
 snapshots = [
-    Snapshot("data/dst", "2018-10-01_00-00"),
-    Snapshot("data/dst", "2018-10-01_01-00"),
-    Snapshot("data/dst", "2018-10-01_02-00"),
-    Snapshot("data/dst", "2018-10-01_03-00"),
+    Snapshot("tank/dst", "2018-10-01_00-00"),
+    Snapshot("tank/dst", "2018-10-01_01-00"),
+    Snapshot("tank/dst", "2018-10-01_02-00"),
+    Snapshot("tank/dst", "2018-10-01_03-00"),
 ]
 
 
@@ -24,10 +24,10 @@ snapshots = [
 ])
 def test_zfs_hold(hold):
     try:
-        subprocess.call("zfs destroy -r data/src", shell=True)
-        subprocess.call("zfs destroy -r data/dst", shell=True)
+        subprocess.call("zfs destroy -r tank/src", shell=True)
+        subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-        subprocess.check_call("zfs create data/dst", shell=True)
+        subprocess.check_call("zfs create tank/dst", shell=True)
         for snapshot in snapshots:
             subprocess.check_call(f"zfs snapshot {snapshot.dataset}@{snapshot.name}", shell=True)
         for i in hold:
@@ -37,7 +37,7 @@ def test_zfs_hold(hold):
         local_shell = LocalShell()
         destroy_snapshots(local_shell, snapshots)
 
-        assert list_snapshots(local_shell, "data/dst", False) == [snapshots[i] for i in hold]
+        assert list_snapshots(local_shell, "tank/dst", False) == [snapshots[i] for i in hold]
     finally:
         for snapshot in snapshots:
             subprocess.call(f"zfs release keep {snapshot.dataset}@{snapshot.name}", shell=True)

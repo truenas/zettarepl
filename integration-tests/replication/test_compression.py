@@ -10,18 +10,18 @@ from zettarepl.utils.test import set_localhost_transport_options, create_dataset
 
 @pytest.mark.parametrize("compression", ["pigz", "plzip", "lz4", "xz"])
 def test_push_replication(compression):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -34,8 +34,8 @@ def test_push_replication(compression):
             transport:
               type: ssh
               hostname: 127.0.0.1
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             periodic-snapshot-tasks:
               - src

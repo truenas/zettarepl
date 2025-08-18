@@ -13,13 +13,13 @@ from zettarepl.utils.test import set_localhost_transport_options, create_zettare
 
 
 def test_replication_data_progress():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
 
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -31,8 +31,8 @@ def test_replication_data_progress():
               type: ssh
               hostname: 127.0.0.1
             source-dataset:
-            - data/src
-            target-dataset: data/dst
+            - tank/src
+            target-dataset: tank/dst
             recursive: true
             also-include-naming-schema:
             - "%Y-%m-%d_%H-%M"

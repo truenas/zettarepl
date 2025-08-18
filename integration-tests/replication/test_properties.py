@@ -10,12 +10,12 @@ from zettarepl.utils.test import run_replication_test, transports
 
 @pytest.mark.parametrize("transport", transports())
 def test_properties_exclude(transport):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create -o compression=gzip-1 -o mountpoint=/src data/src", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2019-11-08_15-00", shell=True)
+    subprocess.check_call("zfs create -o compression=gzip-1 -o mountpoint=/src tank/src", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2019-11-08_15-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -23,8 +23,8 @@ def test_properties_exclude(transport):
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: false
             properties: true
             properties-exclude:
@@ -41,28 +41,28 @@ def test_properties_exclude(transport):
 
     assert (
         subprocess.check_output(
-            "zfs get -H compression data/dst",
+            "zfs get -H compression tank/dst",
             encoding="utf-8", shell=True
         ).split("\n")[0].split("\t")[2] ==
         "gzip-1"
     )
     assert (
         subprocess.check_output(
-            "zfs get -H mountpoint data/dst",
+            "zfs get -H mountpoint tank/dst",
             encoding="utf-8", shell=True
         ).split("\n")[0].split("\t")[2] ==
-        "/mnt/data/dst"
+        "/mnt/tank/dst"
     )
 
 
 @pytest.mark.parametrize("transport", transports())
 def test_properties_override(transport):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2019-11-08_15-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2019-11-08_15-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -70,8 +70,8 @@ def test_properties_override(transport):
         replication-tasks:
           src:
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: false
             properties: true
             properties-override:
@@ -88,7 +88,7 @@ def test_properties_override(transport):
 
     assert (
         subprocess.check_output(
-            "zfs get -H compression data/dst",
+            "zfs get -H compression tank/dst",
             encoding="utf-8", shell=True
         ).split("\n")[0].split("\t")[2] ==
         "gzip-9"
@@ -100,13 +100,13 @@ def test_properties_override(transport):
     {"properties-override": {"canmount": "off"}},
 ])
 def test_properties_exclude_override_does_not_break_volume(config):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs create -V 1m data/src/vol", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2019-11-08_15-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create -V 1m tank/src/vol", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2019-11-08_15-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -116,8 +116,8 @@ def test_properties_exclude_override_does_not_break_volume(config):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             properties: true
             also-include-naming-schema:

@@ -8,13 +8,13 @@ from zettarepl.utils.test import create_dataset, run_replication_test
 
 
 def test_inherit_encryption_when_parent_is_not_encrypted():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
-    create_dataset("data/dst")
+    create_dataset("tank/dst")
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -24,8 +24,8 @@ def test_inherit_encryption_when_parent_is_not_encrypted():
             direction: push
             transport:
                 type: local
-            source-dataset: data/src
-            target-dataset: data/dst/child/grandchild
+            source-dataset: tank/src
+            target-dataset: tank/dst/child/grandchild
             recursive: false
             encryption: inherit
             also-include-naming-schema:
@@ -37,20 +37,20 @@ def test_inherit_encryption_when_parent_is_not_encrypted():
 
     error = run_replication_test(definition, success=False)
     assert error.error == (
-        "Encryption inheritance requested for destination dataset 'data/dst/child/grandchild', but its existing parent "
+        "Encryption inheritance requested for destination dataset 'tank/dst/child/grandchild', but its existing parent "
         "is not encrypted."
     )
 
 
 def test_inherit_encryption_when_parent_is_encrypted():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    create_dataset("data/src")
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
-    create_dataset("data/dst")
-    create_dataset("data/dst/child", encrypted=True)
+    create_dataset("tank/dst")
+    create_dataset("tank/dst/child", encrypted=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -60,8 +60,8 @@ def test_inherit_encryption_when_parent_is_encrypted():
             direction: push
             transport:
                 type: local
-            source-dataset: data/src
-            target-dataset: data/dst/child/grandchild
+            source-dataset: tank/src
+            target-dataset: tank/dst/child/grandchild
             recursive: false
             encryption: inherit
             also-include-naming-schema:

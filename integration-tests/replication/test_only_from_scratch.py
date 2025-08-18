@@ -13,17 +13,17 @@ from zettarepl.utils.test import run_replication_test
 
 @pytest.mark.parametrize("has_dst", [0, 1, 2])
 def test_only_from_scratch(has_dst):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     if has_dst:
-        subprocess.check_call("zfs create data/dst", shell=True)
+        subprocess.check_call("zfs create tank/dst", shell=True)
         if has_dst == 2:
-            subprocess.check_call("zfs snapshot data/dst@2018-10-01_01-00", shell=True)
+            subprocess.check_call("zfs snapshot tank/dst@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent(f"""\
         timezone: "Europe/Moscow"
@@ -33,8 +33,8 @@ def test_only_from_scratch(has_dst):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
@@ -45,11 +45,11 @@ def test_only_from_scratch(has_dst):
     """))
     if has_dst:
         error = run_replication_test(definition, success=False)
-        assert error.error == "Target dataset 'data/dst' already exists"
+        assert error.error == "Target dataset 'tank/dst' already exists"
     else:
         run_replication_test(definition)
 
         local_shell = LocalShell()
-        assert list_snapshots(local_shell, "data/dst", False) == [
-            Snapshot("data/dst", "2018-10-01_01-00"),
+        assert list_snapshots(local_shell, "tank/dst", False) == [
+            Snapshot("tank/dst", "2018-10-01_01-00"),
         ]

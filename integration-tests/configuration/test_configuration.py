@@ -14,7 +14,7 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
 
             periodic-snapshot-tasks:
               src-files-1w:
-                dataset: data/src/files
+                dataset: tank/src/files
                 recursive: true
                 lifetime: P7D
                 naming-schema: "auto-%Y%m%d.%H%M-1w"
@@ -25,7 +25,7 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
                   end: "23:45"
 
               src:
-                dataset: data/src
+                dataset: tank/src
                 recursive: true
                 lifetime: P7D
                 naming-schema: "auto-backup-%Y-%m-%d_%H-%M-1w"
@@ -40,8 +40,8 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
                 direction: push
                 transport:
                   type: local
-                source-dataset: data/src
-                target-dataset: data/dst
+                source-dataset: tank/src
+                target-dataset: tank/dst
                 recursive: true
                 properties: true
                 replicate: true
@@ -65,7 +65,7 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
 
             periodic-snapshot-tasks:
               src-files-1w:
-                dataset: data/src/files
+                dataset: tank/src/files
                 recursive: true
                 lifetime: P7D
                 naming-schema: "auto-%Y%m%d.%H%M-1w"
@@ -76,7 +76,7 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
                   end: "23:45"
 
               src:
-                dataset: data/src
+                dataset: tank/src
                 recursive: true
                 lifetime: P7D
                 naming-schema: "auto-backup-%Y-%m-%d_%H-%M-1w"
@@ -91,8 +91,8 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
                 direction: push
                 transport:
                   type: local
-                source-dataset: [data/src, data/src/files]
-                target-dataset: data/dst
+                source-dataset: [tank/src, tank/src/files]
+                target-dataset: tank/dst
                 recursive: true
                 properties: true
                 replicate: true
@@ -107,7 +107,7 @@ from zettarepl.definition.definition import Definition, DefinitionErrors
                 hold-pending-snapshots: true
         """,
         "When parsing replication task src: Replication task that replicates the entire filesystem can't replicate "
-        "both 'data/src' and its child 'data/src/files'",
+        "both 'tank/src' and its child 'tank/src/files'",
     ),
 ])
 def test_configuration_error(definition, error):
