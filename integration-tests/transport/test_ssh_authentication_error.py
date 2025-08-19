@@ -13,17 +13,17 @@ from zettarepl.utils.test import create_zettarepl, set_localhost_transport_optio
 
 
 def test_replication_retry(caplog):
-    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -36,8 +36,8 @@ def test_replication_retry(caplog):
               type: ssh
               hostname: 127.0.0.1
             direction: push
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             periodic-snapshot-tasks:
               - src

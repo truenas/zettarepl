@@ -9,38 +9,38 @@ from zettarepl.utils.test import create_dataset, run_replication_test, transport
 
 
 def test_replication_mount__skip_parent():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
     try:
-        create_dataset("data/src")
+        create_dataset("tank/src")
 
-        create_dataset("data/src/UNIX")
-        subprocess.check_call("zfs set mountpoint=/UNIX data/src/UNIX", shell=True)
+        create_dataset("tank/src/UNIX")
+        subprocess.check_call("zfs set mountpoint=/UNIX tank/src/UNIX", shell=True)
 
-        create_dataset("data/src/UNIX/var")
-        subprocess.check_call("zfs set mountpoint=/var data/src/UNIX/var", shell=True)
+        create_dataset("tank/src/UNIX/var")
+        subprocess.check_call("zfs set mountpoint=/var tank/src/UNIX/var", shell=True)
 
-        create_dataset("data/src/UNIX/var/audit")
+        create_dataset("tank/src/UNIX/var/audit")
 
-        subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+        subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
-        create_dataset("data/dst")
-        create_dataset("data/dst/server")
-        create_dataset("data/dst/server/UNIX")
-        create_dataset("data/dst/server/UNIX/var")
-        subprocess.check_call("zfs set mountpoint=none data/dst/server/UNIX/var", shell=True)
-        create_dataset("data/dst/server/UNIX/var/audit")
-        subprocess.check_call("zfs set mountpoint=/data/dst/server/var/audit data/dst/server/UNIX/var/audit", shell=True)
-        subprocess.check_call("zfs set readonly=on data/dst/server", shell=True)
+        create_dataset("tank/dst")
+        create_dataset("tank/dst/server")
+        create_dataset("tank/dst/server/UNIX")
+        create_dataset("tank/dst/server/UNIX/var")
+        subprocess.check_call("zfs set mountpoint=none tank/dst/server/UNIX/var", shell=True)
+        create_dataset("tank/dst/server/UNIX/var/audit")
+        subprocess.check_call("zfs set mountpoint=/tank/dst/server/var/audit tank/dst/server/UNIX/var/audit", shell=True)
+        subprocess.check_call("zfs set readonly=on tank/dst/server", shell=True)
 
         definition = yaml.safe_load(textwrap.dedent("""\
             timezone: "UTC"
     
             periodic-snapshot-tasks:
               src:
-                dataset: data/src
+                dataset: tank/src
                 recursive: true
                 lifetime: PT1H
                 naming-schema: "%Y-%m-%d_%H-%M"
@@ -52,8 +52,8 @@ def test_replication_mount__skip_parent():
                 direction: push
                 transport:
                   type: local
-                source-dataset: data/src/UNIX
-                target-dataset: data/dst/server/UNIX
+                source-dataset: tank/src/UNIX
+                target-dataset: tank/dst/server/UNIX
                 recursive: true
                 properties: false
                 periodic-snapshot-tasks:
@@ -66,31 +66,31 @@ def test_replication_mount__skip_parent():
         run_replication_test(definition)
 
         mounted = subprocess.check_output(
-            "zfs get -H -o value mounted data/dst/server/UNIX/var/audit",
+            "zfs get -H -o value mounted tank/dst/server/UNIX/var/audit",
             shell=True,
             encoding="utf-8",
         )
         assert mounted == "yes\n"
     finally:
-        subprocess.call("zfs destroy -r data/src", shell=True)
+        subprocess.call("zfs destroy -r tank/src", shell=True)
 
 
 @pytest.mark.parametrize("transport", transports())
 def test_replication_mount__no_mount(transport):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs create data/src/child1", shell=True)
-    subprocess.check_call("zfs create data/src/child1/child2", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create tank/src/child1", shell=True)
+    subprocess.check_call("zfs create tank/src/child1/child2", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -102,8 +102,8 @@ def test_replication_mount__no_mount(transport):
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             mount: false
             periodic-snapshot-tasks:
@@ -116,7 +116,7 @@ def test_replication_mount__no_mount(transport):
 
     run_replication_test(definition)
 
-    for dataset in ["data/dst", "data/dst/child1", "data/dst/child1/child2"]:
+    for dataset in ["tank/dst", "tank/dst/child1", "tank/dst/child1/child2"]:
         mounted = subprocess.check_output(
             f"zfs get -H -o value mounted {dataset}",
             shell=True,

@@ -16,35 +16,35 @@ from zettarepl.zettarepl import Zettarepl
 
 @pytest.mark.parametrize("retention_policy,remains", [
     ({"retention-policy": "source"}, [
-        Snapshot("data/dst", "2018-10-01_01-00"),
-        Snapshot("data/dst", "2018-10-01_02-00"),
-        Snapshot("data/dst", "2018-10-01_03-00")
+        Snapshot("tank/dst", "2018-10-01_01-00"),
+        Snapshot("tank/dst", "2018-10-01_02-00"),
+        Snapshot("tank/dst", "2018-10-01_03-00")
     ]),
     ({"retention-policy": "custom", "lifetime": "PT1H"}, [
-        Snapshot("data/dst", "2018-10-01_02-00"),
-        Snapshot("data/dst", "2018-10-01_03-00")
+        Snapshot("tank/dst", "2018-10-01_02-00"),
+        Snapshot("tank/dst", "2018-10-01_03-00")
     ]),
     ({"retention-policy": "none"}, [
-        Snapshot("data/dst", "2018-10-01_00-00"),
-        Snapshot("data/dst", "2018-10-01_01-00"),
-        Snapshot("data/dst", "2018-10-01_02-00"),
-        Snapshot("data/dst", "2018-10-01_03-00")
+        Snapshot("tank/dst", "2018-10-01_00-00"),
+        Snapshot("tank/dst", "2018-10-01_01-00"),
+        Snapshot("tank/dst", "2018-10-01_02-00"),
+        Snapshot("tank/dst", "2018-10-01_03-00")
     ]),
 ])
 def test_pull_local_retention(retention_policy, remains):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_03-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_03-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
-    subprocess.check_call("zfs snapshot data/dst@2018-10-01_00-00", shell=True)
-    subprocess.check_call("zfs snapshot data/dst@2018-10-01_01-00", shell=True)
-    subprocess.check_call("zfs snapshot data/dst@2018-10-01_02-00", shell=True)
-    subprocess.check_call("zfs snapshot data/dst@2018-10-01_03-00", shell=True)
+    subprocess.check_call("zfs create tank/dst", shell=True)
+    subprocess.check_call("zfs snapshot tank/dst@2018-10-01_00-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/dst@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/dst@2018-10-01_02-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/dst@2018-10-01_03-00", shell=True)
 
     data = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -54,8 +54,8 @@ def test_pull_local_retention(retention_policy, remains):
             direction: pull
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             naming-schema: "%Y-%m-%d_%H-%M"
             recursive: true
             auto: false
@@ -68,22 +68,22 @@ def test_pull_local_retention(retention_policy, remains):
     zettarepl.set_tasks(definition.tasks)
     zettarepl._run_local_retention(datetime(2018, 10, 1, 3, 0), [])
 
-    assert list_snapshots(local_shell, "data/dst", False) == remains
+    assert list_snapshots(local_shell, "tank/dst", False) == remains
 
 
 def test_does_not_remove_the_last_snapshot_left():
-    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2020-05-07_00-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2020-05-23_00-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2020-05-07_00-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2020-05-23_00-00", shell=True)
 
     data = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: false
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
@@ -101,19 +101,19 @@ def test_does_not_remove_the_last_snapshot_left():
     zettarepl.set_tasks(definition.tasks)
     zettarepl._run_local_retention(datetime(2020, 6, 25, 0, 0), [])
 
-    assert list_snapshots(local_shell, "data/src", False) == [Snapshot("data/src", "2020-05-23_00-00")]
+    assert list_snapshots(local_shell, "tank/src", False) == [Snapshot("tank/src", "2020-05-23_00-00")]
 
 
 def test_replication_task_with_name_regex():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2025-05-12_00-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2025-05-12_00-05", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2025-05-12_01-00", shell=True)
-    subprocess.check_call("zfs send -R data/src@2025-05-12_01-00 | zfs recv data/dst", shell=True)
-    subprocess.check_call("zfs destroy data/src@2025-05-12_00-05", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2025-05-12_00-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2025-05-12_00-05", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2025-05-12_01-00", shell=True)
+    subprocess.check_call("zfs send -R tank/src@2025-05-12_01-00 | zfs recv tank/dst", shell=True)
+    subprocess.check_call("zfs destroy tank/src@2025-05-12_00-05", shell=True)
 
     data = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
@@ -123,8 +123,8 @@ def test_replication_task_with_name_regex():
             direction: pull
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             name-regex: .+
             recursive: true
             auto: false
@@ -137,26 +137,26 @@ def test_replication_task_with_name_regex():
     zettarepl.set_tasks(definition.tasks)
     zettarepl._run_local_retention(datetime(2025, 5, 12, 1, 0), [])
 
-    assert list_snapshots(local_shell, "data/dst", False) == [
-        Snapshot("data/dst", "2025-05-12_00-00"),
-        Snapshot("data/dst", "2025-05-12_01-00"),
+    assert list_snapshots(local_shell, "tank/dst", False) == [
+        Snapshot("tank/dst", "2025-05-12_00-00"),
+        Snapshot("tank/dst", "2025-05-12_01-00"),
     ]
 
 
 def test_nonexistent_dataset():
-    subprocess.call("zfs destroy -r data/src", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs create data/src/child", shell=True)
-    subprocess.check_call("zfs snapshot data/src/child@2025-01-12_00-00", shell=True)
-    subprocess.check_call("zfs snapshot data/src/child@2025-05-12_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create tank/src/child", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/child@2025-01-12_00-00", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/child@2025-05-12_01-00", shell=True)
 
     data = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           nonexistent:
-            dataset: data/nonexistent
+            dataset: tank/nonexistent
             recursive: false
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
@@ -168,7 +168,7 @@ def test_nonexistent_dataset():
             lifetime: P30D
 
           child:
-            dataset: data/src/child
+            dataset: tank/src/child
             recursive: false
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
@@ -186,6 +186,6 @@ def test_nonexistent_dataset():
     zettarepl.set_tasks(definition.tasks)
     zettarepl._run_local_retention(datetime(2025, 5, 12, 1, 0), [])
 
-    assert list_snapshots(local_shell, "data/src/child", False) == [
-        Snapshot("data/src/child", "2025-05-12_01-00"),
+    assert list_snapshots(local_shell, "tank/src/child", False) == [
+        Snapshot("tank/src/child", "2025-05-12_01-00"),
     ]

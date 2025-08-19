@@ -15,21 +15,21 @@ from zettarepl.utils.test import create_zettarepl, wait_replication_tasks_to_com
 
 
 def test_push_replication():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("zfs create data/src/child", shell=True)
-    subprocess.check_call("zfs snapshot -r data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create tank/src/child", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
+    subprocess.check_call("zfs create tank/dst", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -41,8 +41,8 @@ def test_push_replication():
             direction: push
             transport:
               type: local
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             periodic-snapshot-tasks:
               - src
@@ -57,8 +57,8 @@ def test_push_replication():
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 1
 
-    subprocess.check_call("zfs destroy -r data/src/child", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_02-00", shell=True)
+    subprocess.check_call("zfs destroy -r tank/src/child", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
     zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
@@ -66,4 +66,4 @@ def test_push_replication():
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 2
 
     local_shell = LocalShell()
-    assert len(list_snapshots(local_shell, "data/dst/child", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst/child", False)) == 1

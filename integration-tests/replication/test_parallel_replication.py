@@ -17,37 +17,37 @@ from zettarepl.utils.test import create_zettarepl, set_localhost_transport_optio
 
 
 def test_parallel_replication():
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src/a", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/a/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src/a@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src/a", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/a/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/a@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/src/b", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/b/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src/b@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src/b", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/b/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/b@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
-    subprocess.check_call("zfs create data/dst/a", shell=True)
-    subprocess.check_call("zfs create data/dst/b", shell=True)
+    subprocess.check_call("zfs create tank/dst", shell=True)
+    subprocess.check_call("zfs create tank/dst/a", shell=True)
+    subprocess.check_call("zfs create tank/dst/b", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src-a:
-            dataset: data/src/a
+            dataset: tank/src/a
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
           src-b:
-            dataset: data/src/b
+            dataset: tank/src/b
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -60,8 +60,8 @@ def test_parallel_replication():
             transport:
               type: ssh
               hostname: 127.0.0.1
-            source-dataset: data/src/a
-            target-dataset: data/dst/a
+            source-dataset: tank/src/a
+            target-dataset: tank/dst/a
             recursive: true
             periodic-snapshot-tasks:
               - src-a
@@ -73,8 +73,8 @@ def test_parallel_replication():
             transport:
               type: ssh
               hostname: 127.0.0.1
-            source-dataset: data/src/b
-            target-dataset: data/dst/b
+            source-dataset: tank/src/b
+            target-dataset: tank/dst/b
             recursive: true
             periodic-snapshot-tasks:
               - src-b
@@ -99,13 +99,13 @@ def test_parallel_replication():
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 2
 
-    assert len(list_snapshots(local_shell, "data/dst/a", False)) == 1
-    assert len(list_snapshots(local_shell, "data/dst/b", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst/a", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst/b", False)) == 1
 
-    subprocess.call("zfs destroy -r data/dst", shell=True)
-    subprocess.check_call("zfs create data/dst", shell=True)
-    subprocess.check_call("zfs create data/dst/a", shell=True)
-    subprocess.check_call("zfs create data/dst/b", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
+    subprocess.check_call("zfs create tank/dst", shell=True)
+    subprocess.check_call("zfs create tank/dst/a", shell=True)
+    subprocess.check_call("zfs create tank/dst/b", shell=True)
 
     zettarepl._replication_tasks_can_run_in_parallel = Mock(return_value=False)
     zettarepl._spawn_replication_tasks(Mock(), select_by_class(ReplicationTask, definition.tasks))
@@ -117,55 +117,55 @@ def test_parallel_replication():
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 4
 
-    assert len(list_snapshots(local_shell, "data/dst/a", False)) == 1
-    assert len(list_snapshots(local_shell, "data/dst/b", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst/a", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst/b", False)) == 1
 
 
 @pytest.mark.parametrize("max_parallel_replications", [2, 3])
 def test_parallel_replication_3(max_parallel_replications):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
 
-    subprocess.check_call("zfs create data/src/a", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/a/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src/a@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src/a", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/a/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/a@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/src/b", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/b/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src/b@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src/b", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/b/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/b@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/src/c", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/c/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src/c@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src/c", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/c/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src/c@2018-10-01_01-00", shell=True)
 
-    subprocess.check_call("zfs create data/dst", shell=True)
-    subprocess.check_call("zfs create data/dst/a", shell=True)
-    subprocess.check_call("zfs create data/dst/b", shell=True)
-    subprocess.check_call("zfs create data/dst/c", shell=True)
+    subprocess.check_call("zfs create tank/dst", shell=True)
+    subprocess.check_call("zfs create tank/dst/a", shell=True)
+    subprocess.check_call("zfs create tank/dst/b", shell=True)
+    subprocess.check_call("zfs create tank/dst/c", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src-a:
-            dataset: data/src/a
+            dataset: tank/src/a
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
           src-b:
-            dataset: data/src/b
+            dataset: tank/src/b
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
             schedule:
               minute: "0"
           src-c:
-            dataset: data/src/c
+            dataset: tank/src/c
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -178,8 +178,8 @@ def test_parallel_replication_3(max_parallel_replications):
             transport:
               type: ssh
               hostname: localhost
-            source-dataset: data/src/a
-            target-dataset: data/dst/a
+            source-dataset: tank/src/a
+            target-dataset: tank/dst/a
             recursive: true
             periodic-snapshot-tasks:
               - src-a
@@ -191,8 +191,8 @@ def test_parallel_replication_3(max_parallel_replications):
             transport:
               type: ssh
               hostname: localhost
-            source-dataset: data/src/b
-            target-dataset: data/dst/b
+            source-dataset: tank/src/b
+            target-dataset: tank/dst/b
             recursive: true
             periodic-snapshot-tasks:
               - src-b
@@ -204,8 +204,8 @@ def test_parallel_replication_3(max_parallel_replications):
             transport:
               type: ssh
               hostname: localhost
-            source-dataset: data/src/c
-            target-dataset: data/dst/c
+            source-dataset: tank/src/c
+            target-dataset: tank/dst/c
             recursive: true
             periodic-snapshot-tasks:
               - src-c

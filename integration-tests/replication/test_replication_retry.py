@@ -19,20 +19,20 @@ from zettarepl.utils.test import create_zettarepl, set_localhost_transport_optio
 
 @pytest.mark.parametrize("direction", ["push", "pull"])
 def test_replication_retry(caplog, direction):
-    subprocess.call("zfs destroy -r data/src", shell=True)
-    subprocess.call("zfs receive -A data/dst", shell=True)
-    subprocess.call("zfs destroy -r data/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
 
-    subprocess.check_call("zfs create data/src", shell=True)
-    subprocess.check_call("dd if=/dev/urandom of=/mnt/data/src/blob bs=1M count=1", shell=True)
-    subprocess.check_call("zfs snapshot data/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/blob bs=1M count=1", shell=True)
+    subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
           src:
-            dataset: data/src
+            dataset: tank/src
             recursive: true
             lifetime: PT1H
             naming-schema: "%Y-%m-%d_%H-%M"
@@ -44,8 +44,8 @@ def test_replication_retry(caplog, direction):
             transport:
               type: ssh
               hostname: 127.0.0.1
-            source-dataset: data/src
-            target-dataset: data/dst
+            source-dataset: tank/src
+            target-dataset: tank/dst
             recursive: true
             auto: false
             retention-policy: none
@@ -85,4 +85,4 @@ def test_replication_retry(caplog, direction):
     assert isinstance(success, ReplicationTaskSuccess), success
 
     local_shell = LocalShell()
-    assert len(list_snapshots(local_shell, "data/dst", False)) == 1
+    assert len(list_snapshots(local_shell, "tank/dst", False)) == 1
