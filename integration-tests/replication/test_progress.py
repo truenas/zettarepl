@@ -11,7 +11,7 @@ from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.observer import (ReplicationTaskStart, ReplicationTaskSnapshotStart, ReplicationTaskSnapshotProgress,
                                 ReplicationTaskSnapshotSuccess, ReplicationTaskDataProgress, ReplicationTaskSuccess)
 from zettarepl.utils.itertools import select_by_class
-from zettarepl.utils.test import transports, create_zettarepl, wait_replication_tasks_to_complete
+from zettarepl.utils.test import transports, create_zettarepl, throttle, wait_replication_tasks_to_complete
 
 
 @pytest.mark.parametrize("transport", transports())
@@ -125,7 +125,7 @@ def test_replication_progress_resume():
     subprocess.check_call("zfs create tank/dst", shell=True)
     subprocess.check_call("zfs send tank/src@2018-10-01_01-00 | zfs recv -s -F tank/dst", shell=True)
     subprocess.check_call("(zfs send -i tank/src@2018-10-01_01-00 tank/src@2018-10-01_02-00 | "
-                          " throttle -b 102400 | zfs recv -s -F tank/dst) & "
+                          f"{throttle(102400)} | zfs recv -s -F tank/dst) & "
                           "sleep 1; killall zfs", shell=True)
 
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token tank/dst",

@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 import logging
+import os
 import subprocess
 import tempfile
 import time
@@ -16,7 +17,7 @@ from zettarepl.zettarepl import Zettarepl
 logger = logging.getLogger(__name__)
 
 __all__ = ["create_dataset", "create_zettarepl", "mock_name", "run_replication_test", "set_localhost_transport_options",
-           "transports", "wait_replication_tasks_to_complete", "wait_retention_to_complete"]
+           "throttle", "transports", "wait_replication_tasks_to_complete", "wait_retention_to_complete", "wait_zvol"]
 
 
 def create_dataset(name, encrypted=False):
@@ -84,8 +85,16 @@ def set_localhost_transport_options(transport):
         transport["private-key"] = f.read()
 
     transport["host-key"] = (
-        subprocess.check_output(["ssh-keyscan", "127.0.0.1"], encoding="utf8").split("\n")[-2].split(" ", 1)[1]
+        [
+            line
+            for line in subprocess.check_output(["ssh-keyscan", "127.0.0.1"], encoding="utf8").splitlines()
+            if not line.startswith("#")
+        ][-1].split(" ", 1)[1]
     )
+
+
+def throttle(speed):
+    return f"mbuffer -q -Q -m {speed}b -r {speed} -R {speed}"
 
 
 def transports(netcat=True, unprivileged=False):
@@ -123,6 +132,16 @@ def wait_replication_tasks_to_complete(zettarepl, timeout=300):
 def wait_retention_to_complete(zettarepl, timeout=300):
     for i in range(timeout):
         if not zettarepl.retention_running:
+            return
+
+        time.sleep(1)
+
+    raise TimeoutError()
+
+
+def wait_zvol(path, timeout=10):
+    for i in range(timeout):
+        if os.path.islink(path) and os.path.realpath(path).split("/")[-1].startswith("zd"):
             return
 
         time.sleep(1)

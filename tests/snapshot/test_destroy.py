@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from unittest.mock import call, Mock, patch
+from unittest.mock import ANY, call, Mock, patch
 
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
@@ -12,8 +12,8 @@ def test__destroy_snapshots__works():
 
     assert shell.exec.call_count == 2
     shell.exec.assert_has_calls([
-        call(["zfs", "destroy", "data@snap-1,snap-2"]),
-        call(["zfs", "destroy", "data/work@snap-1"])
+        call(["zfs", "destroy", "data@snap-1,snap-2"], timeout=ANY),
+        call(["zfs", "destroy", "data/work@snap-1"], timeout=ANY)
     ], True)
 
 
@@ -27,6 +27,6 @@ def test__destroy_snapshots__arg_max():
 
     assert shell.exec.call_count == 2
     shell.exec.assert_has_calls([
-        call(["zfs", "destroy", "data@snap-1,snap-2"]),
-        call(["zfs", "destroy", "data@snap-3"])
+        call(["zfs", "destroy", "data@snap-1,snap-2"], timeout=ANY),
+        call(["zfs", "destroy", "data@snap-3"], timeout=ANY)
     ], True)

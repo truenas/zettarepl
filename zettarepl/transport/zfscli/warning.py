@@ -9,6 +9,6 @@ __all__ = ["warnings_from_zfs_success"]
 
 def warnings_from_zfs_success(stdout):
     if re.search(r"cannot receive .+ property", stdout):
-        return [stdout.rstrip("\n")]
+        return stdout.splitlines()
 
     return []
