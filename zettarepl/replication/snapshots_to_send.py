@@ -11,7 +11,7 @@ from .task.should_replicate import replication_task_should_replicate_parsed_snap
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["get_snapshots_to_send", "get_parsed_incremental_base"]
+__all__ = ["SnapshotsToSend", "get_snapshots_to_send", "get_parsed_incremental_base"]
 
 SnapshotsToSend = namedtuple("SnapshotsToSend", ["incremental_base", "snapshots", "include_intermediate",
                                                  "empty_is_successful"])
