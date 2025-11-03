@@ -6,7 +6,7 @@ import time
 import pytest
 import yaml
 
-from zettarepl.utils.test import create_dataset, run_replication_test, transports
+from zettarepl.utils.test import create_dataset, run_replication_test, transports, wait_zvol
 
 
 @pytest.mark.parametrize("zvol", [False, True])
@@ -29,6 +29,7 @@ def test_target_without_snapshots_but_with_data(zvol, mounted, snapdir):
 
     if zvol:
         subprocess.check_call("zfs create -V 20m tank/dst", shell=True)
+        wait_zvol("/dev/zvol/tank/dst")
         subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/tank/dst bs=15M count=1", shell=True)
     else:
         subprocess.check_call("zfs create tank/dst", shell=True)

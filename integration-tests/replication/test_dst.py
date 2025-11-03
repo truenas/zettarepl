@@ -59,7 +59,7 @@ def test_dst(naming_schemas):
     local_shell = LocalShell()
     assert list_snapshots(local_shell, "tank/src", False) == [
         Snapshot("tank/src", "auto-2010-10-31-02-00"),
-        Snapshot("tank/src", "auto-2010-10-31-02-00:0400"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00--0400"),
     ]
 
     run_periodic_snapshot_test(
@@ -70,8 +70,8 @@ def test_dst(naming_schemas):
 
     assert list_snapshots(local_shell, "tank/src", False) == [
         Snapshot("tank/src", "auto-2010-10-31-02-00"),
-        Snapshot("tank/src", "auto-2010-10-31-02-00:0300"),
-        Snapshot("tank/src", "auto-2010-10-31-02-00:0400"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00--0300"),
+        Snapshot("tank/src", "auto-2010-10-31-02-00--0400"),
     ]
 
     definition = yaml.safe_load(textwrap.dedent("""\
@@ -96,6 +96,6 @@ def test_dst(naming_schemas):
 
     assert list_snapshots(local_shell, "tank/dst", False) == [
         Snapshot("tank/dst", "auto-2010-10-31-02-00"),
-        Snapshot("tank/dst", "auto-2010-10-31-02-00:0300"),
-        Snapshot("tank/dst", "auto-2010-10-31-02-00:0400"),
+        Snapshot("tank/dst", "auto-2010-10-31-02-00--0300"),
+        Snapshot("tank/dst", "auto-2010-10-31-02-00--0400"),
     ]

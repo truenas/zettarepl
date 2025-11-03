@@ -31,6 +31,12 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     if encrypted and has_encrypted_child:
         # If parent is encrypted, child is also encrypted
         return
+    if dst_parent_encrypted and (
+        not encrypted or
+        (not has_encrypted_child and not properties and not dst_exists)
+    ):
+        # Destination dataset 'tank/dst_parent/dst' must be encrypted (as one of its ancestors is encrypted).
+        return
 
     subprocess.call("zfs destroy -r tank/src", shell=True)
     subprocess.call("zfs destroy -r tank/dst_parent", shell=True)
@@ -74,6 +80,8 @@ def test_push_replication(dst_parent_is_readonly, dst_exists, transport, replica
     """))
     definition["replication-tasks"]["src"]["transport"] = transport
     definition["replication-tasks"]["src"]["replicate"] = replicate
+    if definition["replication-tasks"]["src"]["replicate"]:
+        definition["replication-tasks"]["src"]["retention-policy"] = "source"
     definition["replication-tasks"]["src"]["properties"] = properties
     definition = Definition.from_data(definition)
 

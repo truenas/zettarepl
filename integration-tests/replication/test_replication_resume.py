@@ -10,7 +10,7 @@ import yaml
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.test import create_dataset, run_replication_test, transports
+from zettarepl.utils.test import create_dataset, run_replication_test, throttle, transports
 
 
 @pytest.mark.parametrize("transport", transports())
@@ -29,11 +29,11 @@ def test_replication_resume(caplog, transport, dedup, encrypted):
     subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     if encrypted:
-        subprocess.check_call("(zfs send -p -w tank/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F tank/dst) & "
+        subprocess.check_call(f"(zfs send -p -w tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
                               "sleep 1; killall zfs", shell=True)
     else:
         subprocess.check_call("zfs create tank/dst", shell=True)
-        subprocess.check_call("(zfs send tank/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F tank/dst) & "
+        subprocess.check_call(f"(zfs send tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
                               "sleep 1; killall zfs", shell=True)
 
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token tank/dst",
@@ -99,7 +99,7 @@ def test_replication_resume__recursive_mount(canmount):
     subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    subprocess.check_call("(zfs send -i tank/src@2018-10-01_01-00 tank/src@2018-10-01_02-00 | throttle -b 102400 | zfs recv -s -F tank/dst) & "
+    subprocess.check_call(f"(zfs send -i tank/src@2018-10-01_01-00 tank/src@2018-10-01_02-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
                           "sleep 1; killall zfs", shell=True)
 
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token tank/dst",
@@ -140,7 +140,7 @@ def test_replication_resume__recursive_mount(canmount):
         assert mounted == "no\n"
 
 
-@pytest.mark.parametrize("kill_timeout", [1, 15])
+@pytest.mark.parametrize("kill_timeout", [1, 5])
 @pytest.mark.parametrize("had_recursive_replication_before", [False, True])
 def test_replication_resume__replicate(caplog, kill_timeout, had_recursive_replication_before):
     if had_recursive_replication_before and kill_timeout != 1:
@@ -163,7 +163,7 @@ def test_replication_resume__replicate(caplog, kill_timeout, had_recursive_repli
         subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/child/blob bs=1M count=1", shell=True)
         subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_02-00", shell=True)
         subprocess.check_call(
-            "(zfs send -p -i tank/src/child@2018-10-01_01-00 tank/src/child@2018-10-01_02-00 | throttle -b 102400 |"
+            f"(zfs send -p -i tank/src/child@2018-10-01_01-00 tank/src/child@2018-10-01_02-00 | {throttle(102400)} |"
             " zfs recv -s -F tank/dst/child) & "
             f"sleep {kill_timeout}; killall zfs",
             shell=True,
@@ -172,7 +172,7 @@ def test_replication_resume__replicate(caplog, kill_timeout, had_recursive_repli
                                                                      shell=True, encoding="utf-8")
     else:
         subprocess.check_call(
-            "(zfs send -R tank/src@2018-10-01_01-00 | throttle -b 102400 | zfs recv -s -F tank/dst) & "
+            f"(zfs send -R tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
             f"sleep {kill_timeout}; killall zfs",
             shell=True,
         )
@@ -203,7 +203,7 @@ def test_replication_resume__replicate(caplog, kill_timeout, had_recursive_repli
             periodic-snapshot-tasks:
               - src
             auto: true
-            retention-policy: none
+            retention-policy: source
     """))
 
     caplog.set_level(logging.INFO)

@@ -10,7 +10,7 @@ from zettarepl.transport.local import LocalShell
 def test_ignores_nonexisting_snapshots():
     local_shell = LocalShell()
 
-    destroy_snapshots(local_shell, [Snapshot("data", "nonexistent")])
+    destroy_snapshots(local_shell, [Snapshot("tank", "nonexistent")])
 
 
 def test_ignores_nonexisting_snapshots_but_destroys_existing():
@@ -21,6 +21,6 @@ def test_ignores_nonexisting_snapshots_but_destroys_existing():
     subprocess.check_call("zfs create tank/src", shell=True)
     subprocess.check_call("zfs snapshot tank/src@snap-1", shell=True)
 
-    destroy_snapshots(local_shell, [Snapshot("data", "nonexistent"), Snapshot("tank/src", "snap-1")])
+    destroy_snapshots(local_shell, [Snapshot("tank", "nonexistent"), Snapshot("tank/src", "snap-1")])
 
     assert list_snapshots(local_shell, "tank/src", False) == []

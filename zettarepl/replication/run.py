@@ -890,7 +890,8 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
             dst_context.shell.exec(["zfs", "mount", properties["name"]])
         except ExecException as e:
             if not ("encryption key not loaded" in e.stdout):
-                dst_context.context.add_warning(e.stdout.strip())
+                for warning in e.stdout.splitlines():
+                    dst_context.context.add_warning(warning)
 
 
 def broken_pipe_error(error):
