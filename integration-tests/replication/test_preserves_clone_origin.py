@@ -54,7 +54,7 @@ def test_preserves_clone_origin():
             also-include-naming-schema:
               - "%Y-%m-%d_%H-%M"
             auto: false
-            retention-policy: none
+            retention-policy: source
             retries: 1
     """))
 

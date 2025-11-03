@@ -263,7 +263,7 @@ There are also a few additional options that you can use:
     # Only available for SSH transport
     compression: lz4
 
-    # Replication speed limit (stream piped to `throttle` utility)
+    # Replication speed limit (stream piped to `mbuffer` utility)
     # Only available for SSH transport
     speed-limit: 1048576
 
@@ -424,7 +424,7 @@ Prerequisites:
 * `sysctl vfs.usermount=1` for FreeBSD
 * root SSH key that will allow passwordless `ssh root@localhost`
 * `user` user with the same SSH key
-* `data` ZFS pool mounted in `/mnt/data`
+* `tank` ZFS pool mounted in `/mnt/tank`
 * pytest installed (just run `easy_install pytest`)
 
 To run all tests:
