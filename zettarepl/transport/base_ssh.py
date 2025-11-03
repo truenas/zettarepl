@@ -66,6 +66,14 @@ class SshTransportAsyncExec(AsyncExec):
 
             exitcode = self.stdout_fd.channel.recv_exit_status()
 
+            if exitcode < 0:
+                raise ExecException(
+                    exitcode,
+                    "The SSH server did not provide the command’s exit code. This usually indicates that the remote "
+                    "process was terminated unexpectedly due to a software or hardware fault on the remote server, "
+                    "or that the connection was closed before the command completed. Please check the remote server’s "
+                    "logs and connection stability for more details."
+                )
             if exitcode != 0:
                 self.logger.debug("Error %r: %r", exitcode, stdout)
                 raise ExecException(exitcode, stdout)
