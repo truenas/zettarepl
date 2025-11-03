@@ -57,7 +57,7 @@ def test_replicate(snapshot_to_destroy, error_text, snapshot_match_options, take
             recursive: true
             replicate: true
             auto: false
-            retention-policy: none
+            retention-policy: source
             retries: 1
     """))
     definition["replication-tasks"]["src"].update(snapshot_match_options)

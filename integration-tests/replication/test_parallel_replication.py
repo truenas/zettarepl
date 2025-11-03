@@ -95,7 +95,7 @@ def test_parallel_replication():
     end = time.monotonic()
     assert 10 <= end - start <= 15
 
-    zettarepl._spawn_retention.assert_called_once()
+    assert len(zettarepl._spawn_retention.call_args_list) == 3
 
     assert sum(1 for m in zettarepl.observer.call_args_list if isinstance(m[0][0], ReplicationTaskSuccess)) == 2
 

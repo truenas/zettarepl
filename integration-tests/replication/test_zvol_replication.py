@@ -8,7 +8,7 @@ import yaml
 
 from zettarepl.snapshot.list import list_snapshots
 from zettarepl.transport.local import LocalShell
-from zettarepl.utils.test import create_dataset, run_replication_test
+from zettarepl.utils.test import create_dataset, run_replication_test, wait_zvol
 
 
 @pytest.mark.parametrize("as_root", [True, False])
@@ -92,6 +92,7 @@ def test_zvol_replication__onto_existing_encrypted_unrelated_dataset():
     subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
     create_dataset("tank/dst", encrypted=True)
     subprocess.check_call("zfs create -V 5M tank/dst/vol", shell=True)
+    wait_zvol("/dev/zvol/tank/dst/vol")
     subprocess.check_call("dd if=/dev/urandom of=/dev/zvol/tank/dst/vol bs=1M count=5", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\

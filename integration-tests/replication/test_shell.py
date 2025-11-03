@@ -24,6 +24,7 @@ def test_shells(direction, shell, transport):
 
     subprocess.check_call("zfs create tank/src", shell=True)
     subprocess.check_call("zfs snapshot -r tank/src@2021-03-10_12-00", shell=True)
+    subprocess.check_call("zfs allow user send tank/src", shell=True)
 
     subprocess.check_call("zfs create tank/dst", shell=True)
     subprocess.check_call("zfs create tank/dst/dst", shell=True)
