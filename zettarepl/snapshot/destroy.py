@@ -50,12 +50,14 @@ def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
             except ExecException as e:
                 if m := re.search(r"cannot destroy snapshot .+?@(.+?): dataset is busy", e.stdout):
                     reason = "busy"
-                    name = m.group(1)
+                    discard_names = [m.group(1)]
                 elif m := re.search(r"cannot destroy '.+?@(.+?)': snapshot has dependent clones", e.stdout):
                     reason = "cloned"
-                    name = m.group(1)
+                    discard_names = [m.group(1)]
+                elif discard_names := re.findall(r"cannot destroy snapshot .+?@(.+?): it's being held", e.stdout):
+                    reason = "held"
                 else:
                     raise
 
-                logger.info("Snapshot %r on dataset %r is %s, skipping", name, dataset, reason)
-                names.discard(name)
+                logger.info("Snapshots %r on dataset %r are %s, skipping", discard_names, dataset, reason)
+                names -= set(discard_names)
