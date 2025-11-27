@@ -178,7 +178,7 @@ class SshTransportShell(Shell):
         return self._client
 
     def _parse_private_key(self, private_key):
-        for key_class in (paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key):
+        for key_class in (paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key):
             try:
                 return key_class.from_private_key(io.StringIO(private_key))
             except paramiko.SSHException as e:
