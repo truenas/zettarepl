@@ -69,8 +69,8 @@ class ReplicationTaskLoggingLevelFilter(logging.Filter):
 
 
 def logging_record_replication_task(record: logging.LogRecord):
-    m1 = re.match("replication_task__([^.]+)", record.threadName)
-    m2 = re.match("zettarepl\.paramiko\.replication_task__([^.]+)", record.name)
+    m1 = re.match(r"replication_task__([^.]+)", record.threadName)
+    m2 = re.match(r"zettarepl\.paramiko\.replication_task__([^.]+)", record.name)
     if m1 or m2:
         if m1:
             return m1.group(1)
