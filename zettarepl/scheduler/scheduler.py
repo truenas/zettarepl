@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["Scheduler"]
 
-SchedulerResult = namedtuple("SchedulerResult", ["datetime", "tasks"])
+SchedulerResult = namedtuple("SchedulerResult", ["datetime", "tasks", "interrupted"])
 
 
 class Scheduler:
@@ -32,15 +32,21 @@ class Scheduler:
             now = self.tz_clock.tick(utcnow)
 
             tasks = []
+            interrupted = False
             with self.interrupt_lock:
                 if self.interrupt_tasks:
                     tasks = self.interrupt_tasks
+                    interrupted = True
                     self.interrupt_tasks = []
-            for task in self.tasks.copy():
-                if task.schedule.should_run(now.datetime):
-                    tasks.append(task)
 
-            yield SchedulerResult(now, tasks)
+            if not interrupted:
+                # Only add these tasks if not interrupted. The interruption event will always arrive after the natural
+                # `tick()` event.
+                for task in self.tasks.copy():
+                    if task.schedule.should_run(now.datetime):
+                        tasks.append(task)
+
+            yield SchedulerResult(now, tasks, interrupted)
 
     def interrupt(self, tasks):
         with self.interrupt_lock:
