@@ -59,6 +59,10 @@ def run_periodic_snapshot_test(definition, now, success=True):
         for call in zettarepl.observer.call_args_list:
             call = call[0][0]
             assert not isinstance(call, PeriodicSnapshotTaskError), success
+    else:
+        error = zettarepl.observer.call_args_list[-1][0][0]
+        assert isinstance(error, PeriodicSnapshotTaskError), error
+        return error
 
 
 def run_replication_test(definition, *, success=True, now=None):

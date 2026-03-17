@@ -20,7 +20,34 @@ __all__ = ["CreateSnapshotError", "create_snapshot"]
 
 
 class CreateSnapshotError(Exception):
-    pass
+    def __init__(self, error, snapshots_errors: list[tuple[Snapshot, str]]):
+        self.error = error
+        self.snapshots_errors = snapshots_errors
+        super().__init__(error, snapshots_errors)
+
+    def __str__(self):
+        lines = ["Failed to create following snapshots:\n"]
+
+        datasets = sorted(set(s.dataset for s, _ in self.snapshots_errors))
+        errors_by_dataset = {s.dataset: error for s, error in self.snapshots_errors}
+
+        # Find top-level datasets (not nested under another failing dataset)
+        top_level = []
+        for ds in datasets:
+            if not any(ds != other and ds.startswith(other + "/") for other in datasets):
+                top_level.append(ds)
+
+        for ds in top_level:
+            name = self.snapshots_errors[0][0].name
+            error = errors_by_dataset[ds]
+            nested = sum(1 for other in datasets if other != ds and other.startswith(ds + "/"))
+            snapshot_str = f"{ds}@{name}"
+            if nested > 0:
+                lines.append(f"'{snapshot_str}' (and {nested} nested datasets): {error}")
+            else:
+                lines.append(f"'{snapshot_str}': {error}")
+
+        return "\n".join(lines) + "\n"
 
 
 def iterate_excluded_datasets(exclude_rules: [str], datasets: typing.Iterable):
@@ -52,16 +79,17 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_r
             shell.exec(args)
         except ExecException as e:
             logger.debug(e)
-            errors = []
+            snapshots_errors = []
             for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
-                errors.append((snapshot, os.strerror(int(error))))
-            if errors:
-                raise CreateSnapshotError(
-                    "Failed to create following snapshots:\n" +
-                    "\n".join([f"{snapshot!r}: {error}" for snapshot, error in errors])
-                ) from None
+                snapshot_error = os.strerror(int(error))
+                if snapshot_error == "File exists":
+                    snapshot_error = "snapshot already exists"
+
+                snapshots_errors.append((Snapshot(*snapshot.split("@", 1)), snapshot_error))
+            if snapshots_errors:
+                raise CreateSnapshotError("no snapshots were created", snapshots_errors) from None
             else:
-                raise CreateSnapshotError(e) from None
+                raise CreateSnapshotError("no snapshots were created", []) from None
     else:
         args = ["zfs", "snapshot"]
 
@@ -76,6 +104,14 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_r
         try:
             shell.exec(args)
         except ExecException as e:
-            raise CreateSnapshotError(e) from None
+            error = e.stdout
+            snapshots_errors = []
+            for line, snapshot_id, snapshot_error in re.findall(r"(cannot create snapshot (.+): (.+)\n)", error):
+                error = error.replace(line, "")
+                if snapshot_error == "dataset already exists":
+                    snapshot_error = "snapshot already exists"
+                snapshots_errors.append((Snapshot(*snapshot_id.strip("'").split("@", 1)), snapshot_error))
+
+            raise CreateSnapshotError(error.strip(), snapshots_errors) from None
 
     return

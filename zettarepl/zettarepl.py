@@ -175,7 +175,7 @@ class Zettarepl:
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
 
-                if "already exists" in str(e) and legit_step_back:
+                if any(se[1] == "snapshot already exists" for se in e.snapshots_errors) and legit_step_back:
                     logger.warning("This is due to the DST offset change, notifying replication task success anyway")
                     notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
                 else:
