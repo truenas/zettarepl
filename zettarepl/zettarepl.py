@@ -110,7 +110,7 @@ class Zettarepl:
 
                 periodic_snapshot_tasks, tasks = bisect_by_class(PeriodicSnapshotTask, tasks)
                 self._run_periodic_snapshot_tasks(scheduled.datetime.offset_aware_datetime, periodic_snapshot_tasks,
-                                                  legit_step_back)
+                                                  legit_step_back, scheduled.interrupted)
 
                 replication_tasks, tasks = bisect_by_class(ReplicationTask, tasks)
                 replication_tasks.extend(
@@ -120,7 +120,7 @@ class Zettarepl:
 
                 assert tasks == []
 
-    def _run_periodic_snapshot_tasks(self, now, tasks, legit_step_back):
+    def _run_periodic_snapshot_tasks(self, now, tasks, legit_step_back, interrupted):
         scheduled_tasks = []
         for task in tasks:
             snapshot_name = get_snapshot_name(now, task.naming_schema)
@@ -166,7 +166,7 @@ class Zettarepl:
         for task, snapshot_name in tasks_with_snapshot_names:
             snapshot = Snapshot(task.dataset, snapshot_name)
             if snapshot in created_snapshots:
-                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name, False))
                 continue
 
             options = notify(self.observer, PeriodicSnapshotTaskStart(task.id))
@@ -175,16 +175,27 @@ class Zettarepl:
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
 
-                if any(se[1] == "snapshot already exists" for se in e.snapshots_errors) and legit_step_back:
-                    logger.warning("This is due to the DST offset change, notifying replication task success anyway")
-                    notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
+                already_exists = any(se[1] == "snapshot already exists" for se in e.snapshots_errors)
+                if already_exists and (legit_step_back or interrupted):
+                    if legit_step_back:
+                        logger.warning(
+                            "This is due to the DST offset change, notifying replication task success anyway"
+                        )
+
+                    if interrupted:
+                        logger.warning(
+                            "Periodic snapshot task was called manually, notifying replication task success anyway "
+                            "so that TrueNAS alerts don't trigger"
+                        )
+
+                    notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name, True))
                 else:
                     notify(self.observer, PeriodicSnapshotTaskError(task.id, str(e)))
             else:
                 logger.info("Created %r", snapshot)
                 created_snapshots.add(snapshot)
 
-                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name))
+                notify(self.observer, PeriodicSnapshotTaskSuccess(task.id, snapshot.dataset, snapshot.name, False))
 
         empty_snapshots = get_empty_snapshots_for_deletion(self.local_shell, tasks_with_snapshot_names)
         if empty_snapshots:
