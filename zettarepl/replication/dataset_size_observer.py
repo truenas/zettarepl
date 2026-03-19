@@ -1,10 +1,13 @@
 # -*- coding=utf-8 -*-
+from collections.abc import Callable
 import logging
 import socket
 import threading
+from types import TracebackType
 
 import paramiko.ssh_exception
 
+from zettarepl.transport.interface import Shell
 from zettarepl.transport.zfscli import get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
 
@@ -16,7 +19,8 @@ __all__ = ["DatasetSizeObserver"]
 class DatasetSizeObserver:
     INTERVAL = 30
 
-    def __init__(self, src_shell, dst_shell, src_dataset, dst_dataset, observer):
+    def __init__(self, src_shell: Shell, dst_shell: Shell, src_dataset: str, dst_dataset: str,
+                 observer: Callable[[int, int], None]) -> None:
         self.src_shell = src_shell
         self.dst_shell = dst_shell
         self.src_dataset = src_dataset
@@ -25,18 +29,19 @@ class DatasetSizeObserver:
         self.event = threading.Event()
         self.lock = threading.Lock()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         threading.Thread(
             daemon=True,
             name=f"{threading.current_thread().name}.dataset_size_observer",
             target=self._run,
         ).start()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
+                 exc_tb: TracebackType | None) -> None:
         with self.lock:
             self.event.set()
 
-    def _run(self):
+    def _run(self) -> None:
         self.event.wait(self.INTERVAL)
 
         while not self.event.is_set():
@@ -49,7 +54,7 @@ class DatasetSizeObserver:
 
             self.event.wait(self.INTERVAL)
 
-    def _run_once(self):
+    def _run_once(self) -> None:
         src_used = get_property(self.src_shell, self.src_dataset, "used", int)
 
         try:

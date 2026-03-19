@@ -1,8 +1,10 @@
 # -*- coding=utf-8 -*-
 import logging
 import os
+from typing import Any
 
 import jsonschema
+import jsonschema.protocols
 import jsonschema.validators
 import yaml
 
@@ -12,21 +14,21 @@ __all__ = ["periodic_snapshot_task_validator", "replication_task_validator", "sc
 
 
 class LocalResolver(jsonschema.RefResolver):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
 
         self.base_uri_head = os.path.split(self.base_uri)[0]
 
-    def resolve_remote(self, uri):
+    def resolve_remote(self, uri: str) -> Any:
         head, tail = os.path.split(uri)
         if head == self.base_uri_head:
             with open(os.path.join(os.path.dirname(__file__), os.path.splitext(tail)[0] + ".yaml")) as f:
                 return yaml.safe_load(f)
 
-        return super().resolve_remote(uri)
+        return super().resolve_remote(uri)  # type: ignore
 
 
-def create_validator(filename):
+def create_validator(filename: str) -> jsonschema.protocols.Validator:
     with open(os.path.join(os.path.dirname(__file__), filename)) as f:
         schema = yaml.safe_load(f)
 
@@ -34,7 +36,7 @@ def create_validator(filename):
     validator_cls.check_schema(schema)
     resolver = LocalResolver.from_schema(schema)
     validator = validator_cls(schema, resolver=resolver)
-    return validator
+    return validator  # type: ignore
 
 
 periodic_snapshot_task_validator = create_validator("periodic-snapshot-task.schema.yaml")

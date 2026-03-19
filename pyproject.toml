@@ -1,0 +1,11 @@
+[tool.mypy]
+strict = true
+exclude = [
+    '^zettarepl.utils/test\.py$',
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "coloredlogs.*", "isodate.*", "libzfs.*",
+]
+ignore_missing_imports = true

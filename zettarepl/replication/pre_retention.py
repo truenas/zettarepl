@@ -6,6 +6,7 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
 from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
+from zettarepl.transport.interface import Shell
 
 from .snapshots_to_send import get_parsed_incremental_base
 from .task.dataset import get_source_dataset
@@ -18,7 +19,7 @@ __all__ = ["pre_retention"]
 
 
 class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapshotOwner):
-    def __init__(self, target_dataset: str, *args, **kwargs):
+    def __init__(self, target_dataset: str, *args, **kwargs) -> None:
         self.target_dataset = target_dataset
         super().__init__(*args, **kwargs)
 
@@ -33,7 +34,7 @@ class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapsho
                 except ValueError:
                     pass
 
-    def owns_dataset(self, dataset: str):
+    def owns_dataset(self, dataset: str) -> bool:
         # FIXME: Replication tasks that have multiple source datasets are executed as independent parts.
         # Retention has to be executed as independent parts too. Part 2 retention will not be executed until part 1
         # replication is completed. That might lead to disk space / quota overflow which could have been prevented
@@ -41,8 +42,8 @@ class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapsho
         return is_child(dataset, self.target_dataset) and super().owns_dataset(dataset)
 
 
-def pre_retention(now: datetime, replication_task: ReplicationTask, source_snapshots: {str: [str]},
-                  target_snapshots: {str: [str]}, target_dataset: str, target_shell):
+def pre_retention(now: datetime, replication_task: ReplicationTask, source_snapshots: dict[str, list[str]],
+                  target_snapshots: dict[str, list[str]], target_dataset: str, target_shell: Shell) -> None:
     owners = [
         RetentionBeforePushReplicationSnapshotOwner(target_dataset, now, replication_task, source_snapshots,
                                                     target_snapshots)

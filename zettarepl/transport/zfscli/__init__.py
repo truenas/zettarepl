@@ -1,5 +1,12 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import logging
+from collections.abc import Callable
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from zettarepl.transport.interface import Shell
 
 from .exception import ZfsCliExceptionHandler
 from .parse import zfs_bool
@@ -11,18 +18,18 @@ __all__ = ["zfs_send", "zfs_recv", "get_receive_resume_token", "get_properties_r
 
 
 def zfs_send(source_dataset: str,
-             snapshot: str,
+             snapshot: str | None,
              properties: bool,
              replicate: bool,
-             incremental_base: str,
+             incremental_base: str | None,
              include_intermediate: bool,
-             receive_resume_token: str,
+             receive_resume_token: str | None,
              dedup: bool,
              large_block: bool,
              embed: bool,
              compressed: bool,
              raw: bool,
-             report_progress=False):
+             report_progress: bool = False) -> list[str]:
     send = ["zfs", "send"]
 
     if embed:
@@ -70,7 +77,8 @@ def zfs_send(source_dataset: str,
     return send
 
 
-def zfs_recv(target_dataset, mount: bool, properties_exclude: [str], properties_override: {str: str}):
+def zfs_recv(target_dataset: str, mount: bool, properties_exclude: list[str],
+             properties_override: dict[str, str]) -> list[str]:
     result = ["zfs", "recv", "-s", "-F"]
 
     if not mount:
@@ -84,12 +92,14 @@ def zfs_recv(target_dataset, mount: bool, properties_exclude: [str], properties_
     return result
 
 
-def get_receive_resume_token(shell, dataset):
+def get_receive_resume_token(shell: "Shell", dataset: str) -> str | None:
     return get_property(shell, dataset, "receive_resume_token")
 
 
-def get_properties_recursive(shell, datasets, properties: {str: type}, include_source: bool = False,
-                             recursive: bool = False):
+def get_properties_recursive(shell: "Shell", datasets: list[str],
+                             properties: dict[str, Callable],
+                             include_source: bool = False,
+                             recursive: bool = False) -> dict[str, dict[str, object]]:
     with ZfsCliExceptionHandler():
         cmd = ["zfs", "get", "-H", "-p", "-t", "filesystem,volume"]
         if recursive:
@@ -109,15 +119,16 @@ def get_properties_recursive(shell, datasets, properties: {str: type}, include_s
     return result
 
 
-def get_properties(shell, dataset, properties: {str: type}, include_source: bool = False):
+def get_properties(shell: Shell, dataset: str, properties: dict[str, Callable],
+                   include_source: bool = False) -> dict[str, Any]:
     return get_properties_recursive(shell, [dataset], properties, include_source)[dataset]
 
 
-def get_property(shell, dataset, property, type=str, include_source: bool = False):
+def get_property(shell: Shell, dataset: str, property: str, type: Callable = str, include_source: bool = False) -> Any:
     return get_properties(shell, dataset, {property: type}, include_source)[property]
 
 
-def parse_property(value, type):
+def parse_property(value: str, type: Callable) -> Any:
     if type == bool:
         type = zfs_bool
 

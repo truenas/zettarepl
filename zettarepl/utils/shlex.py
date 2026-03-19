@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections.abc import Iterator
 import logging
 import shlex
 
@@ -7,15 +8,15 @@ logger = logging.getLogger(__name__)
 __all__ = ["implode", "pipe"]
 
 
-def implode(args):
+def implode(args: list[str]) -> str:
     return " ".join([shlex.quote(arg) for arg in args])
 
 
 class pipe:
-    def __init__(self, *cmds):
+    def __init__(self, *cmds: list[str]) -> None:
         self.cmds = cmds
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         # We need to enable pipefail because sometimes `zfs recv` can exit with successful exit code while it has done
         # nothing.
         # But we can't just run `sh -o pipefail` because it's not present everywhere (e.g. it's not present in dash).
@@ -50,5 +51,5 @@ class pipe:
 
         return iter(["sh", "-c", command])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Pipe({self.cmds!r})"

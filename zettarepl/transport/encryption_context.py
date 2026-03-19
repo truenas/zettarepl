@@ -7,7 +7,7 @@ import string
 
 from zettarepl.replication.error import ReplicationError
 from zettarepl.replication.task.encryption import KeyFormat
-from zettarepl.transport.interface import ExecException
+from zettarepl.transport.interface import ExecException, ReplicationProcess, Shell
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,13 @@ __all__ = ["EncryptionContext"]
 
 
 class EncryptionContext:
-    def __init__(self, replication_process, shell):
+    def __init__(self, replication_process: ReplicationProcess, shell: Shell) -> None:
         self.replication_process = replication_process
         self.shell = shell
 
-        self.tmp_key_location = None
+        self.tmp_key_location: str | None = None
 
-    def enter(self):
+    def enter(self) -> tuple[list[str], dict[str, str]]:
         if self.replication_process.encryption.inherit:
             return ["encryption"], {}
         else:
@@ -41,7 +41,7 @@ class EncryptionContext:
                 "keylocation": f"file://{key_location}"
             }
 
-    def exit(self, success):
+    def exit(self, success: bool) -> None:
         if self.tmp_key_location is not None:
             self.shell.exec(["rm", self.tmp_key_location])
 

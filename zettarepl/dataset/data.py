@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 import os
+from typing import Any
 
 from zettarepl.dataset.relationship import is_immediate_child
 from zettarepl.replication.error import ReplicationError
@@ -17,7 +18,7 @@ class DatasetIsNotMounted(Exception):
     pass
 
 
-def list_data(shell: Shell, dataset: str):
+def list_data(shell: Shell, dataset: str) -> list[str]:
     index, dst_properties = inspect_data(shell, dataset)
 
     if index is None:
@@ -26,7 +27,7 @@ def list_data(shell: Shell, dataset: str):
     return index
 
 
-def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]):
+def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: list[str]) -> None:
     allowed_empty_immediate_children = [
         child
         for child in allowed_empty_children
@@ -69,7 +70,10 @@ def ensure_has_no_data(shell: Shell, dataset: str, allowed_empty_children: [str]
         )
 
 
-def inspect_data(shell: Shell, dataset: str, exclude: [str]=None):
+def inspect_data(
+    shell: Shell,
+    dataset: str, exclude: list[str] | None = None,
+) -> tuple[list[str] | None, dict[str, Any] | None]:
     exclude = exclude or []
 
     try:
@@ -85,9 +89,9 @@ def inspect_data(shell: Shell, dataset: str, exclude: [str]=None):
         return None, None
     else:
         if (
-                dst_properties["type"] == "filesystem" and
-                dst_properties["mounted"] and
-                dst_properties["mountpoint"] != "legacy"
+            dst_properties["type"] == "filesystem" and
+            dst_properties["mounted"] and
+            dst_properties["mountpoint"] != "legacy"
         ):
             try:
                 index = shell.ls(dst_properties["mountpoint"])

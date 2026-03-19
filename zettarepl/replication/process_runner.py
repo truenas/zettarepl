@@ -2,7 +2,10 @@
 import logging
 import threading
 
+from zettarepl.transport.interface import ReplicationProcess
+
 from .error import StuckReplicationError
+from .monitor import ReplicationMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -10,15 +13,15 @@ __all__ = ["ReplicationProcessRunner"]
 
 
 class ReplicationProcessRunner:
-    def __init__(self, replication_process, monitor):
+    def __init__(self, replication_process: ReplicationProcess, monitor: ReplicationMonitor) -> None:
         self.replication_process = replication_process
         self.monitor = monitor
 
         self.event = threading.Event()
-        self.process_exception = None
-        self.process_stuck = False
+        self.process_exception: Exception | None = None
+        self.process_stuck: bool = False
 
-    def run(self):
+    def run(self) -> None:
         self.replication_process.run()
 
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.process",
@@ -32,7 +35,7 @@ class ReplicationProcessRunner:
         if self.process_exception:
             raise self.process_exception
 
-    def _wait_process(self):
+    def _wait_process(self) -> None:
         try:
             self.replication_process.wait()
         except Exception as e:
@@ -41,7 +44,7 @@ class ReplicationProcessRunner:
             self.event.set()
             self.monitor.stop()
 
-    def _run_monitor(self):
+    def _run_monitor(self) -> None:
         try:
             self.process_stuck = not self.monitor.run()
             if self.process_stuck:

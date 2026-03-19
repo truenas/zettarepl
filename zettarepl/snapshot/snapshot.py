@@ -8,5 +8,5 @@ __all__ = ["Snapshot"]
 
 
 class Snapshot(namedtuple("Snapshot", ["dataset", "name"])):
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.dataset}@{self.name}"

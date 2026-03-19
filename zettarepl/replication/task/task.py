@@ -6,7 +6,9 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.definition.schema import replication_task_validator
 from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
+from zettarepl.task import Task
 from zettarepl.transport.create import create_transport
+from zettarepl.transport.interface import Transport
 
 from .compression import *
 from .direction import ReplicationDirection
@@ -20,25 +22,26 @@ logger = logging.getLogger(__name__)
 __all__ = ["ReplicationTask"]
 
 
-class ReplicationTask:
+class ReplicationTask(Task):
     def __init__(self,
-                 id,
+                 id: str,
                  direction: ReplicationDirection,
-                 transport, source_datasets: [str],
+                 transport: Transport,
+                 source_datasets: list[str],
                  target_dataset: str,
                  recursive: bool,
-                 exclude: [str],
+                 exclude: list[str],
                  properties: bool,
-                 properties_exclude: [str],
-                 properties_override: {str: str},
+                 properties_exclude: list[str],
+                 properties_override: dict[str, str],
                  replicate: bool,
-                 encryption: ReplicationEncryption,
-                 periodic_snapshot_tasks: [PeriodicSnapshotTask],
-                 also_include_naming_schema: [str],
-                 name_pattern: re.Pattern,
+                 encryption: ReplicationEncryption | None,
+                 periodic_snapshot_tasks: list[PeriodicSnapshotTask],
+                 also_include_naming_schema: list[str],
+                 name_pattern: re.Pattern[str] | None,
                  auto: bool,
-                 schedule: CronSchedule,
-                 restrict_schedule: CronSchedule,
+                 schedule: CronSchedule | None,
+                 restrict_schedule: CronSchedule | None,
                  only_matching_schedule: bool,
                  readonly: ReadOnlyBehavior,
                  mount: bool,
@@ -46,14 +49,14 @@ class ReplicationTask:
                  only_from_scratch: bool,
                  hold_pending_snapshots: bool,
                  retention_policy: TargetSnapshotRetentionPolicy,
-                 compression: ReplicationCompression,
-                 speed_limit: int,
+                 compression: ReplicationCompression | None,
+                 speed_limit: int | None,
                  dedup: bool,
                  large_block: bool,
                  embed: bool,
                  compressed: bool,
                  retries: int,
-                 logging_level: int):
+                 logging_level: int) -> None:
         self.id = id
         self.direction = direction
         self.transport = transport
@@ -88,11 +91,11 @@ class ReplicationTask:
         self.retries = retries
         self.logging_level = logging_level
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Replication Task {self.id!r}>"
 
     @classmethod
-    def from_data(cls, id, data: dict, periodic_snapshot_tasks: [PeriodicSnapshotTask]):
+    def from_data(cls, id: str, data: dict, periodic_snapshot_tasks: list[PeriodicSnapshotTask]) -> "ReplicationTask":
         replication_task_validator.validate(data)
 
         for k in ["source-dataset", "naming-schema", "also-include-naming-schema"]:
@@ -277,7 +280,7 @@ class ReplicationTask:
                    logging._nameToLevel[data["logging-level"].upper()])
 
     @classmethod
-    def _validate_exclude(cls, data, resolved_periodic_snapshot_tasks):
+    def _validate_exclude(cls, data: dict, resolved_periodic_snapshot_tasks: list[PeriodicSnapshotTask]) -> None:
         for source_dataset in data["source-dataset"]:
             for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
                 if is_child(source_dataset, periodic_snapshot_task.dataset):
@@ -289,7 +292,7 @@ class ReplicationTask:
                                 f"{periodic_snapshot_task.id!r})")
 
     @classmethod
-    def _parse_schedules(cls, data):
+    def _parse_schedules(cls, data: dict) -> tuple[CronSchedule | None, CronSchedule | None]:
         if "schedule" in data:
             schedule = CronSchedule.from_data(data["schedule"])
         else:

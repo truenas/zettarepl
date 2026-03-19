@@ -15,14 +15,14 @@ ARG_MAX = 262000  # FreeBSD, on Linux it is even higher
 MAX_BATCH_SIZE = 100  # Deleting too many snapshots at once can cause performance issues
 
 
-def destroy_snapshots(shell: Shell, snapshots: [Snapshot]):
+def destroy_snapshots(shell: Shell, snapshots: list[Snapshot]) -> None:
     for dataset, snapshots in sortedgroupby(snapshots, lambda snapshot: snapshot.dataset):
         names = {snapshot.name for snapshot in snapshots}
 
         logger.info("On %r for dataset %r destroying snapshots %r", shell, dataset, names)
 
         while names:
-            chunk = set()
+            chunk: set[str] = set()
             sum_len = len(dataset)
             for name in sorted(names):
                 if len(chunk) >= MAX_BATCH_SIZE:

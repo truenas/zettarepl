@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["replication_tasks_source_datasets_queries", "replication_tasks_target_datasets_queries"]
 
 
-def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTask]):
+def replication_tasks_source_datasets_queries(replication_tasks: list[ReplicationTask]) -> list[tuple[str, bool]]:
     return sum([
         [
             (source_dataset, replication_task.recursive)
@@ -19,7 +19,7 @@ def replication_tasks_source_datasets_queries(replication_tasks: [ReplicationTas
     ], [])
 
 
-def replication_tasks_target_datasets_queries(replication_tasks: [ReplicationTask]):
+def replication_tasks_target_datasets_queries(replication_tasks: list[ReplicationTask]) -> list[tuple[str, bool]]:
     return sum(
         [
             [

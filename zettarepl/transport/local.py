@@ -6,6 +6,7 @@ import os
 import shutil
 import signal
 import subprocess
+import typing
 
 from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
@@ -26,20 +27,20 @@ _pgids = set()
 
 
 @atexit.register
-def _kill_pgids():
+def _kill_pgids() -> None:
     for pgid in _pgids:
         with contextlib.suppress(Exception):
             os.killpg(pgid, signal.SIGTERM)
 
 
 class LocalAsyncExec(AsyncExec):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.process = None
-        self.pgid = None
+        self.process: subprocess.Popen[str] | None = None
+        self.pgid: int | None = None
 
-    def run(self):
+    def run(self) -> None:
         self.logger.debug("Running %r", self.args)
         self.process = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                         encoding=self.encoding, preexec_fn=os.setsid)
@@ -51,7 +52,7 @@ class LocalAsyncExec(AsyncExec):
             _pgids.add(self.pgid)
         self._copy_stdout_from(self.process.stdout)
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: float | None = None) -> str | None:
         if self.stdout is None:
             try:
                 stdout, stderr = self.process.communicate(timeout=timeout)
@@ -82,7 +83,7 @@ class LocalAsyncExec(AsyncExec):
         self.logger.debug("Success: %r", stdout)
         return stdout
 
-    def stop(self):
+    def stop(self) -> None:
         self.logger.debug("Stopping")
         if self.pgid is not None:
             _pgids.discard(self.pgid)
@@ -104,34 +105,34 @@ class LocalAsyncExec(AsyncExec):
 class LocalShell(Shell):
     async_exec = LocalAsyncExec
 
-    def __init__(self, transport=None):
+    def __init__(self, transport: "LocalTransport | None" = None) -> None:
         super().__init__(transport or LocalTransport())
 
-    def close(self):
+    def close(self) -> None:
         pass
 
-    def exists(self, path):
+    def exists(self, path: str) -> bool:
         return os.path.exists(path)
 
-    def ls(self, path):
+    def ls(self, path: str) -> list[str]:
         return os.listdir(path)
 
-    def is_dir(self, path):
+    def is_dir(self, path: str) -> bool:
         return os.path.isdir(path)
 
-    def put_file(self, f, dst_path):
+    def put_file(self, f: typing.IO[bytes], dst_path: str) -> None:
         with open(dst_path, "wb") as f2:
             shutil.copyfileobj(f, f2)
 
 
 class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.async_exec = None
-        self.encryption_context = None
+        self.async_exec: AsyncExecTee | None = None
+        self.encryption_context: EncryptionContext | None = None
 
-    def run(self):
+    def run(self) -> None:
         if self.compression is not None:
             raise ReplicationConfigurationError("compression is not supported for local replication (it has no sense)")
 
@@ -169,7 +170,7 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
         if report_progress:
             self._start_progress_observer()
 
-    def wait(self):
+    def wait(self) -> None:
         success = False
         try:
             with ZfsSendRecvExceptionHandler(self):
@@ -181,13 +182,13 @@ class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
 
             self._stop_progress_observer()
 
-    def stop(self):
+    def stop(self) -> None:
         return self.async_exec.stop()
 
-    def _get_send_shell(self):
+    def _get_send_shell(self) -> LocalShell:
         return self.local_shell
 
-    def _send_uses_sudo(self):
+    def _send_uses_sudo(self) -> bool:
         return False
 
 
@@ -195,13 +196,13 @@ class LocalTransport(Transport):
     logger = logger
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict[str, str]) -> "LocalTransport":
         return LocalTransport()
 
-    def _descriptor(self):
+    def _descriptor(self) -> int:
         return 1
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<LocalTransport()>"
 
     shell = LocalShell

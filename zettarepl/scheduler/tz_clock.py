@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
+from datetime import datetime, tzinfo
 import logging
 
 import pytz
@@ -13,14 +14,14 @@ TzClockDateTime = namedtuple("TzClockDateTime", ["datetime", "offset_aware_datet
 
 
 class TzClock:
-    def __init__(self, timezone, utcnow):
-        self.timezone = timezone
+    def __init__(self, timezone: tzinfo, utcnow: datetime) -> None:
+        self.timezone: tzinfo = timezone
 
-        self.utcnow = utcnow
-        self.now = self._calculate_now(self.utcnow)
-        self.now_naive = self.now.replace(tzinfo=None)
+        self.utcnow: datetime = utcnow
+        self.now: datetime = self._calculate_now(self.utcnow)
+        self.now_naive: datetime = self.now.replace(tzinfo=None)
 
-    def tick(self, utcnow):
+    def tick(self, utcnow: datetime) -> TzClockDateTime:
         now = self._calculate_now(utcnow)
         now_naive = now.replace(tzinfo=None)
         try:
@@ -38,5 +39,5 @@ class TzClock:
             self.now = now
             self.now_naive = now_naive
 
-    def _calculate_now(self, utcnow):
+    def _calculate_now(self, utcnow: datetime) -> datetime:
         return utcnow.replace(tzinfo=pytz.UTC).astimezone(self.timezone)

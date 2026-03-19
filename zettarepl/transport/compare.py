@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["are_same_host"]
 
 
-def are_same_host(t1: Transport, t2: Transport):
+def are_same_host(t1: Transport, t2: Transport) -> bool:
     if isinstance(t1, LocalTransport) and isinstance(t2, LocalTransport):
         return True
 

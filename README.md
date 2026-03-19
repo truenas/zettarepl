@@ -422,6 +422,7 @@ Prerequisites:
 * FreeBSD or Linux VM with recent Python 3 installation. TrueNAS preferred (there are some TrueNAS-specific tests that
   will otherwise fail) but not required.
 * `sysctl vfs.usermount=1` for FreeBSD
+* `PerSourcePenalties no` in `/etc/ssh/sshd_config`
 * root SSH key that will allow passwordless `ssh root@localhost`
 * `user` user with the same SSH key
 * `tank` ZFS pool mounted in `/mnt/tank`

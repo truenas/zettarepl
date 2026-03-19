@@ -10,7 +10,7 @@ import sys
 import libzfs
 
 
-def address_family(address):
+def address_family(address: str) -> socket.AddressFamily:
     try:
         ipaddress.IPv6Address(address)
     except ipaddress.AddressValueError:

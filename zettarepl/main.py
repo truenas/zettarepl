@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class LoggingConfiguration:
-    def __init__(self, value):
+    def __init__(self, value: str) -> None:
         self.default_level = logging.INFO
-        self.loggers = []
+        self.loggers: list[tuple[str, int]] = []
 
         for v in value.split(","):
             if ":" in v:
@@ -37,7 +37,7 @@ class LoggingConfiguration:
                 self.default_level = level
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(prog="zettarepl")
 
     parser.add_argument("-l", "--logging", type=LoggingConfiguration, default="info",

@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 __all__ = ["get_properties_exclude_override", "put_file"]
 
 
-def get_properties_exclude_override(process: ReplicationProcess, encryption_context: EncryptionContext):
+def get_properties_exclude_override(
+    process: ReplicationProcess, encryption_context: EncryptionContext | None,
+) -> tuple[list[str], dict[str, str]]:
     properties_exclude = []
     properties_override = {}
 
@@ -29,7 +31,7 @@ def get_properties_exclude_override(process: ReplicationProcess, encryption_cont
     return properties_exclude, properties_override
 
 
-def put_file(name, shell: Shell):
+def put_file(name: str, shell: Shell) -> str:
     local_path = os.path.join(os.path.dirname(__file__), "..", name)
     with open(local_path, "rb") as f:
         md5 = hashlib.md5(f.read()).hexdigest()
@@ -42,7 +44,7 @@ def put_file(name, shell: Shell):
     return remote_path
 
 
-def put_buffer(buffer: typing.IO[bytes], name: str, shell: Shell):
+def put_buffer(buffer: typing.IO[bytes], name: str, shell: Shell) -> str:
     buffer.seek(0)
     md5 = hashlib.md5(buffer.read()).hexdigest()
     buffer.seek(0)

@@ -1,19 +1,26 @@
 # -*- coding=utf-8 -*-
 import logging
+from typing import Any
 
 from zettarepl.transport.interface import Shell
-from zettarepl.transport.zfscli import ZfsCliExceptionHandler, parse_property
+from zettarepl.transport.zfscli import parse_property
+from zettarepl.transport.zfscli.exception import ZfsCliExceptionHandler
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["list_datasets", "list_datasets_with_properties"]
 
 
-def list_datasets(shell: Shell, dataset: str=None, recursive: bool=True):
+def list_datasets(shell: Shell, dataset: str | None = None, recursive: bool = True) -> list[str]:
     return [dataset["name"] for dataset in list_datasets_with_properties(shell, dataset, recursive)]
 
 
-def list_datasets_with_properties(shell: Shell, dataset: str=None, recursive: bool=True, properties=None):
+def list_datasets_with_properties(
+    shell: Shell,
+    dataset: str | None = None,
+    recursive: bool = True,
+    properties: dict[str, type] | None = None,
+) -> list[dict[str, Any]]:
     properties = properties or {}
 
     properties["name"] = str

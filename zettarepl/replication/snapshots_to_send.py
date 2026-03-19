@@ -3,11 +3,15 @@ from collections import namedtuple
 from datetime import datetime
 import logging
 
-from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key
+from zettarepl.snapshot.name import (
+    ParsedSnapshotName, parse_snapshots_names_with_multiple_schemas, parsed_snapshot_sort_key,
+)
 from zettarepl.snapshot.list import list_snapshots
+from zettarepl.transport.interface import Shell
 
 from .task.naming_schema import replication_task_naming_schemas
 from .task.should_replicate import replication_task_should_replicate_parsed_snapshot
+from .task.task import ReplicationTask
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,9 @@ SnapshotsToSend = namedtuple("SnapshotsToSend", ["incremental_base", "snapshots"
                                                  "empty_is_successful"])
 
 
-def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task, src_shell, src_dataset):
+def get_snapshots_to_send(src_snapshots: list[str], dst_snapshots: list[str],
+                          replication_task: ReplicationTask, src_shell: Shell,
+                          src_dataset: str) -> SnapshotsToSend:
     if replication_task.name_pattern:
         return get_snapshots_to_send_with_name_pattern(
             src_snapshots, dst_snapshots, replication_task, src_shell, src_dataset,
@@ -28,7 +34,10 @@ def get_snapshots_to_send(src_snapshots, dst_snapshots, replication_task, src_sh
         )
 
 
-def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replication_task, src_shell, src_dataset):
+def get_snapshots_to_send_with_name_pattern(
+    src_snapshots: list[str], dst_snapshots: list[str],
+    replication_task: ReplicationTask, src_shell: Shell, src_dataset: str,
+) -> SnapshotsToSend:
     src_snapshots = [
         snapshot.name
         for snapshot in list_snapshots(src_shell, src_dataset, False, "createtxg")
@@ -57,7 +66,10 @@ def get_snapshots_to_send_with_name_pattern(src_snapshots, dst_snapshots, replic
     return SnapshotsToSend(incremental_base, filtered_snapshots_to_send, include_intermediate, False)
 
 
-def get_parsed_incremental_base(parsed_src_snapshots, parsed_dst_snapshots):
+def get_parsed_incremental_base(
+    parsed_src_snapshots: list[ParsedSnapshotName],
+    parsed_dst_snapshots: list[ParsedSnapshotName],
+) -> ParsedSnapshotName | None:
     try:
         return sorted(
             set(parsed_src_snapshots) & set(parsed_dst_snapshots),
@@ -67,7 +79,9 @@ def get_parsed_incremental_base(parsed_src_snapshots, parsed_dst_snapshots):
         return None
 
 
-def get_snapshots_to_send_with_naming_schemas(src_snapshots, dst_snapshots, replication_task):
+def get_snapshots_to_send_with_naming_schemas(
+    src_snapshots: list[str], dst_snapshots: list[str], replication_task: ReplicationTask,
+) -> SnapshotsToSend:
     naming_schemas = replication_task_naming_schemas(replication_task)
 
     parsed_src_snapshots = parse_snapshots_names_with_multiple_schemas(src_snapshots, naming_schemas)

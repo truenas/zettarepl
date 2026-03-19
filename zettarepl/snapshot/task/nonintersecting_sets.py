@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 __all__ = ["calculate_nonintersecting_sets"]
 
 
-def calculate_nonintersecting_sets(tasks: [PeriodicSnapshotTask]):
-    sets = []
+def calculate_nonintersecting_sets(tasks: list[PeriodicSnapshotTask]) -> list[list[PeriodicSnapshotTask]]:
+    sets: list[list[PeriodicSnapshotTask]] = []
     for task in tasks:
         added = False
         for set_tasks in sets:
@@ -27,7 +27,7 @@ def calculate_nonintersecting_sets(tasks: [PeriodicSnapshotTask]):
     return sets
 
 
-def tasks_intersect(t1: PeriodicSnapshotTask, t2: PeriodicSnapshotTask):
+def tasks_intersect(t1: PeriodicSnapshotTask, t2: PeriodicSnapshotTask) -> bool:
     if t1.dataset == t2.dataset:
         return True
 

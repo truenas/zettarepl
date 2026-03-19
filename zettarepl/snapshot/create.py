@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import typing
-import tempfile
+
 
 from zettarepl.transport.interface import *
 from zettarepl.transport.utils import put_buffer
@@ -20,12 +20,12 @@ __all__ = ["CreateSnapshotError", "create_snapshot"]
 
 
 class CreateSnapshotError(Exception):
-    def __init__(self, error, snapshots_errors: list[tuple[Snapshot, str]]):
+    def __init__(self, error: str, snapshots_errors: list[tuple[Snapshot, str]]) -> None:
         self.error = error
         self.snapshots_errors = snapshots_errors
         super().__init__(error, snapshots_errors)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if not self.snapshots_errors:
             return self.error
 
@@ -53,13 +53,14 @@ class CreateSnapshotError(Exception):
         return "\n".join(lines) + "\n"
 
 
-def iterate_excluded_datasets(exclude_rules: [str], datasets: typing.Iterable):
+def iterate_excluded_datasets(exclude_rules: list[str], datasets: typing.Iterable[str]) -> typing.Iterator[str]:
     for dataset in datasets:
         if should_exclude(dataset, exclude_rules):
             yield dataset
 
 
-def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_rules: [str], properties: {str: typing.Any}):
+def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool,
+                    exclude_rules: list[str], properties: dict[str, str]) -> None:
     logger.info("On %r creating %s snapshot %r", shell, "recursive" if recursive else "non-recursive", snapshot)
 
     if exclude_rules:
@@ -83,12 +84,12 @@ def create_snapshot(shell: Shell, snapshot: Snapshot, recursive: bool, exclude_r
         except ExecException as e:
             logger.debug(e)
             snapshots_errors = []
-            for snapshot, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
+            for snapshot_name, error in re.findall(r"snapshot=(.+?) error=([0-9]+)", e.stdout):
                 snapshot_error = os.strerror(int(error))
                 if snapshot_error == "File exists":
                     snapshot_error = "snapshot already exists"
 
-                snapshots_errors.append((Snapshot(*snapshot.split("@", 1)), snapshot_error))
+                snapshots_errors.append((Snapshot(*snapshot_name.split("@", 1)), snapshot_error))
             if snapshots_errors:
                 raise CreateSnapshotError("no snapshots were created", snapshots_errors) from None
             else:

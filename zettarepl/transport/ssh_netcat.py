@@ -30,13 +30,13 @@ class SshNetcatTransportActiveSide(enum.Enum):
 
 
 class SshNetcatExecException(ExecException):
-    def __init__(self, connect_exc, listen_exc):
+    def __init__(self, connect_exc: ExecException | None, listen_exc: ExecException | Exception | None) -> None:
         self.connect_exc = connect_exc
         self.listen_exc = listen_exc
 
         super().__init__(1, str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         errors = []
         if self.connect_exc:
             errors.append(f"Passive side: {self.connect_exc}")
@@ -44,23 +44,23 @@ class SshNetcatExecException(ExecException):
             errors.append(f"Active side: {self.listen_exc}")
         return "\n".join(errors) or "No error"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
 
 
 class SshNetcatReplicationProcess(ReplicationProcess):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.listen_exec = None
-        self.connect_exec = None
+        self.listen_exec: AsyncExecTee | None = None
+        self.connect_exec: AsyncExec | None = None
 
-        self.listen_exec_error = None
-        self.listen_exec_terminated = threading.Event()
+        self.listen_exec_error: ExecException | ReplicationError | None = None
+        self.listen_exec_terminated: threading.Event = threading.Event()
 
-        self.encryption_context = None
+        self.encryption_context: EncryptionContext | None = None
 
-    def run(self):
+    def run(self) -> None:
         if self.compression is not None:
             raise ReplicationConfigurationError("compression is not supported for ssh+netcat replication")
 
@@ -200,7 +200,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         self.connect_exec = connect_shell.exec_async(connect_args)
 
-    def wait(self):
+    def wait(self) -> None:
         success = False
         try:
             with ZfsSendRecvExceptionHandler(self, sudo_handler=self._sudo_error_handler):
@@ -230,11 +230,11 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             if self.encryption_context is not None:
                 self.encryption_context.exit(success)
 
-    def stop(self):
+    def stop(self) -> None:
         self.listen_exec.stop()
         self.connect_exec.stop()
 
-    def _parse_listen_exec(self, data):
+    def _parse_listen_exec(self, data: str) -> dict[str, str | int] | None:
         logger.debug("Read from listen side: %r", data)
         try:
             return json.loads(data)
@@ -246,7 +246,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
                 error = f"Unknown SSH+NETCAT transport error: {data!r}"
             raise ReplicationError(error)
 
-    def _wait_listen_exec(self):
+    def _wait_listen_exec(self) -> None:
         try:
             with ZfsSendRecvExceptionHandler(self, sudo_handler=self._sudo_error_handler):
                 self.listen_exec.wait()
@@ -257,7 +257,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         finally:
             self.listen_exec_terminated.set()
 
-    def _get_recv_shell(self):
+    def _get_recv_shell(self) -> Shell:
         if self.direction == ReplicationDirection.PUSH:
             return self.remote_shell
         elif self.direction == ReplicationDirection.PULL:
@@ -265,7 +265,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
-    def _sudo_error_handler(self, exc_val):
+    def _sudo_error_handler(self, exc_val: ExecException) -> str:
         return (
             "Passwordless `sudo` for all commands (which is required for SSH+NETCAT replication) is not set up "
             "correctly on the remote system."
@@ -273,8 +273,9 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
 
 class SshNetcatTransport(BaseSshTransport):
-    def __init__(self, active_side, active_side_listen_address, active_side_min_port, active_side_max_port,
-                 passive_side_connect_address, **kwargs):
+    def __init__(self, active_side: SshNetcatTransportActiveSide, active_side_listen_address: str,
+                 active_side_min_port: int, active_side_max_port: int,
+                 passive_side_connect_address: str | None, **kwargs) -> None:
         super().__init__(**kwargs)
         self.active_side = active_side
         self.active_side_listen_address = active_side_listen_address
@@ -283,7 +284,7 @@ class SshNetcatTransport(BaseSshTransport):
         self.passive_side_connect_address = passive_side_connect_address
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict) -> "SshNetcatTransport":
         data = super().from_data(data)
 
         data["active_side"] = SshNetcatTransportActiveSide(data.pop("active-side"))
@@ -295,7 +296,7 @@ class SshNetcatTransport(BaseSshTransport):
 
         return SshNetcatTransport(**data)
 
-    def _descriptor(self):
+    def _descriptor(self) -> tuple[tuple[str, int, str, str, str], SshNetcatTransportActiveSide, int, int]:
         return super()._descriptor(), self.active_side, self.active_side_min_port, self.active_side_max_port
 
     replication_process = SshNetcatReplicationProcess

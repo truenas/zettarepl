@@ -65,7 +65,7 @@ def test_dst(naming_schemas):
     run_periodic_snapshot_test(
         definition,
         datetime(2010, 10, 30, 23, 0, 0, tzinfo=pytz.UTC).astimezone(pytz.timezone("Europe/Moscow")),
-        False,
+        None,
     )
 
     assert list_snapshots(local_shell, "tank/src", False) == [

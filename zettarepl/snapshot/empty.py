@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 __all__ = ["get_empty_snapshots_for_deletion"]
 
 
-def get_empty_snapshots_for_deletion(shell: Shell, tasks_with_snapshot_names: [(PeriodicSnapshotTask, str)]):
+def get_empty_snapshots_for_deletion(
+    shell: Shell, tasks_with_snapshot_names: list[tuple[PeriodicSnapshotTask, str]],
+) -> list[Snapshot]:
     datasets = list_datasets(shell)
 
     datasets__allow_empty = defaultdict(list)
@@ -37,7 +39,7 @@ def get_empty_snapshots_for_deletion(shell: Shell, tasks_with_snapshot_names: [(
     return empty_snapshots
 
 
-def get_task_snapshots(datasets: [str], task: PeriodicSnapshotTask, snapshot_name: str):
+def get_task_snapshots(datasets: list[str], task: PeriodicSnapshotTask, snapshot_name: str) -> list[Snapshot]:
     if task.recursive:
         return [
             Snapshot(dataset, snapshot_name)
@@ -48,5 +50,5 @@ def get_task_snapshots(datasets: [str], task: PeriodicSnapshotTask, snapshot_nam
         return [Snapshot(task.dataset, snapshot_name)]
 
 
-def is_empty_snapshot(shell: Shell, snapshot: Snapshot):
+def is_empty_snapshot(shell: Shell, snapshot: Snapshot) -> bool:
     return shell.exec(["zfs", "get", "-H", "-o", "value", "written", str(snapshot)]).strip() == "0"

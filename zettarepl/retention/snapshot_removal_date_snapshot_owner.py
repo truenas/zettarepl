@@ -12,25 +12,25 @@ __all__ = ["SnapshotRemovalDateSnapshotOwner"]
 
 
 class SnapshotRemovalDateSnapshotOwner(SnapshotOwner):
-    def __init__(self, now: datetime, removal_dates):
+    def __init__(self, now: datetime, removal_dates: dict[str, datetime]) -> None:
         self.now = now
         self.removal_dates = removal_dates
         self.datasets = {snapshot.split("@", 1)[0] for snapshot in self.removal_dates.keys()}
 
-    def get_naming_schemas(self) -> [str]:
+    def get_naming_schemas(self) -> list[str | None]:
         return [None]
 
-    def owns_dataset(self, dataset: str):
+    def owns_dataset(self, dataset: str) -> bool:
         return dataset in self.datasets
 
-    def owns_snapshot(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
+    def owns_snapshot(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName) -> bool:
         return f"{dataset}@{parsed_snapshot_name.name}" in self.removal_dates
 
-    def wants_to_delete(self):
+    def wants_to_delete(self) -> bool:
         return True
 
-    def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName):
+    def should_retain(self, dataset: str, parsed_snapshot_name: ParsedSnapshotName) -> bool:
         return self.removal_dates[f"{dataset}@{parsed_snapshot_name.name}"].replace(tzinfo=None) > self.now
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {len(self.removal_dates)}>"
