@@ -26,6 +26,9 @@ class CreateSnapshotError(Exception):
         super().__init__(error, snapshots_errors)
 
     def __str__(self):
+        if not self.snapshots_errors:
+            return self.error
+
         lines = ["Failed to create following snapshots:\n"]
 
         datasets = sorted(set(s.dataset for s, _ in self.snapshots_errors))

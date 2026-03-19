@@ -175,7 +175,10 @@ class Zettarepl:
             except CreateSnapshotError as e:
                 logger.warning("Error creating %r: %r", snapshot, e)
 
-                already_exists = any(se[1] == "snapshot already exists" for se in e.snapshots_errors)
+                already_exists = (
+                    e.snapshots_errors and
+                    all(se[1] == "snapshot already exists" for se in e.snapshots_errors)
+                )
                 if already_exists and (legit_step_back or interrupted):
                     if legit_step_back:
                         logger.warning(
