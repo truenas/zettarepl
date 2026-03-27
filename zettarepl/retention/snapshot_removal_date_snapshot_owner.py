@@ -17,8 +17,8 @@ class SnapshotRemovalDateSnapshotOwner(SnapshotOwner):
         self.removal_dates = removal_dates
         self.datasets = {snapshot.split("@", 1)[0] for snapshot in self.removal_dates.keys()}
 
-    def get_naming_schemas(self) -> list[str | None]:
-        return [None]
+    def get_naming_schemas(self) -> set[str | None]:
+        return {None}
 
     def owns_dataset(self, dataset: str) -> bool:
         return dataset in self.datasets

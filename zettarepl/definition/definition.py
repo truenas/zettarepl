@@ -87,7 +87,7 @@ class Definition:
             try:
                 timezone = pytz.timezone(data["timezone"])
             except pytz.exceptions.UnknownTimeZoneError:
-                errors.append(DefinitionError("Unknown timezone: {data['timezone']!r}"))
+                errors.append(DefinitionError(f"Unknown timezone: {data['timezone']!r}"))
 
         periodic_snapshot_tasks = []
         for id, task in data.get("periodic-snapshot-tasks", {}).items():

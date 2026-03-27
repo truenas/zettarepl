@@ -19,8 +19,8 @@ class PeriodicSnapshotTaskSnapshotOwner(SnapshotOwner):
         self.idealized_now = idealized_datetime(now)
         self.periodic_snapshot_task = periodic_snapshot_task
 
-    def get_naming_schemas(self) -> list[str | None]:
-        return [self.periodic_snapshot_task.naming_schema]
+    def get_naming_schemas(self) -> set[str | None]:
+        return {self.periodic_snapshot_task.naming_schema}
 
     def owns_dataset(self, dataset: str) -> bool:
         return belongs_to_tree(dataset, self.periodic_snapshot_task.dataset, self.periodic_snapshot_task.recursive,

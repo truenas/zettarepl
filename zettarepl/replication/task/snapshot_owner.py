@@ -34,7 +34,7 @@ class BaseReplicationTaskSnapshotOwner(SnapshotOwner):
         self.naming_schemas = replication_task_naming_schemas(replication_task)
 
     def get_naming_schemas(self) -> set[str | None]:
-        naming_schemas = set(self.naming_schemas)
+        naming_schemas: set[str | None] = set(self.naming_schemas)
 
         if self.replication_task.name_pattern:
             naming_schemas.add(None)

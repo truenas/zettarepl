@@ -80,7 +80,7 @@ class ExecException(Exception):
 class Shell:
     _logger_counter = itertools.count(1)
 
-    async_exec: type[AsyncExec] = NotImplemented
+    async_exec: type[AsyncExec]
 
     def __init__(self, transport: "Transport") -> None:
         self.transport = transport
@@ -210,11 +210,11 @@ class ReplicationProcess:
 
 
 class Transport:
-    logger: logging.Logger = NotImplemented
+    logger: logging.Logger
 
-    shell: type[Shell] = NotImplemented
+    shell: type[Shell]
 
-    replication_process: type[ReplicationProcess] = NotImplemented
+    replication_process: type[ReplicationProcess]
 
     @classmethod
     def from_data(cls, data: dict[str, str]) -> "Transport":

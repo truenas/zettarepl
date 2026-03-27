@@ -9,7 +9,7 @@ __all__ = ["SnapshotOwner"]
 
 
 class SnapshotOwner:
-    def get_naming_schemas(self) -> list[str | None]:
+    def get_naming_schemas(self) -> set[str | None]:
         raise NotImplementedError
 
     def owns_dataset(self, dataset: str) -> bool:

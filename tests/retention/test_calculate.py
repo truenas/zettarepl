@@ -36,14 +36,14 @@ def test__calculate_snapshots_to_remove():
     (
         [
             Mock(
-                get_naming_schemas=Mock(return_value=["snap-%Y-%m-%d_%H-%M-%S"]),
+                get_naming_schemas=Mock(return_value={"snap-%Y-%m-%d_%H-%M-%S"}),
                 owns_dataset=Mock(return_value=True),
                 owns_snapshot=Mock(return_value=True),
                 should_retain=Mock(side_effect=lambda dataset, parsed_snapshot_name:
                     parsed_snapshot_name.datetime >= datetime(2018, 8, 21, 23, 0))
             ),
             Mock(
-                get_naming_schemas=Mock(return_value=["snap-%Y-%m-%d_%H-%M-%S"]),
+                get_naming_schemas=Mock(return_value={"snap-%Y-%m-%d_%H-%M-%S"}),
                 owns_dataset=Mock(return_value=True),
                 owns_snapshot=Mock(side_effect=lambda dataset, parsed_snapshot_name:
                     parsed_snapshot_name.datetime.minute % 2 == 0),

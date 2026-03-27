@@ -30,7 +30,7 @@ def calculate_dataset_snapshots_to_remove(owners: Sequence[SnapshotOwner], datas
     try:
         parsed_snapshot_names = parse_snapshots_names_with_multiple_schemas(
             snapshots,
-            set().union(*[set(owner.get_naming_schemas()) for owner in owners])
+            set().union(*[owner.get_naming_schemas() for owner in owners])
         )
     except ValueError as e:
         logger.warning("Error parsing snapshot names for dataset %r: %r", dataset, e)
@@ -62,7 +62,7 @@ def calculate_dataset_snapshots_to_remove(owners: Sequence[SnapshotOwner], datas
             for owner in owners
             if (
                 # Owners owning `None` naming schema may own all snapshots
-                {parsed_snapshot_name.naming_schema, None} & set(owner.get_naming_schemas()) and
+                {parsed_snapshot_name.naming_schema, None} & owner.get_naming_schemas() and
                 owner.owns_snapshot(dataset, parsed_snapshot_name)
             )
         ]
