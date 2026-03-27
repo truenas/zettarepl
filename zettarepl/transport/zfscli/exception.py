@@ -2,6 +2,8 @@
 import logging
 import re
 import textwrap
+from collections.abc import Callable
+from types import TracebackType
 
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.replication.error import ReplicationError, RecoverableReplicationError
@@ -19,24 +21,27 @@ class DatasetDoesNotExistException(ExecException):
 
 
 class ZfsCliExceptionHandler:
-    def __enter__(self):
+    def __enter__(self) -> None:
         pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
+                 exc_tb: TracebackType | None) -> None:
         if isinstance(exc_val, ExecException):
             if "dataset does not exist" in exc_val.stdout:
                 raise DatasetDoesNotExistException(exc_val.returncode, exc_val.stdout) from None
 
 
 class ZfsSendRecvExceptionHandler:
-    def __init__(self, replication_process: ReplicationProcess, *, sudo_handler=None):
+    def __init__(self, replication_process: ReplicationProcess, *,
+                 sudo_handler: Callable[[ExecException], str] | None = None) -> None:
         self.replication_process = replication_process
         self.sudo_handler = sudo_handler
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
+                 exc_tb: TracebackType | None) -> bool | None:
         from zettarepl.snapshot.list import list_snapshots
 
         m = {}

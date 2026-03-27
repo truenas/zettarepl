@@ -7,6 +7,7 @@ import socket
 import stat
 import threading
 import time
+import typing
 
 import paramiko
 
@@ -23,12 +24,14 @@ PATH = "PATH=$PATH:/usr/local/sbin:/usr/sbin:/sbin"
 
 
 class SshTransportAsyncExec(AsyncExec):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.stdin_fd, self.stdout_fd, self.stderr_fd = (None, None, None)
+        self.stdin_fd: paramiko.ChannelStdinFile | None = None
+        self.stdout_fd: paramiko.ChannelFile | None = None
+        self.stderr_fd: paramiko.ChannelStderrFile | None = None
 
-    def run(self):
+    def run(self) -> None:
         client = self.shell.get_client()
 
         sudo = (
@@ -47,7 +50,7 @@ class SshTransportAsyncExec(AsyncExec):
         )
         self._copy_stdout_from(self.stdout_fd)
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: float | None = None) -> str | None:
         until = None
         if timeout is not None:
             assert timeout > 0
@@ -83,7 +86,7 @@ class SshTransportAsyncExec(AsyncExec):
         finally:
             self._stop()
 
-    def _read_stdout(self, until):
+    def _read_stdout(self, until: float | None) -> str | None:
         if self.stdout is None:
             self.logger.debug("Reading stdout")
 
@@ -110,11 +113,11 @@ class SshTransportAsyncExec(AsyncExec):
 
             return stdout.decode(self.encoding)
 
-    def stop(self):
+    def stop(self) -> None:
         self.logger.debug("Stopping")
         self._stop()
 
-    def _stop(self):
+    def _stop(self) -> None:
         if self.stdin_fd:
             self.stdin_fd.close()
             self.stdout_fd.close()
@@ -122,7 +125,7 @@ class SshTransportAsyncExec(AsyncExec):
 
             self.stdin_fd, self.stdout_fd, self.stderr_fd = (None, None, None)
 
-    def _stdout_file_like_readline(self, file_like):
+    def _stdout_file_like_readline(self, file_like: paramiko.ChannelFile) -> str | None:
         while True:
             try:
                 return file_like.readline()
@@ -136,13 +139,13 @@ class SshTransportAsyncExec(AsyncExec):
 class SshTransportShell(Shell):
     async_exec = SshTransportAsyncExec
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self._client = None
-        self._sftp = None
+        self._client: paramiko.SSHClient | None = None
+        self._sftp: paramiko.SFTPClient | None = None
 
-    def close(self):
+    def close(self) -> None:
         if self._client is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.close_shell",
                              target=self._client.close).start()
@@ -152,7 +155,7 @@ class SshTransportShell(Shell):
                              target=self._sftp.close).start()
             self._sftp = None
 
-    def get_client(self):
+    def get_client(self) -> paramiko.SSHClient:
         if self._client is None:
             self.logger.debug("Connecting...")
             hkes = [paramiko.hostkeys.HostKeyEntry.from_line(line) for line in self.transport.get_host_key_entries()]
@@ -177,7 +180,7 @@ class SshTransportShell(Shell):
 
         return self._client
 
-    def _parse_private_key(self, private_key):
+    def _parse_private_key(self, private_key: str) -> paramiko.PKey:
         for key_class in (paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key):
             try:
                 return key_class.from_private_key(io.StringIO(private_key))
@@ -186,7 +189,7 @@ class SshTransportShell(Shell):
 
         raise saved_exception
 
-    def get_sftp(self):
+    def get_sftp(self) -> paramiko.SFTPClient:
         if self._sftp is None:
             client = self.get_client()
 
@@ -194,7 +197,7 @@ class SshTransportShell(Shell):
 
         return self._sftp
 
-    def exists(self, path):
+    def exists(self, path: str) -> bool:
         try:
             self.get_sftp().stat(path)
             return True
@@ -204,13 +207,13 @@ class SshTransportShell(Shell):
 
             raise
 
-    def ls(self, path):
+    def ls(self, path: str) -> list[str]:
         return self.get_sftp().listdir(path)
 
-    def is_dir(self, path):
+    def is_dir(self, path: str) -> bool:
         return stat.S_ISDIR(self.get_sftp().lstat(path).st_mode)
 
-    def put_file(self, f, dst_path):
+    def put_file(self, f: typing.IO[bytes], dst_path: str) -> None:
         sftp = self.get_sftp()
         incomplete_path = dst_path + ".incomplete"
         sftp.putfo(f, incomplete_path)
@@ -220,7 +223,8 @@ class SshTransportShell(Shell):
 class BaseSshTransport(Transport):
     shell = SshTransportShell
 
-    def __init__(self, hostname, port, username, private_key, host_key, connect_timeout, sudo):
+    def __init__(self, hostname: str, port: int, username: str, private_key: str,
+                 host_key: str, connect_timeout: int, sudo: bool) -> None:
         self.hostname = hostname
         self.port = port
         self.username = username
@@ -231,14 +235,14 @@ class BaseSshTransport(Transport):
 
         self.logger = PrefixLoggerAdapter(logger, f"ssh:{self.username}@{self.hostname}")
 
-    def _descriptor(self):
+    def _descriptor(self) -> tuple[str, int, str, str, str]:
         return self.hostname, self.port, self.username, self.private_key, self.host_key
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<SSH Transport({self.username}@{self.hostname})>"
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict) -> dict:
         data.setdefault("port", 22)
         data.setdefault("username", "root")
         data.setdefault("connect-timeout", 10)
@@ -254,11 +258,11 @@ class BaseSshTransport(Transport):
 
         return data
 
-    def get_host_key_entries(self):
+    def get_host_key_entries(self) -> list[str]:
         return get_host_key_entries(self.hostname, self.port, self.host_key)
 
 
-def get_host_key_entries(hostname, port, host_keys):
+def get_host_key_entries(hostname: str, port: int, host_keys: str) -> list[str]:
     return [
         f"{hostname} {host_key}" if port == 22 else f"[{hostname}]:{port} {host_key}"
         for host_key in host_keys.split("\n")

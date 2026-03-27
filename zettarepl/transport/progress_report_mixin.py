@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["ProgressReportMixin"]
 
 
-def parse_zfs_progress(s):
+def parse_zfs_progress(s: str) -> tuple[int, int] | None:
     m = re.search(
         r"zfs: sending (?P<snapshot>.+) \([0-9]+%: (?P<current>[0-9.]+[KMGT]?)/(?P<total>[0-9.]+[KMGT]?)\)",
         s,
@@ -23,7 +23,7 @@ def parse_zfs_progress(s):
         return current, total
 
 
-def parse_zfs_progress_value(s):
+def parse_zfs_progress_value(s: str) -> int:
     multiplier = 1
     if s.endswith("K"):
         multiplier = 1000
@@ -42,15 +42,15 @@ def parse_zfs_progress_value(s):
 
 
 class ProgressReportMixin:
-    stop_progress_observer = None
+    stop_progress_observer: threading.Event | None = None
 
-    def _get_send_shell(self):
+    def _get_send_shell(self) -> Shell:
         raise NotImplementedError
 
-    def _send_uses_sudo(self):
+    def _send_uses_sudo(self) -> bool:
         raise NotImplementedError
 
-    def _zfs_send_can_report_progress(self):
+    def _zfs_send_can_report_progress(self) -> bool:
         send_shell = self._get_send_shell()
 
         try:
@@ -65,11 +65,11 @@ class ProgressReportMixin:
         else:
             return False
 
-    def _wrap_send(self, send):
+    def _wrap_send(self, send: list[str]) -> list[str]:
         return ["sh", "-c", "(" + implode(send) + " & PID=$!; echo \"zettarepl: zfs send PID is $PID\" 1>&2; "
                             "wait $PID)"]
 
-    def _start_progress_observer(self):
+    def _start_progress_observer(self) -> None:
         self.stop_progress_observer = threading.Event()
 
         try:
@@ -80,16 +80,16 @@ class ProgressReportMixin:
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.progress_observer",
                          target=self._progress_observer, args=(pid,)).start()
 
-    def _stop_progress_observer(self):
+    def _stop_progress_observer(self) -> None:
         if self.stop_progress_observer:
             self.stop_progress_observer.set()
 
-    def _get_zettarepl_pid(self, line):
+    def _get_zettarepl_pid(self, line: str) -> int | None:
         m = re.match("zettarepl: zfs send PID is ([0-9]+)", line.strip())
         if m:
             return int(m.group(1))
 
-    def _progress_observer(self, pid):
+    def _progress_observer(self, pid: int) -> None:
         try:
             send_shell = self._get_send_shell()
 

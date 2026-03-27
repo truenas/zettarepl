@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections.abc import Callable
 import itertools
 import logging
 import time
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["retry_contains_partially_complete_state"]
 
 
-def retry_contains_partially_complete_state(func):
+def retry_contains_partially_complete_state(func: Callable):
     for i in itertools.count(1):
         try:
             return func()

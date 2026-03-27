@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import logging
+from typing import Any, Self
 
 import isodate
 from croniter import croniter
@@ -14,13 +15,14 @@ __all__ = ["CronSchedule"]
 
 
 class CronSchedule:
-    def __init__(self, minute, hour, day_of_month, month, day_of_week, begin, end):
-        self.expr_format = " ".join([str(minute), str(hour), str(day_of_month), str(month), str(day_of_week)])
-        self.begin = begin
-        self.end = end
+    def __init__(self, minute: str, hour: str, day_of_month: str, month: str, day_of_week: str,
+                 begin: time, end: time) -> None:
+        self.expr_format: str = " ".join([str(minute), str(hour), str(day_of_month), str(month), str(day_of_week)])
+        self.begin: time = begin
+        self.end: time = end
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict[str, Any]) -> Self:
         schedule_validator.validate(data)
 
         data.setdefault("minute", "*")
@@ -34,7 +36,7 @@ class CronSchedule:
         return cls(data["minute"], data["hour"], data["day-of-month"], data["month"], data["day-of-week"],
                    isodate.parse_time(data["begin"]), isodate.parse_time(data["end"]))
 
-    def should_run(self, d: datetime):
+    def should_run(self, d: datetime) -> bool:
         idealized = idealized_datetime(d)
         if self.begin < self.end:
             if not (self.begin <= idealized.time() <= self.end):
@@ -42,4 +44,6 @@ class CronSchedule:
         else:
             if not (idealized.time() >= self.begin or idealized.time() <= self.end):
                 return False
-        return croniter(self.expr_format, idealized - timedelta(seconds=1)).get_next(datetime) == idealized
+
+        next_datetime = croniter(self.expr_format, idealized - timedelta(seconds=1)).get_next(datetime)
+        return next_datetime == idealized  # type: ignore

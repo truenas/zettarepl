@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import typing
 
 from zettarepl.replication.error import RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -32,12 +33,12 @@ class SshTransportCipher(enum.Enum):
 
 
 class SshClientCapabilities:
-    def __init__(self, executable, supports_none_cipher):
+    def __init__(self, executable: str, supports_none_cipher: bool) -> None:
         self.executable = executable
         self.supports_none_cipher = supports_none_cipher
 
     @classmethod
-    def discover(cls):
+    def discover(cls) -> "SshClientCapabilities":
         executable = "ssh"
         supports_none_cipher = False
 
@@ -53,16 +54,16 @@ class SshClientCapabilities:
 
 
 class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.private_key_file = None
-        self.host_key_file = None
+        self.private_key_file: typing.IO[str] | None = None
+        self.host_key_file: typing.IO[str] | None = None
 
-        self.async_exec = None
-        self.encryption_context = None
+        self.async_exec: AsyncExecTee | None = None
+        self.encryption_context: EncryptionContext | None = None
 
-    def run(self):
+    def run(self) -> None:
         report_progress = self._zfs_send_can_report_progress()
 
         self.private_key_file = tempfile.NamedTemporaryFile("w")
@@ -159,7 +160,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             self.host_key_file.close()
             raise
 
-    def wait(self):
+    def wait(self) -> None:
         success = False
         try:
             with ZfsSendRecvExceptionHandler(self):
@@ -186,10 +187,10 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
 
             self._stop_progress_observer()
 
-    def stop(self):
+    def stop(self) -> None:
         return self.async_exec.stop()
 
-    def _get_send_shell(self):
+    def _get_send_shell(self) -> Shell:
         if self.direction == ReplicationDirection.PUSH:
             return self.local_shell
         elif self.direction == ReplicationDirection.PULL:
@@ -197,14 +198,14 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
-    def _send_uses_sudo(self):
+    def _send_uses_sudo(self) -> bool:
         if self.transport.sudo:
             if self.direction == ReplicationDirection.PULL:
                 return True
 
         return False
 
-    def _get_recv_shell(self):
+    def _get_recv_shell(self) -> Shell:
         if self.direction == ReplicationDirection.PUSH:
             return self.remote_shell
         elif self.direction == ReplicationDirection.PULL:
@@ -212,7 +213,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
         else:
             raise ValueError(f"Invalid replication direction: {self.direction!r}")
 
-    def _zfs_recv_can_exclude_properties(self):
+    def _zfs_recv_can_exclude_properties(self) -> bool:
         if self.direction == ReplicationDirection.PUSH:
             try:
                 self.remote_shell.exec(["zfs", "recv", "-x"])
@@ -224,15 +225,15 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
 
 
 class SshTransport(BaseSshTransport):
-    system_client_capabilities = None
+    system_client_capabilities: SshClientCapabilities | None = None
 
-    def __init__(self, client_capabilities, cipher, **kwargs):
+    def __init__(self, client_capabilities: SshClientCapabilities, cipher: SshTransportCipher, **kwargs) -> None:
         super().__init__(**kwargs)
         self.client_capabilities = client_capabilities
         self.cipher = cipher
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict) -> "SshTransport":
         if cls.system_client_capabilities is None:
             cls.system_client_capabilities = SshClientCapabilities.discover()
 
@@ -247,7 +248,7 @@ class SshTransport(BaseSshTransport):
 
         return SshTransport(**data)
 
-    def _descriptor(self):
+    def _descriptor(self) -> tuple[tuple[str, int, str, str, str], SshTransportCipher]:
         return super()._descriptor(), self.cipher
 
     replication_process = SshReplicationProcess

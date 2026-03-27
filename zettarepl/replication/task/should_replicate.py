@@ -13,7 +13,7 @@ __all__ = ["replication_task_should_replicate_dataset", "replication_task_replic
            "replication_task_should_replicate_parsed_snapshot"]
 
 
-def replication_task_should_replicate_dataset(replication_task: ReplicationTask, dataset: str):
+def replication_task_should_replicate_dataset(replication_task: ReplicationTask, dataset: str) -> bool:
     return any(
         belongs_to_tree(dataset, source_dataset, replication_task.recursive,
                         replication_task.exclude)
@@ -21,7 +21,7 @@ def replication_task_should_replicate_dataset(replication_task: ReplicationTask,
     )
 
 
-def replication_task_replicates_target_dataset(replication_task: ReplicationTask, dataset: str):
+def replication_task_replicates_target_dataset(replication_task: ReplicationTask, dataset: str) -> bool:
     return any(
         belongs_to_tree(dataset, get_target_dataset(replication_task, source_dataset), replication_task.recursive,
                         [get_target_dataset(replication_task, exclude) for exclude in replication_task.exclude])
@@ -30,7 +30,7 @@ def replication_task_replicates_target_dataset(replication_task: ReplicationTask
 
 
 def replication_task_should_replicate_parsed_snapshot(replication_task: ReplicationTask,
-                                                      parsed_snapshot: ParsedSnapshotName):
+                                                      parsed_snapshot: ParsedSnapshotName) -> bool:
     return (
         (
             replication_task.restrict_schedule is None or

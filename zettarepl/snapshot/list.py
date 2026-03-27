@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["list_snapshots", "multilist_snapshots", "group_snapshots_by_datasets"]
 
 
-def list_snapshots(shell: Shell, dataset: str, recursive: bool, sort: str = "name") -> [Snapshot]:
+def list_snapshots(shell: Shell, dataset: str, recursive: bool, sort: str = "name") -> list[Snapshot]:
     args = ["zfs", "list", "-t", "snapshot", "-H", "-o", "name", "-s", sort]
     if recursive:
         args.extend(["-r"])
@@ -23,13 +23,14 @@ def list_snapshots(shell: Shell, dataset: str, recursive: bool, sort: str = "nam
     return list(map(lambda s: Snapshot(*s.split("@")), filter(None, shell.exec(args).split("\n"))))
 
 
-def multilist_snapshots(shell: Shell, queries: [(str, bool)], *, ignore_nonexistent=False) -> [Snapshot]:
+def multilist_snapshots(shell: Shell, queries: list[tuple[str, bool]], *,
+                        ignore_nonexistent: bool = False) -> list[Snapshot]:
     snapshots = []
     for dataset, recursive in simplify_snapshot_list_queries(queries):
         try:
             with ZfsCliExceptionHandler():
                 dataset_snapshots = list_snapshots(shell, dataset, recursive)
-        except DatasetDoesNotExistException as e:
+        except DatasetDoesNotExistException:
             if ignore_nonexistent:
                 continue
 
@@ -40,11 +41,11 @@ def multilist_snapshots(shell: Shell, queries: [(str, bool)], *, ignore_nonexist
     return snapshots
 
 
-def simplify_snapshot_list_queries(queries: [(str, bool)]) -> [(str, bool)]:
-    simple = []
+def simplify_snapshot_list_queries(queries: list[tuple[str, bool]]) -> list[tuple[str, bool]]:
+    simple: list[tuple[str, bool]] = []
     for dataset, recursive in sorted(queries, key=lambda q: (q[0], 0 if q[1] else 1)):
         if recursive:
-            queries_may_include_this = filter(lambda q: q[1], simple)
+            queries_may_include_this = list(filter(lambda q: q[1], simple))
         else:
             queries_may_include_this = simple
 
@@ -55,7 +56,7 @@ def simplify_snapshot_list_queries(queries: [(str, bool)]) -> [(str, bool)]:
     return simple
 
 
-def group_snapshots_by_datasets(snapshots: [Snapshot]) -> {str: [str]}:
+def group_snapshots_by_datasets(snapshots: list[Snapshot]) -> OrderedDict[str, list[str]]:
     datasets = defaultdict(list)
     for snapshot in snapshots:
         datasets[snapshot.dataset].append(snapshot.name)

@@ -16,7 +16,7 @@ __all__ = ["TargetSnapshotRetentionPolicy", "SameAsSourceSnapshotRetentionPolicy
 
 class TargetSnapshotRetentionPolicy:
     @classmethod
-    def from_data(cls, data: dict):
+    def from_data(cls, data: dict) -> "TargetSnapshotRetentionPolicy":
         if data["retention-policy"] == "source":
             return SameAsSourceSnapshotRetentionPolicy()
 
@@ -46,16 +46,16 @@ class TargetSnapshotRetentionPolicy:
 
     def calculate_delete_snapshots(self,
                                    now: datetime,
-                                   parsed_src_snapshots_names: [ParsedSnapshotName],
-                                   parsed_dst_snapshots_names: [ParsedSnapshotName]):
+                                   parsed_src_snapshots_names: list[ParsedSnapshotName],
+                                   parsed_dst_snapshots_names: list[ParsedSnapshotName]) -> list[str]:
         raise NotImplementedError
 
 
 class SameAsSourceSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
     def calculate_delete_snapshots(self,
                                    now: datetime,
-                                   parsed_src_snapshots_names: [ParsedSnapshotName],
-                                   parsed_dst_snapshots_names: [ParsedSnapshotName]):
+                                   parsed_src_snapshots_names: list[ParsedSnapshotName],
+                                   parsed_dst_snapshots_names: list[ParsedSnapshotName]) -> list[str]:
         return [parsed_dst_snapshot.name for parsed_dst_snapshot in parsed_dst_snapshots_names
                 if parsed_dst_snapshot not in parsed_src_snapshots_names]
 
@@ -64,14 +64,14 @@ CustomSnapshotRetentionPolicyLifetime = namedtuple("CustomSnapshotRetentionPolic
 
 
 class CustomSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
-    def __init__(self, lifetime: timedelta, lifetimes: [CustomSnapshotRetentionPolicyLifetime]):
+    def __init__(self, lifetime: timedelta, lifetimes: list[CustomSnapshotRetentionPolicyLifetime]) -> None:
         self.lifetime = lifetime
         self.lifetimes = lifetimes
 
     def calculate_delete_snapshots(self,
                                    now: datetime,
-                                   parsed_src_snapshots_names: [ParsedSnapshotName],
-                                   parsed_dst_snapshots_names: [ParsedSnapshotName]):
+                                   parsed_src_snapshots_names: list[ParsedSnapshotName],
+                                   parsed_dst_snapshots_names: list[ParsedSnapshotName]) -> list[str]:
         result = []
         for parsed_dst_snapshot in parsed_dst_snapshots_names:
             for lifetime in self.lifetimes:
@@ -90,6 +90,6 @@ class CustomSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
 class NoneSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
     def calculate_delete_snapshots(self,
                                    now: datetime,
-                                   parsed_src_snapshots_names: [ParsedSnapshotName],
-                                   parsed_dst_snapshots_names: [ParsedSnapshotName]):
+                                   parsed_src_snapshots_names: list[ParsedSnapshotName],
+                                   parsed_dst_snapshots_names: list[ParsedSnapshotName]) -> list[str]:
         return []

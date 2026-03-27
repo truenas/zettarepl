@@ -1,21 +1,23 @@
 # -*- coding=utf-8 -*-
 from datetime import timedelta
 import logging
+from typing import Any, Self
 
 import isodate
 
 from zettarepl.definition.schema import periodic_snapshot_task_validator
 from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.name import validate_snapshot_naming_schema
+from zettarepl.task import Task
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["PeriodicSnapshotTask"]
 
 
-class PeriodicSnapshotTask:
-    def __init__(self, id, dataset: str, recursive: bool, exclude: [str], lifetime: timedelta,
-                 naming_schema: str, schedule: CronSchedule, allow_empty: bool):
+class PeriodicSnapshotTask(Task):
+    def __init__(self, id: str, dataset: str, recursive: bool, exclude: list[str], lifetime: timedelta,
+                 naming_schema: str, schedule: CronSchedule, allow_empty: bool) -> None:
         self.id = id
         self.dataset = dataset
         self.recursive = recursive
@@ -27,11 +29,11 @@ class PeriodicSnapshotTask:
 
         validate_snapshot_naming_schema(self.naming_schema)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Periodic Snapshot Task {self.id!r}>"
 
     @classmethod
-    def from_data(cls, id, data):
+    def from_data(cls, id: str, data: dict[str, Any]) -> Self:
         periodic_snapshot_task_validator.validate(data)
 
         data.setdefault("exclude", [])

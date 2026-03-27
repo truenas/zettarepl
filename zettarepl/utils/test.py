@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from datetime import datetime
 import logging
 import os
 import subprocess
@@ -20,7 +21,7 @@ __all__ = ["create_dataset", "create_zettarepl", "mock_name", "run_replication_t
            "throttle", "transports", "wait_replication_tasks_to_complete", "wait_retention_to_complete", "wait_zvol"]
 
 
-def create_dataset(name, encrypted=False):
+def create_dataset(name: str, encrypted: bool = False) -> None:
     if encrypted:
         with tempfile.NamedTemporaryFile("w+") as f:
             f.write("0" * 32)
@@ -34,7 +35,7 @@ def create_dataset(name, encrypted=False):
         subprocess.check_call(f"zfs create {name}", shell=True)
 
 
-def create_zettarepl(definition, scheduler=None):
+def create_zettarepl(definition: Definition, scheduler: Mock | None = None) -> Zettarepl:
     local_shell = LocalShell()
     zettarepl = Zettarepl(scheduler or Mock(), local_shell, definition.max_parallel_replication_tasks)
     zettarepl._spawn_retention = Mock()
@@ -44,28 +45,31 @@ def create_zettarepl(definition, scheduler=None):
     return zettarepl
 
 
-def mock_name(mock, name):
+def mock_name(mock: Mock, name: str) -> Mock:
     type(mock).name = PropertyMock(return_value=name)
     return mock
 
 
-def run_periodic_snapshot_test(definition, now, success=True):
+def run_periodic_snapshot_test(definition: dict, now: datetime,
+                               success: bool | None = True) -> PeriodicSnapshotTaskError | None:
     definition = Definition.from_data(definition)
     zettarepl = create_zettarepl(definition)
-    zettarepl._run_periodic_snapshot_tasks(now, select_by_class(PeriodicSnapshotTask, definition.tasks), None)
+    zettarepl._run_periodic_snapshot_tasks(now, select_by_class(PeriodicSnapshotTask, definition.tasks), False, False)
     wait_replication_tasks_to_complete(zettarepl)
 
     if success:
         for call in zettarepl.observer.call_args_list:
             call = call[0][0]
             assert not isinstance(call, PeriodicSnapshotTaskError), success
-    else:
+    elif success is False:
         error = zettarepl.observer.call_args_list[-1][0][0]
         assert isinstance(error, PeriodicSnapshotTaskError), error
         return error
 
 
-def run_replication_test(definition, *, success=True, now=None):
+def run_replication_test(
+    definition: dict, *, success: bool = True, now: Mock | None = None,
+) -> ReplicationTaskSuccess | ReplicationTaskError:
     if now is None:
         now = Mock()
 
@@ -84,7 +88,7 @@ def run_replication_test(definition, *, success=True, now=None):
         return error
 
 
-def set_localhost_transport_options(transport):
+def set_localhost_transport_options(transport: dict[str, str]) -> None:
     with open("/root/.ssh/id_rsa") as f:
         transport["private-key"] = f.read()
 
@@ -97,11 +101,11 @@ def set_localhost_transport_options(transport):
     )
 
 
-def throttle(speed):
+def throttle(speed: int) -> str:
     return f"mbuffer -q -Q -m {speed}b -r {speed} -R {speed}"
 
 
-def transports(netcat=True, unprivileged=False):
+def transports(netcat: bool = True, unprivileged: bool = False) -> list[dict[str, str]]:
     result = [
         {"type": "local"},
         {"type": "ssh", "hostname": "127.0.0.1"},
@@ -123,7 +127,7 @@ def transports(netcat=True, unprivileged=False):
     return result
 
 
-def wait_replication_tasks_to_complete(zettarepl, timeout=300):
+def wait_replication_tasks_to_complete(zettarepl: Zettarepl, timeout: int = 300) -> None:
     for i in range(timeout):
         if not zettarepl.running_tasks and not zettarepl.pending_tasks:
             return
@@ -133,7 +137,7 @@ def wait_replication_tasks_to_complete(zettarepl, timeout=300):
     raise TimeoutError()
 
 
-def wait_retention_to_complete(zettarepl, timeout=300):
+def wait_retention_to_complete(zettarepl: Zettarepl, timeout: int = 300) -> None:
     for i in range(timeout):
         if not zettarepl.retention_running:
             return
@@ -143,7 +147,7 @@ def wait_retention_to_complete(zettarepl, timeout=300):
     raise TimeoutError()
 
 
-def wait_zvol(path, timeout=10):
+def wait_zvol(path: str, timeout: int = 10) -> None:
     for i in range(timeout):
         if os.path.islink(path) and os.path.realpath(path).split("/")[-1].startswith("zd"):
             return

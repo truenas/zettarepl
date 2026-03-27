@@ -7,5 +7,5 @@ logger = logging.getLogger(__name__)
 __all__ = ["idealized_datetime"]
 
 
-def idealized_datetime(d: datetime):
+def idealized_datetime(d: datetime) -> datetime:
     return d.replace(second=0, microsecond=0, tzinfo=None)

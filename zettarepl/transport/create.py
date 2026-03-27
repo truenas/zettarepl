@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 
+from .interface import Transport
 from .local import LocalTransport
 from .ssh import SshTransport
 from .ssh_netcat import SshNetcatTransport
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["create_transport"]
 
 
-def create_transport(data):
+def create_transport(data: dict) -> Transport:
     return {
         "local": LocalTransport,
         "ssh": SshTransport,

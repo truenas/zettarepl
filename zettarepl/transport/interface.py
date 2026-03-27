@@ -1,7 +1,11 @@
 # -*- coding=utf-8 -*-
 import itertools
 import logging
+import queue
 import threading
+import typing
+from collections.abc import Callable
+from io import IOBase
 
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -23,7 +27,8 @@ class AsyncExec:
     :param str encoding: Encoding to decode command output
     :param fd stdout: Queue to stream command output line-by-line instead of returning it upon command completion
     """
-    def __init__(self, shell, args, encoding="utf8", stdout=None):
+    def __init__(self, shell: "Shell", args: list[str], encoding: str = "utf8",
+                 stdout: queue.Queue[str | None] | None = None) -> None:
         self.shell = shell
         self.args = args
         self.encoding = encoding
@@ -31,16 +36,16 @@ class AsyncExec:
 
         self.logger = PrefixLoggerAdapter(self.shell.logger, f"async_exec:{next(self._logger_counter)}")
 
-    def run(self):
+    def run(self) -> None:
         raise NotImplementedError
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: float | None = None) -> str | None:
         raise NotImplementedError
 
-    def stop(self):
+    def stop(self) -> None:
         raise NotImplementedError
 
-    def _copy_stdout_from(self, file_like):
+    def _copy_stdout_from(self, file_like: IOBase) -> None:
         def target():
             try:
                 while True:
@@ -57,86 +62,89 @@ class AsyncExec:
         if self.stdout is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.stdout_copy", target=target).start()
 
-    def _stdout_file_like_readline(self, file_like):
+    def _stdout_file_like_readline(self, file_like: IOBase) -> str | bytes:
         return file_like.readline()
 
 
 class ExecException(Exception):
-    def __init__(self, returncode, stdout):
+    def __init__(self, returncode: int, stdout: str) -> None:
         self.returncode = returncode
         self.stdout = stdout
 
         super().__init__(returncode, stdout)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.stdout.strip() or f"Command failed with code {self.returncode}"
 
 
 class Shell:
     _logger_counter = itertools.count(1)
 
-    async_exec: AsyncExec.__class__ = NotImplemented
+    async_exec: type[AsyncExec]
 
-    def __init__(self, transport):
+    def __init__(self, transport: "Transport") -> None:
         self.transport = transport
 
         self.logger = PrefixLoggerAdapter(self.transport.logger, f"shell:{next(self._logger_counter)}")
 
-    def close(self):
+    def close(self) -> None:
         raise NotImplementedError
 
-    def exec(self, args, encoding="utf8", stdout=None, timeout=undefined):
+    def exec(self, args: list[str], encoding: str = "utf8",
+             stdout: queue.Queue[str | None] | None = None,
+             timeout: float | object = undefined) -> str:
         if timeout is undefined:
             timeout = 600
         return self.exec_async(args, encoding, stdout).wait(timeout)
 
-    def exec_async(self, args, encoding="utf8", stdout=None):
+    def exec_async(self, args: list[str], encoding: str = "utf8",
+                   stdout: queue.Queue[str | None] | None = None) -> AsyncExec:
         async_exec = self.async_exec(self, args, encoding, stdout)
         async_exec.run()
         return async_exec
 
-    def exists(self, path):
+    def exists(self, path: str) -> bool:
         raise NotImplementedError
 
-    def ls(self, path):
+    def ls(self, path: str) -> list[str]:
         raise NotImplementedError
 
-    def is_dir(self, path):
+    def is_dir(self, path: str) -> bool:
         raise NotImplementedError
 
-    def put_file(self, f, dst_path):
+    def put_file(self, f: typing.IO[bytes], dst_path: str) -> None:
         raise NotImplementedError
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Shell(%r)>" % self.transport
 
 
 class ReplicationProcess:
     def __init__(self,
-                 replication_task_id,
-                 transport,
+                 replication_task_id: str,
+                 transport: "Transport",
                  local_shell: Shell,
                  remote_shell: Shell,
                  direction: ReplicationDirection,
                  source_dataset: str,
                  target_dataset: str,
-                 snapshot: str,
+                 snapshot: str | None,
                  mount: bool,
                  properties: bool,
-                 properties_exclude: [str],
-                 properties_override: {str: str},
+                 properties_exclude: list[str],
+                 properties_override: dict[str, str],
                  replicate: bool,
-                 encryption: ReplicationEncryption,
-                 incremental_base: str,
+                 encryption: ReplicationEncryption | None,
+                 incremental_base: str | None,
                  include_intermediate: bool,
-                 receive_resume_token: str,
-                 compression: ReplicationCompression,
-                 speed_limit: int,
+                 receive_resume_token: str | None,
+                 compression: ReplicationCompression | None,
+                 speed_limit: int | None,
                  dedup: bool,
                  large_block: bool,
                  embed: bool,
                  compressed: bool,
-                 raw: bool):
+                 raw: bool) -> None:
         self.replication_task_id = replication_task_id
         self.transport = transport
         self.local_shell = local_shell
@@ -167,10 +175,10 @@ class ReplicationProcess:
         self.progress_observers = []
         self.warning_observers = []
 
-    def add_progress_observer(self, progress_observer):
+    def add_progress_observer(self, progress_observer: Callable[[int, int], None]) -> None:
         self.progress_observers.append(progress_observer)
 
-    def notify_progress_observer(self, bytes_sent, bytes_total):
+    def notify_progress_observer(self, bytes_sent: int, bytes_total: int) -> None:
         for progress_observer in self.progress_observers:
             try:
                 progress_observer(bytes_sent, bytes_total)
@@ -178,10 +186,10 @@ class ReplicationProcess:
                 self.logger.warning("Error notifying replication progress observer %r", progress_observer,
                                     exc_info=True)
 
-    def add_warning_observer(self, warning_observer):
+    def add_warning_observer(self, warning_observer: Callable[[str], None]) -> None:
         self.warning_observers.append(warning_observer)
 
-    def notify_warning_observer(self, warning):
+    def notify_warning_observer(self, warning: str) -> None:
         self.logger.info("Warning: %r", warning)
 
         for warning_observer in self.warning_observers:
@@ -191,32 +199,32 @@ class ReplicationProcess:
                 self.logger.warning("Error notifying replication warning observer %r", warning_observer,
                                     exc_info=True)
 
-    def run(self):
+    def run(self) -> None:
         raise NotImplementedError
 
-    def wait(self):
+    def wait(self) -> None:
         raise NotImplementedError
 
-    def stop(self):
+    def stop(self) -> None:
         raise NotImplementedError
 
 
 class Transport:
-    logger: logging.Logger = NotImplemented
+    logger: logging.Logger
 
-    shell: Shell.__class__ = NotImplemented
+    shell: type[Shell]
 
-    replication_process: ReplicationProcess.__class__ = NotImplemented
+    replication_process: type[ReplicationProcess]
 
     @classmethod
-    def from_data(cls, data):
+    def from_data(cls, data: dict[str, str]) -> "Transport":
         raise NotImplementedError
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._descriptor())
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return other.__class__ == self.__class__ and other._descriptor() == self._descriptor()
 
-    def _descriptor(self):
+    def _descriptor(self) -> object:
         raise NotImplementedError

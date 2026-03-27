@@ -1,9 +1,8 @@
 # -*- coding=utf-8 -*-
-from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, tzinfo
 import logging
 import re
-from typing import Iterable
+from typing import Any, Iterable, NamedTuple
 
 import pytz
 
@@ -13,16 +12,20 @@ __all__ = ["ParsedSnapshotName", "get_snapshot_name", "parse_snapshot_name", "pa
            "parse_snapshots_names_with_multiple_schemas", "parsed_snapshot_sort_key",
            "naming_schema_has_utcoffset", "validate_snapshot_naming_schema"]
 
-ParsedSnapshotName = namedtuple(
-    "ParsedSnapshotName", ["naming_schema", "name", "parsed_datetime", "datetime", "tzinfo"]
-)
+
+class ParsedSnapshotName(NamedTuple):
+    naming_schema: str | None
+    name: str
+    parsed_datetime: datetime | None
+    datetime: datetime | None
+    tzinfo: tzinfo | None
 
 
 def get_snapshot_name(now: datetime, naming_schema: str) -> str:
     return now.strftime(naming_schema).replace("+", "--")
 
 
-def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
+def parse_snapshot_name(name: str, naming_schema: str) -> ParsedSnapshotName:
     if "%s" in naming_schema:
         try:
             if not (m := re.match(naming_schema.replace("%s", "(?P<s>[0-9]+)") + "$", name)):
@@ -53,7 +56,7 @@ def parse_snapshot_name(name: str, naming_schema: str) -> [ParsedSnapshotName]:
     return ParsedSnapshotName(naming_schema, name, d, d.replace(tzinfo=None), d.tzinfo)
 
 
-def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSnapshotName]:
+def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> list[ParsedSnapshotName]:
     result = []
     for name in names:
         try:
@@ -64,14 +67,17 @@ def parse_snapshots_names(names: Iterable[str], naming_schema: str) -> [ParsedSn
     return result
 
 
-def parse_snapshots_names_with_multiple_schemas(names: Iterable[str], naming_schemas: [str]) -> [ParsedSnapshotName]:
+def parse_snapshots_names_with_multiple_schemas(
+    names: Iterable[str],
+    naming_schemas: Iterable[str | None],
+) -> list[ParsedSnapshotName]:
     naming_schemas = list(naming_schemas)
     if has_none_naming_schema := None in naming_schemas:
         naming_schemas.remove(None)
 
-    parsed_snapshots = {}
+    parsed_snapshots: dict[str, ParsedSnapshotName] = {}
     for naming_schema in naming_schemas:
-        for parsed_snapshot in parse_snapshots_names(names, naming_schema):
+        for parsed_snapshot in parse_snapshots_names(names, naming_schema):  # type: ignore[arg-type]
             existing_parsed_snapshot = parsed_snapshots.get(parsed_snapshot.name)
             if existing_parsed_snapshot is None:
                 parsed_snapshots[parsed_snapshot.name] = parsed_snapshot
@@ -90,25 +96,25 @@ def parse_snapshots_names_with_multiple_schemas(names: Iterable[str], naming_sch
     return list(parsed_snapshots.values()) + unparsed_snapshots
 
 
-def parsed_snapshot_sort_key(parsed_snapshot: ParsedSnapshotName):
+def parsed_snapshot_sort_key(parsed_snapshot: ParsedSnapshotName) -> Any:
     return (
         parsed_snapshot.datetime,
         # First go snapshots with naive datetime
         0 if parsed_snapshot.tzinfo is None else 1,
         # Snapshot with same datetime but greater utcoffset was taken first
         0 if parsed_snapshot.tzinfo is None else (
-            -parsed_snapshot.tzinfo.utcoffset(None).total_seconds()
+            -parsed_snapshot.tzinfo.utcoffset(None).total_seconds()  # type: ignore[union-attr]
         ),
         # Lexicographic order for snapshots with same datetime
         parsed_snapshot.name
     )
 
 
-def naming_schema_has_utcoffset(schema: str):
+def naming_schema_has_utcoffset(schema: str) -> bool:
     return re.search("(^|[^%])%z", schema) is not None
 
 
-def validate_snapshot_naming_schema(schema: str):
+def validate_snapshot_naming_schema(schema: str) -> None:
     if "%%" in schema:
         raise ValueError("% is not an allowed character in ZFS snapshot name")
 
@@ -138,8 +144,11 @@ def validate_snapshot_naming_schema(schema: str):
         formatted = get_snapshot_name(d, schema)
         parsed = parse_snapshot_name(formatted, schema)
         if has_utcoffset:
-            if (d.replace(tzinfo=None) != parsed.datetime or
-                        parsed.tzinfo is None or d.tzinfo.utcoffset(None) != parsed.tzinfo.utcoffset(None)):
+            if (
+                d.replace(tzinfo=None) != parsed.datetime or
+                parsed.tzinfo is None or
+                d.tzinfo.utcoffset(None) != parsed.tzinfo.utcoffset(None)  # type: ignore[union-attr]
+            ):
                 raise ValueError(
                     f"Failed to parse datetime using provided format: datetime={d!r}, formatted={formatted}, "
                     f"parsed={parsed.datetime!r}, parsed_tzinfo={parsed.tzinfo!r}"

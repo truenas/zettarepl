@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["zfs_bool"]
 
 
-def zfs_bool(v):
+def zfs_bool(v: str) -> bool:
     return {
         "off": False,
         "on": True,

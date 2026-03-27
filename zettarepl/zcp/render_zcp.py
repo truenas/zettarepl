@@ -11,7 +11,8 @@ with open(os.path.join(os.path.dirname(__file__), "recursive_snapshot_exclude.lu
     zcp_program = f.read()
 
 
-def render_vars(buffer: typing.IO[bytes], dataset: str, snapshot_name: str, excluded_datasets: typing.Iterable):
+def render_vars(buffer: typing.IO[bytes], dataset: str, snapshot_name: str,
+                excluded_datasets: typing.Iterable[str]) -> None:
     buffer.write(f'dataset = "{dataset}"\n'.encode("utf-8"))
     buffer.write(f'snapshot_name = "{snapshot_name}"\n'.encode("utf-8"))
     buffer.write('excluded_datasets = {'.encode("utf-8"))
@@ -22,6 +23,7 @@ def render_vars(buffer: typing.IO[bytes], dataset: str, snapshot_name: str, excl
     buffer.write('}\n'.encode("utf-8"))
 
 
-def render_zcp(buffer: typing.IO[bytes], dataset: str, snapshot_name: str, excluded_datasets: typing.Iterable):
+def render_zcp(buffer: typing.IO[bytes], dataset: str, snapshot_name: str,
+               excluded_datasets: typing.Iterable[str]) -> None:
     render_vars(buffer, dataset, snapshot_name, excluded_datasets)
     buffer.write(zcp_program.encode("utf-8"))

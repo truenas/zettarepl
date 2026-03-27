@@ -1,10 +1,11 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
+from collections.abc import Callable
 import logging
 import queue
 import threading
 
-from .interface import AsyncExec, ExecException
+from .interface import AsyncExec, ExecException, Shell
 
 logger = logging.getLogger(__name__)
 
@@ -17,23 +18,23 @@ ExceptionEvent = namedtuple("ExceptionEvent", ["exception"])
 
 
 class PrematureExit(Exception):
-    def __init__(self, stdout):
+    def __init__(self, stdout: str) -> None:
         self.stdout = stdout
 
 
 class AsyncExecTee(AsyncExec):
-    def __init__(self, shell, args, encoding="utf8", stdout=None):
+    def __init__(self, shell: "Shell", args: list[str], encoding: str = "utf8", stdout: None = None) -> None:
         assert stdout is None
         super().__init__(shell, args, encoding, stdout)
 
-        self.queue = queue.Queue()
-        self.returncode = None
-        self.output = ""
-        self.complete_event = threading.Event()
+        self.queue: queue.Queue[DataEvent | DataDrainEvent | ExitEvent | ExceptionEvent] = queue.Queue()
+        self.returncode: int | None = None
+        self.output: str = ""
+        self.complete_event: threading.Event = threading.Event()
 
-        self.async_exec = None
+        self.async_exec: AsyncExec | None = None
 
-    def run(self):
+    def run(self) -> None:
         q = queue.Queue()
 
         self.async_exec = self.shell.exec_async(self.args, self.encoding, q)
@@ -43,7 +44,7 @@ class AsyncExecTee(AsyncExec):
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.async_exec_tee.wait",
                          target=self._wait).start()
 
-    def head(self, callback, timeout):
+    def head(self, callback: Callable[[str], object], timeout: float) -> object:
         while True:
             try:
                 event = self.queue.get(timeout=timeout)
@@ -73,7 +74,7 @@ class AsyncExecTee(AsyncExec):
                 self.async_exec.stop()
                 raise event.exception
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: float | None = None) -> str:
         if timeout is not None:
             raise NotImplementedError("AsyncExecTee.wait with timeout is not implemented yet")
 
@@ -103,10 +104,10 @@ class AsyncExecTee(AsyncExec):
         self.logger.debug("Error %r: %r", exit_event.returncode, self.output)
         raise ExecException(exit_event.returncode, self.output)
 
-    def stop(self):
+    def stop(self) -> None:
         self.async_exec.stop()
 
-    def _read(self, q: queue.Queue):
+    def _read(self, q: queue.Queue[str | None]) -> None:
         try:
             while True:
                 data = q.get()
@@ -117,7 +118,7 @@ class AsyncExecTee(AsyncExec):
         finally:
             self.queue.put(DataDrainEvent())
 
-    def _wait(self):
+    def _wait(self) -> None:
         try:
             try:
                 self.async_exec.wait()

@@ -1,6 +1,10 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import copy
+from datetime import tzinfo
 import logging
+from typing import Any, Sequence
 
 from dateutil.tz import tzlocal
 import pytz
@@ -8,6 +12,7 @@ import pytz.exceptions
 
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
+from zettarepl.task import Task
 
 from .schema import schema_validator
 
@@ -18,10 +23,10 @@ __all__ = ["DefinitionErrors", "DefinitionError", "PeriodicSnapshotTaskDefinitio
 
 
 class DefinitionErrors(ValueError):
-    def __init__(self, errors):
+    def __init__(self, errors: list[DefinitionError]) -> None:
         self.errors = errors
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "\n".join([str(e) for e in self.errors])
 
 
@@ -30,25 +35,32 @@ class DefinitionError(ValueError):
 
 
 class PeriodicSnapshotTaskDefinitionError(DefinitionError):
-    def __init__(self, task_id, error):
+    def __init__(self, task_id: str, error: ValueError) -> None:
         self.task_id = task_id
         self.error = error
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"When parsing periodic snapshot task {self.task_id}: {self.error!s}"
 
 
 class ReplicationTaskDefinitionError(DefinitionError):
-    def __init__(self, task_id, error):
+    def __init__(self, task_id: str, error: ValueError) -> None:
         self.task_id = task_id
         self.error = error
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"When parsing replication task {self.task_id}: {self.error!s}"
 
 
 class Definition:
-    def __init__(self, tasks, max_parallel_replication_tasks, timezone, use_removal_dates, errors):
+    def __init__(
+        self,
+        tasks: Sequence[Task],
+        max_parallel_replication_tasks: int | None,
+        timezone: tzinfo,
+        use_removal_dates: bool,
+        errors: list[DefinitionError],
+    ) -> None:
         self.tasks = tasks
         self.max_parallel_replication_tasks = max_parallel_replication_tasks
         self.timezone = timezone
@@ -57,11 +69,11 @@ class Definition:
         self.errors = errors
 
     @classmethod
-    def validate(cls, data):
+    def validate(cls, data: dict[str, Any]) -> None:
         schema_validator.validate(data)
 
     @classmethod
-    def from_data(cls, data, raise_on_error=True):
+    def from_data(cls, data: dict[str, Any], raise_on_error: bool = True) -> Definition:
         data = copy.deepcopy(data)
 
         cls.validate(data)
@@ -70,12 +82,12 @@ class Definition:
 
         max_parallel_replication_tasks = data.get("max-parallel-replication-tasks")
 
-        timezone = tzlocal()
+        timezone: tzinfo = tzlocal()
         if "timezone" in data:
             try:
                 timezone = pytz.timezone(data["timezone"])
             except pytz.exceptions.UnknownTimeZoneError:
-                errors.append(DefinitionError("Unknown timezone: {data['timezone']!r}"))
+                errors.append(DefinitionError(f"Unknown timezone: {data['timezone']!r}"))
 
         periodic_snapshot_tasks = []
         for id, task in data.get("periodic-snapshot-tasks", {}).items():
@@ -92,8 +104,8 @@ class Definition:
                 try:
                     task["transport"] = transports[task["transport"]]
                 except KeyError:
-                    e = ValueError("Invalid transport {task['transport']!r}")
-                    errors.append(ReplicationTaskDefinitionError(id, e))
+                    error = ValueError(f"Invalid transport {task['transport']!r}")
+                    errors.append(ReplicationTaskDefinitionError(id, error))
                     continue
 
             try:
@@ -104,5 +116,10 @@ class Definition:
         if errors and raise_on_error:
             raise DefinitionErrors(errors)
 
-        return cls(periodic_snapshot_tasks + replication_tasks, max_parallel_replication_tasks, timezone,
-                   data.get("use-removal-dates", False), errors)
+        return cls(
+            periodic_snapshot_tasks + replication_tasks,  # type: ignore
+            max_parallel_replication_tasks,
+            timezone,
+            data.get("use-removal-dates", False),
+            errors,
+        )

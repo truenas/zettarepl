@@ -1,9 +1,10 @@
 # -*- coding=utf-8 -*-
 from collections import defaultdict
 import logging
+from typing import Sequence
 
 from zettarepl.snapshot.list import group_snapshots_by_datasets
-from zettarepl.snapshot.name import parse_snapshots_names_with_multiple_schemas
+from zettarepl.snapshot.name import ParsedSnapshotName, parse_snapshots_names_with_multiple_schemas
 from zettarepl.snapshot.snapshot import Snapshot
 
 from .snapshot_owner import SnapshotOwner
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["calculate_snapshots_to_remove"]
 
 
-def calculate_snapshots_to_remove(owners: [SnapshotOwner], snapshots: [Snapshot]):
+def calculate_snapshots_to_remove(owners: Sequence[SnapshotOwner], snapshots: list[Snapshot]) -> list[Snapshot]:
     result = []
     for dataset, dataset_snapshots in group_snapshots_by_datasets(snapshots).items():
         dataset_owners = [owner for owner in owners if owner.owns_dataset(dataset)]
@@ -24,17 +25,18 @@ def calculate_snapshots_to_remove(owners: [SnapshotOwner], snapshots: [Snapshot]
     return result
 
 
-def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str, snapshots: [Snapshot]):
+def calculate_dataset_snapshots_to_remove(owners: Sequence[SnapshotOwner], dataset: str,
+                                          snapshots: list[str]) -> list[str]:
     try:
         parsed_snapshot_names = parse_snapshots_names_with_multiple_schemas(
             snapshots,
-            set().union(*[set(owner.get_naming_schemas()) for owner in owners])
+            set().union(*[owner.get_naming_schemas() for owner in owners])
         )
     except ValueError as e:
         logger.warning("Error parsing snapshot names for dataset %r: %r", dataset, e)
         return []
 
-    newest_snapshot_for_naming_schema = {}
+    newest_snapshot_for_naming_schema: dict[str, ParsedSnapshotName] = {}
     for parsed_snapshot_name in parsed_snapshot_names:
         if parsed_snapshot_name.naming_schema is None:
             continue
@@ -60,7 +62,7 @@ def calculate_dataset_snapshots_to_remove(owners: [SnapshotOwner], dataset: str,
             for owner in owners
             if (
                 # Owners owning `None` naming schema may own all snapshots
-                {parsed_snapshot_name.naming_schema, None} & set(owner.get_naming_schemas()) and
+                {parsed_snapshot_name.naming_schema, None} & owner.get_naming_schemas() and
                 owner.owns_snapshot(dataset, parsed_snapshot_name)
             )
         ]
