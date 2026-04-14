@@ -16,6 +16,8 @@ __all__ = ["PeriodicSnapshotTask"]
 
 
 class PeriodicSnapshotTask(Task):
+    schedule: CronSchedule
+
     def __init__(self, id: str, dataset: str, recursive: bool, exclude: list[str], lifetime: timedelta,
                  naming_schema: str, schedule: CronSchedule, allow_empty: bool) -> None:
         self.id = id

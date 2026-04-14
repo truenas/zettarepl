@@ -1,4 +1,6 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import errno
 import logging
 import io
@@ -8,8 +10,10 @@ import stat
 import threading
 import time
 import typing
+from typing import Any
 
 import paramiko
+from paramiko.channel import ChannelFile, ChannelStderrFile, ChannelStdinFile
 
 from zettarepl.utils.logging import PrefixLoggerAdapter
 
@@ -24,12 +28,14 @@ PATH = "PATH=$PATH:/usr/local/sbin:/usr/sbin:/sbin"
 
 
 class SshTransportAsyncExec(AsyncExec):
-    def __init__(self, *args, **kwargs) -> None:
+    shell: SshTransportShell
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.stdin_fd: paramiko.ChannelStdinFile | None = None
-        self.stdout_fd: paramiko.ChannelFile | None = None
-        self.stderr_fd: paramiko.ChannelStderrFile | None = None
+        self.stdin_fd: ChannelStdinFile = None  # type: ignore[assignment]
+        self.stdout_fd: ChannelFile = None  # type: ignore[assignment]
+        self.stderr_fd: ChannelStderrFile = None  # type: ignore[assignment]
 
     def run(self) -> None:
         client = self.shell.get_client()
@@ -48,7 +54,7 @@ class SshTransportAsyncExec(AsyncExec):
             ),
             timeout=10
         )
-        self._copy_stdout_from(self.stdout_fd)
+        self._copy_stdout_from(self.stdout_fd)  # type: ignore[arg-type]
 
     def wait(self, timeout: float | None = None) -> str | None:
         until = None
@@ -113,6 +119,8 @@ class SshTransportAsyncExec(AsyncExec):
 
             return stdout.decode(self.encoding)
 
+        return None
+
     def stop(self) -> None:
         self.logger.debug("Stopping")
         self._stop()
@@ -120,15 +128,20 @@ class SshTransportAsyncExec(AsyncExec):
     def _stop(self) -> None:
         if self.stdin_fd:
             self.stdin_fd.close()
+            self.stdin_fd = None  # type: ignore[assignment]
+
+        if self.stdout_fd:
             self.stdout_fd.close()
+            self.stdout_fd = None  # type: ignore[assignment]
+
+        if self.stderr_fd:
             self.stderr_fd.close()
+            self.stderr_fd = None  # type: ignore[assignment]
 
-            self.stdin_fd, self.stdout_fd, self.stderr_fd = (None, None, None)
-
-    def _stdout_file_like_readline(self, file_like: paramiko.ChannelFile) -> str | None:
+    def _stdout_file_like_readline(self, file_like: paramiko.ChannelFile) -> str | None:  # type: ignore[override]
         while True:
             try:
-                return file_like.readline()
+                return file_like.readline()  # type: ignore[no-any-return]
             except socket.timeout:
                 if file_like.channel.exit_status_ready():
                     return None
@@ -137,19 +150,21 @@ class SshTransportAsyncExec(AsyncExec):
 
 
 class SshTransportShell(Shell):
+    transport: BaseSshTransport
+
     async_exec = SshTransportAsyncExec
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self._client: paramiko.SSHClient | None = None
+        self._client: paramiko.SSHClient = None  # type: ignore[assignment]
         self._sftp: paramiko.SFTPClient | None = None
 
     def close(self) -> None:
         if self._client is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.close_shell",
                              target=self._client.close).start()
-            self._client = None
+            self._client = None  # type: ignore[assignment]
         if self._sftp is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.close_sftp",
                              target=self._sftp.close).start()
@@ -158,13 +173,21 @@ class SshTransportShell(Shell):
     def get_client(self) -> paramiko.SSHClient:
         if self._client is None:
             self.logger.debug("Connecting...")
-            hkes = [paramiko.hostkeys.HostKeyEntry.from_line(line) for line in self.transport.get_host_key_entries()]
+            hkes = [
+                paramiko.hostkeys.HostKeyEntry.from_line(line)
+                for line in self.transport.get_host_key_entries()
+            ]
+
             client = paramiko.SSHClient()
+
             if any(threading.current_thread().name.startswith(prefix)
                    for prefix in ("replication_task__", "retention")):
                 client.set_log_channel(f"zettarepl.paramiko.{threading.current_thread().name}")
+
             for hke in hkes:
-                client.get_host_keys().add(hke.hostnames[0], hke.key.get_name(), hke.key)
+                if hke:
+                    client.get_host_keys().add(hke.hostnames[0], hke.key.get_name(), hke.key)
+
             client.connect(
                 self.transport.hostname,
                 self.transport.port,
@@ -211,7 +234,8 @@ class SshTransportShell(Shell):
         return self.get_sftp().listdir(path)
 
     def is_dir(self, path: str) -> bool:
-        return stat.S_ISDIR(self.get_sftp().lstat(path).st_mode)
+        st_mode = self.get_sftp().lstat(path).st_mode
+        return st_mode is not None and stat.S_ISDIR(st_mode)
 
     def put_file(self, f: typing.IO[bytes], dst_path: str) -> None:
         sftp = self.get_sftp()
@@ -235,14 +259,14 @@ class BaseSshTransport(Transport):
 
         self.logger = PrefixLoggerAdapter(logger, f"ssh:{self.username}@{self.hostname}")
 
-    def _descriptor(self) -> tuple[str, int, str, str, str]:
+    def _descriptor(self) -> tuple[Any, ...]:
         return self.hostname, self.port, self.username, self.private_key, self.host_key
 
     def __repr__(self) -> str:
         return f"<SSH Transport({self.username}@{self.hostname})>"
 
     @classmethod
-    def from_data(cls, data: dict) -> dict:
+    def _prepare_data(cls, data: dict[str, Any]) -> dict[str, Any]:
         data.setdefault("port", 22)
         data.setdefault("username", "root")
         data.setdefault("connect-timeout", 10)

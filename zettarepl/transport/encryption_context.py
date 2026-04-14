@@ -22,6 +22,8 @@ class EncryptionContext:
         self.tmp_key_location: str | None = None
 
     def enter(self) -> tuple[list[str], dict[str, str]]:
+        assert self.replication_process.encryption
+
         if self.replication_process.encryption.inherit:
             return ["encryption"], {}
         else:
@@ -47,6 +49,7 @@ class EncryptionContext:
 
         if (
             success and
+            self.replication_process.encryption is not None and
             self.replication_process.encryption.key_location == "$TrueNAS" and
             self.replication_process.encryption.key_format != KeyFormat.PASSPHRASE
         ):

@@ -92,13 +92,11 @@ def set_localhost_transport_options(transport: dict[str, str]) -> None:
     with open("/root/.ssh/id_rsa") as f:
         transport["private-key"] = f.read()
 
-    transport["host-key"] = (
-        [
-            line
-            for line in subprocess.check_output(["ssh-keyscan", "127.0.0.1"], encoding="utf8").splitlines()
-            if not line.startswith("#")
-        ][-1].split(" ", 1)[1]
-    )
+    transport["host-key"] = "\n".join([
+        " ".join(line.split()[1:])
+        for line in subprocess.check_output(["ssh-keyscan", "127.0.0.1"], encoding="utf8").splitlines()
+        if line and not line.startswith("# ")
+    ])
 
 
 def throttle(speed: int) -> str:

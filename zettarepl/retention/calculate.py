@@ -44,12 +44,14 @@ def calculate_dataset_snapshots_to_remove(owners: Sequence[SnapshotOwner], datas
         if (
                 parsed_snapshot_name.naming_schema not in newest_snapshot_for_naming_schema or
                 (
-                    newest_snapshot_for_naming_schema[parsed_snapshot_name.naming_schema].parsed_datetime <
-                    parsed_snapshot_name.parsed_datetime
+                    newest_snapshot_for_naming_schema[  # type: ignore[operator]
+                        parsed_snapshot_name.naming_schema
+                    ].parsed_datetime < parsed_snapshot_name.parsed_datetime
                 )
         ):
             newest_snapshot_for_naming_schema[parsed_snapshot_name.naming_schema] = parsed_snapshot_name
-    newest_snapshot_for_naming_schema = {k: v.name for k, v in newest_snapshot_for_naming_schema.items()}
+
+    newest_snapshot_name_for_naming_schema = {k: v.name for k, v in newest_snapshot_for_naming_schema.items()}
 
     snapshots_left_for_naming_schema = defaultdict(set)
     for parsed_snapshot_name in parsed_snapshot_names:
@@ -81,7 +83,7 @@ def calculate_dataset_snapshots_to_remove(owners: Sequence[SnapshotOwner], datas
             continue
 
         if not snapshots_left:
-            newest_snapshot = newest_snapshot_for_naming_schema[naming_schema]
+            newest_snapshot = newest_snapshot_name_for_naming_schema[naming_schema]
             logger.info("Not destroying %r as it is the only snapshot left for naming schema %r",
                         newest_snapshot, naming_schema)
             result.remove(newest_snapshot)

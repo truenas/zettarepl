@@ -50,7 +50,7 @@ class Scheduler:
                 # Only add these tasks if not interrupted. The interruption event will always arrive after the natural
                 # `tick()` event.
                 for task in self.tasks.copy():
-                    if task.schedule.should_run(now.datetime):
+                    if task.schedule and task.schedule.should_run(now.datetime):
                         tasks.append(task)
 
             yield SchedulerResult(now, tasks, interrupted)

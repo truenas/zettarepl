@@ -1,4 +1,6 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import atexit
 import contextlib
 import logging
@@ -7,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import typing
+from typing import Any, TYPE_CHECKING
 
 from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe
@@ -23,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["LocalShell", "LocalTransport"]
 
-_pgids = set()
+_pgids: set[int] = set()
 
 
 @atexit.register
@@ -34,10 +37,10 @@ def _kill_pgids() -> None:
 
 
 class LocalAsyncExec(AsyncExec):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.process: subprocess.Popen[str] | None = None
+        self.process: subprocess.Popen[str] = None  # type: ignore[assignment]
         self.pgid: int | None = None
 
     def run(self) -> None:
@@ -50,9 +53,13 @@ class LocalAsyncExec(AsyncExec):
             pass
         else:
             _pgids.add(self.pgid)
+
+        assert self.process.stdout is not None
         self._copy_stdout_from(self.process.stdout)
 
     def wait(self, timeout: float | None = None) -> str | None:
+        assert self.process.stdout is not None
+
         if self.stdout is None:
             try:
                 stdout, stderr = self.process.communicate(timeout=timeout)
@@ -126,10 +133,10 @@ class LocalShell(Shell):
 
 
 class LocalReplicationProcess(ReplicationProcess, ProgressReportMixin):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.async_exec: AsyncExecTee | None = None
+        self.async_exec: AsyncExecTee = None  # type: ignore[assignment]
         self.encryption_context: EncryptionContext | None = None
 
     def run(self) -> None:
@@ -196,7 +203,7 @@ class LocalTransport(Transport):
     logger = logger
 
     @classmethod
-    def from_data(cls, data: dict[str, str]) -> "LocalTransport":
+    def from_data(cls, data: dict[str, Any]) -> LocalTransport:
         return LocalTransport()
 
     def _descriptor(self) -> int:

@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 import time
+from typing import Any
 
 import paramiko.ssh_exception
 
@@ -14,7 +15,8 @@ from zettarepl.dataset.create import create_dataset
 from zettarepl.dataset.data import DatasetIsNotMounted, list_data, ensure_has_no_data
 from zettarepl.dataset.list import *
 from zettarepl.dataset.relationship import is_child
-from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
+from zettarepl.observer import (notify, Observer,
+                                ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
                                 ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess,
                                 ReplicationTaskDataProgress, ReplicationTaskError)
 from zettarepl.snapshot.list import *
@@ -75,10 +77,10 @@ class ReplicationContext:
         self.context = context
         self.transport = transport
         self.shell = shell
-        self.datasets: dict[str, list[str]] | None = None
-        self.datasets_encrypted: dict[str, bool] | None = None
-        self.datasets_readonly: dict[str, bool] | None = None
-        self.datasets_receive_resume_tokens: dict[str, str | None] | None = None
+        self.datasets: dict[str, list[str]] = {}
+        self.datasets_encrypted: dict[str, bool] = {}
+        self.datasets_readonly: dict[str, bool] = {}
+        self.datasets_receive_resume_tokens: dict[str, str | None] = {}
 
     def remove_dataset(self, dataset: str) -> None:
         for dictionary in (
@@ -87,9 +89,6 @@ class ReplicationContext:
             self.datasets_readonly,
             self.datasets_receive_resume_tokens,
         ):
-            if dictionary is None:
-                continue
-
             for k in list(dictionary.keys()):
                 if k == dataset or k.startswith(f"{dataset}/"):
                     dictionary.pop(k)
@@ -107,7 +106,7 @@ class ReplicationStepTemplate:
         self.dst_dataset = dst_dataset
         self.valid_properties = valid_properties
 
-    def instantiate(self, **kwargs) -> "ReplicationStep":
+    def instantiate(self, **kwargs: Any) -> "ReplicationStep":
         return ReplicationStep(self,
                                self.replication_task,
                                self.src_context, self.dst_context,
@@ -117,7 +116,7 @@ class ReplicationStepTemplate:
 
 
 class ReplicationStep(ReplicationStepTemplate):
-    def __init__(self, template: ReplicationStepTemplate, *args, snapshot: str | None = None,
+    def __init__(self, template: ReplicationStepTemplate, *args: Any, snapshot: str | None = None,
                  incremental_base: str | None = None, include_intermediate: bool | None = None,
                  receive_resume_token: str | None = None,
                  encryption: ReplicationEncryption | None = None) -> None:
@@ -140,9 +139,15 @@ class ReplicationStep(ReplicationStepTemplate):
             assert self.receive_resume_token is None
 
 
-def run_replication_tasks(now: datetime, local_shell: LocalShell, transport: Transport, remote_shell: Shell,
-                          replication_tasks: list[ReplicationTask], observer: Callable | None = None) -> None:
-    contexts = defaultdict(lambda: GlobalReplicationContext(now))
+def run_replication_tasks(
+    now: datetime,
+    local_shell: LocalShell,
+    transport: Transport,
+    remote_shell: Shell,
+    replication_tasks: list[ReplicationTask],
+    observer: Observer | None = None,
+) -> None:
+    contexts: dict[ReplicationTask, GlobalReplicationContext] = defaultdict(lambda: GlobalReplicationContext(now))
 
     replication_tasks_parts = calculate_replication_tasks_parts(replication_tasks)
 
@@ -257,7 +262,7 @@ def calculate_replication_tasks_parts(replication_tasks: list[ReplicationTask]) 
 
 def run_replication_task_part(replication_task: ReplicationTask, source_dataset: str,
                               src_context: ReplicationContext, dst_context: ReplicationContext,
-                              observer: Callable | None) -> None:
+                              observer: Observer) -> None:
     target_dataset = get_target_dataset(replication_task, source_dataset)
 
     check_target_existence_and_type(replication_task, source_dataset, src_context, dst_context)
@@ -418,7 +423,7 @@ def calculate_replication_step_templates(
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
-    source_datasets = src_context.datasets.keys()  # Order is right because it's OrderedDict
+    source_datasets = list(src_context.datasets.keys())  # Order is right because it's OrderedDict
     if replication_task.replicate:
         # But when replicate is on, we have no choice
         source_datasets = [source_dataset]
@@ -483,8 +488,8 @@ def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) ->
 def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool,
                                 datasets: list[str]) -> OrderedDict[str, list[str]]:
     datasets_from_snapshots = group_snapshots_by_datasets(list_snapshots(shell, dataset, recursive))
-    datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
-    return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
+    snapshots_for_datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
+    return OrderedDict(sorted(snapshots_for_datasets.items(), key=lambda t: t[0]))
 
 
 def get_datasets_encrypted(shell: Shell, dataset: str, recursive: bool) -> dict[str, bool]:
@@ -499,7 +504,7 @@ def get_datasets_encrypted(shell: Shell, dataset: str, recursive: bool) -> dict[
         return defaultdict(lambda: False)
 
 
-def resume_replications(step_templates: list[ReplicationStepTemplate], observer: Callable | None = None) -> bool:
+def resume_replications(step_templates: list[ReplicationStepTemplate], observer: Observer = None) -> bool:
     resumed = False
     for step_template in step_templates:
         context = step_template.src_context.context
@@ -562,7 +567,7 @@ def resume_replications(step_templates: list[ReplicationStepTemplate], observer:
     return resumed
 
 
-def run_replication_steps(step_templates: list[ReplicationStepTemplate], observer: Callable | None = None) -> None:
+def run_replication_steps(step_templates: list[ReplicationStepTemplate], observer: Observer = None) -> None:
     for step_template in step_templates:
         if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
             if not step_template.dst_context.datasets_readonly.get(step_template.dst_dataset, True):
@@ -584,7 +589,7 @@ def run_replication_steps(step_templates: list[ReplicationStepTemplate], observe
                 raise ReplicationError(message)
 
     plan = []
-    ignored_roots = set()
+    ignored_roots: set[str] = set()
     for i, step_template in enumerate(step_templates):
         is_immediate_target_dataset = i == 0
 
@@ -744,7 +749,7 @@ def check_base_consistency_for_full_replication(
 def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base: str | None,
                         snapshots: list[str], include_intermediate: bool,
                         encryption: ReplicationEncryption | None,
-                        observer: Callable | None) -> None:
+                        observer: Observer) -> None:
     for snapshot in snapshots:
         step = step_template.instantiate(incremental_base=incremental_base, snapshot=snapshot,
                                          include_intermediate=include_intermediate, encryption=encryption)
@@ -753,7 +758,7 @@ def replicate_snapshots(step_template: ReplicationStepTemplate, incremental_base
         encryption = None
 
 
-def run_replication_step(step: ReplicationStep, observer: Callable | None = None,
+def run_replication_step(step: ReplicationStep, observer: Observer = None,
                          observer_snapshot: str | None = None) -> None:
     logger.info(
         "For replication task %r: doing %s from %r to %r of snapshot=%r incremental_base=%r include_intermediate=%r "
@@ -763,7 +768,7 @@ def run_replication_step(step: ReplicationStep, observer: Callable | None = None
         step.encryption is not None,
     )
 
-    observer_snapshot = observer_snapshot or step.snapshot
+    observer_snapshot = observer_snapshot or step.snapshot or ""
 
     notify(observer, ReplicationTaskSnapshotStart(
         step.replication_task.id, step.src_dataset, observer_snapshot,
@@ -792,11 +797,12 @@ def run_replication_step(step: ReplicationStep, observer: Callable | None = None
         raw = step.replication_task.properties and step.src_context.datasets_encrypted[step.src_dataset]
 
     transport = remote_context.transport
+    assert transport
 
     process = transport.replication_process(
         step.replication_task.id,
         transport,
-        local_context.shell,
+        local_context.shell,  # type: ignore[arg-type]
         remote_context.shell,
         step.replication_task.direction,
         step.src_dataset,
@@ -809,7 +815,7 @@ def run_replication_step(step: ReplicationStep, observer: Callable | None = None
         step.replication_task.replicate,
         step.encryption,
         step.incremental_base,
-        step.include_intermediate,
+        step.include_intermediate,  # type: ignore[arg-type]
         step.receive_resume_token,
         step.replication_task.compression,
         step.replication_task.speed_limit,

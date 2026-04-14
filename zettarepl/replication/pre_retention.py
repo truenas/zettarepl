@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
 import logging
+from typing import Any
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
@@ -19,7 +20,7 @@ __all__ = ["pre_retention"]
 
 
 class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapshotOwner):
-    def __init__(self, target_dataset: str, *args, **kwargs) -> None:
+    def __init__(self, target_dataset: str, *args: Any, **kwargs: Any) -> None:
         self.target_dataset = target_dataset
         super().__init__(*args, **kwargs)
 
@@ -30,7 +31,7 @@ class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapsho
             )
             if incremental_base:
                 try:
-                    snapshots.remove(incremental_base)
+                    snapshots.remove(incremental_base.name)
                 except ValueError:
                     pass
 

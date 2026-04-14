@@ -33,11 +33,16 @@ def replication_task_should_replicate_parsed_snapshot(replication_task: Replicat
                                                       parsed_snapshot: ParsedSnapshotName) -> bool:
     return (
         (
-            replication_task.restrict_schedule is None or
-            replication_task.restrict_schedule.should_run(parsed_snapshot.datetime)
+            replication_task.restrict_schedule is None or (
+                parsed_snapshot.datetime is not None and
+                replication_task.restrict_schedule.should_run(parsed_snapshot.datetime)
+            )
         ) and
         (
-            not replication_task.only_matching_schedule or
-            replication_task.schedule.should_run(parsed_snapshot.datetime)
+            not replication_task.only_matching_schedule or (
+                parsed_snapshot.datetime is not None and
+                replication_task.schedule is not None and
+                replication_task.schedule.should_run(parsed_snapshot.datetime)
+            )
         )
     )

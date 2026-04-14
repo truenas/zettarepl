@@ -7,7 +7,8 @@ from typing import Any, overload
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["notify", "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess", "PeriodicSnapshotTaskError",
+__all__ = ["notify", "Observer", "ObserverMessage",
+           "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess", "PeriodicSnapshotTaskError",
            "ReplicationTaskScheduled", "ReplicationTaskStart", "ReplicationTaskSnapshotStart",
            "ReplicationTaskSnapshotProgress", "ReplicationTaskSnapshotSuccess", "ReplicationTaskDataProgress",
            "ReplicationTaskSuccess", "ReplicationTaskError"]
@@ -42,6 +43,9 @@ class ObserverMessage:
 
 class ObserverMessageWithResponse[T](ObserverMessage):
     response: type[T]
+
+
+Observer = Callable[[ObserverMessage], None] | None
 
 
 class PeriodicSnapshotTaskStartResponse:

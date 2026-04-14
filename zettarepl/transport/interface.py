@@ -1,11 +1,12 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
+from collections.abc import Callable
 import itertools
 import logging
 import queue
 import threading
 import typing
-from collections.abc import Callable
-from io import IOBase
 
 from zettarepl.replication.task.compression import ReplicationCompression
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -13,12 +14,17 @@ from zettarepl.replication.task.encryption import ReplicationEncryption
 from zettarepl.utils.lang import undefined
 from zettarepl.utils.logging import PrefixLoggerAdapter
 
+if typing.TYPE_CHECKING:
+    from zettarepl.transport.local import LocalShell
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["AsyncExec", "ExecException", "Shell", "ReplicationProcess", "Transport"]
 
 
 class AsyncExec:
+    logger: logging.Logger | logging.LoggerAdapter[typing.Any]
+
     _logger_counter = itertools.count(1)
 
     """
@@ -27,8 +33,13 @@ class AsyncExec:
     :param str encoding: Encoding to decode command output
     :param fd stdout: Queue to stream command output line-by-line instead of returning it upon command completion
     """
-    def __init__(self, shell: "Shell", args: list[str], encoding: str = "utf8",
-                 stdout: queue.Queue[str | None] | None = None) -> None:
+    def __init__(
+        self,
+        shell: Shell,
+        args: list[str],
+        encoding: str = "utf8",
+        stdout: queue.Queue[str | None] | None = None,
+    ) -> None:
         self.shell = shell
         self.args = args
         self.encoding = encoding
@@ -45,31 +56,31 @@ class AsyncExec:
     def stop(self) -> None:
         raise NotImplementedError
 
-    def _copy_stdout_from(self, file_like: IOBase) -> None:
-        def target():
+    def _copy_stdout_from(self, file_like: typing.IO[str]) -> None:
+        def target() -> None:
             try:
                 while True:
                     line = self._stdout_file_like_readline(file_like)
                     if not line:
                         break
 
-                    self.stdout.put(line)
+                    self.stdout.put(line)  # type: ignore[union-attr]
             except Exception as e:
                 self.logger.warning("Copying stdout from %r failed: %r", file_like, e)
             finally:
-                self.stdout.put(None)
+                self.stdout.put(None)  # type: ignore[union-attr]
 
         if self.stdout is not None:
             threading.Thread(daemon=True, name=f"{threading.current_thread().name}.stdout_copy", target=target).start()
 
-    def _stdout_file_like_readline(self, file_like: IOBase) -> str | bytes:
+    def _stdout_file_like_readline(self, file_like: typing.IO[str]) -> str:
         return file_like.readline()
 
 
 class ExecException(Exception):
-    def __init__(self, returncode: int, stdout: str) -> None:
+    def __init__(self, returncode: int, stdout: str | None) -> None:
         self.returncode = returncode
-        self.stdout = stdout
+        self.stdout = stdout or ""
 
         super().__init__(returncode, stdout)
 
@@ -82,7 +93,7 @@ class Shell:
 
     async_exec: type[AsyncExec]
 
-    def __init__(self, transport: "Transport") -> None:
+    def __init__(self, transport: Transport) -> None:
         self.transport = transport
 
         self.logger = PrefixLoggerAdapter(self.transport.logger, f"shell:{next(self._logger_counter)}")
@@ -90,15 +101,42 @@ class Shell:
     def close(self) -> None:
         raise NotImplementedError
 
-    def exec(self, args: list[str], encoding: str = "utf8",
-             stdout: queue.Queue[str | None] | None = None,
-             timeout: float | object = undefined) -> str:
+    @typing.overload
+    def exec(
+        self,
+        args: list[str],
+        encoding: str,
+        stdout: queue.Queue[str | None],
+        timeout: float | object,
+    ) -> None: ...
+
+    @typing.overload
+    def exec(
+        self,
+        args: list[str],
+        encoding: str = "utf8",
+        stdout: None = None,
+        timeout: float | object = undefined,
+    ) -> str: ...
+
+    def exec(
+        self,
+        args: list[str],
+        encoding: str = "utf8",
+        stdout: queue.Queue[str | None] | None = None,
+        timeout: float | object = undefined,
+    ) -> str | None:
         if timeout is undefined:
             timeout = 600
-        return self.exec_async(args, encoding, stdout).wait(timeout)
 
-    def exec_async(self, args: list[str], encoding: str = "utf8",
-                   stdout: queue.Queue[str | None] | None = None) -> AsyncExec:
+        return self.exec_async(args, encoding, stdout).wait(timeout)  # type: ignore[arg-type]
+
+    def exec_async(
+        self,
+        args: list[str],
+        encoding: str = "utf8",
+        stdout: queue.Queue[str | None] | None = None
+    ) -> AsyncExec:
         async_exec = self.async_exec(self, args, encoding, stdout)
         async_exec.run()
         return async_exec
@@ -120,31 +158,33 @@ class Shell:
 
 
 class ReplicationProcess:
-    def __init__(self,
-                 replication_task_id: str,
-                 transport: "Transport",
-                 local_shell: Shell,
-                 remote_shell: Shell,
-                 direction: ReplicationDirection,
-                 source_dataset: str,
-                 target_dataset: str,
-                 snapshot: str | None,
-                 mount: bool,
-                 properties: bool,
-                 properties_exclude: list[str],
-                 properties_override: dict[str, str],
-                 replicate: bool,
-                 encryption: ReplicationEncryption | None,
-                 incremental_base: str | None,
-                 include_intermediate: bool,
-                 receive_resume_token: str | None,
-                 compression: ReplicationCompression | None,
-                 speed_limit: int | None,
-                 dedup: bool,
-                 large_block: bool,
-                 embed: bool,
-                 compressed: bool,
-                 raw: bool) -> None:
+    def __init__(
+        self,
+        replication_task_id: str,
+        transport: Transport,
+        local_shell: LocalShell,
+        remote_shell: Shell,
+        direction: ReplicationDirection,
+        source_dataset: str,
+        target_dataset: str,
+        snapshot: str | None,
+        mount: bool,
+        properties: bool,
+        properties_exclude: list[str],
+        properties_override: dict[str, str],
+        replicate: bool,
+        encryption: ReplicationEncryption | None,
+        incremental_base: str | None,
+        include_intermediate: bool,
+        receive_resume_token: str | None,
+        compression: ReplicationCompression | None,
+        speed_limit: int | None,
+        dedup: bool,
+        large_block: bool,
+        embed: bool,
+        compressed: bool,
+        raw: bool,
+    ) -> None:
         self.replication_task_id = replication_task_id
         self.transport = transport
         self.local_shell = local_shell
@@ -172,8 +212,8 @@ class ReplicationProcess:
 
         self.logger = PrefixLoggerAdapter(self.transport.logger, f"replication_process:{replication_task_id}")
 
-        self.progress_observers = []
-        self.warning_observers = []
+        self.progress_observers: list[Callable[[int, int], None]] = []
+        self.warning_observers: list[Callable[[str], None]] = []
 
     def add_progress_observer(self, progress_observer: Callable[[int, int], None]) -> None:
         self.progress_observers.append(progress_observer)
@@ -210,21 +250,25 @@ class ReplicationProcess:
 
 
 class Transport:
-    logger: logging.Logger
+    logger: logging.Logger | logging.LoggerAdapter[typing.Any]
 
     shell: type[Shell]
 
     replication_process: type[ReplicationProcess]
 
     @classmethod
-    def from_data(cls, data: dict[str, str]) -> "Transport":
+    def from_data(cls, data: dict[str, typing.Any]) -> Transport:
         raise NotImplementedError
 
     def __hash__(self) -> int:
         return hash(self._descriptor())
 
-    def __eq__(self, other: object) -> bool:
-        return other.__class__ == self.__class__ and other._descriptor() == self._descriptor()
+    def __eq__(self, other: typing.Any) -> bool:
+        return (
+            isinstance(other, Transport) and
+            other.__class__ == self.__class__ and
+            other._descriptor() == self._descriptor()
+        )
 
     def _descriptor(self) -> object:
         raise NotImplementedError

@@ -21,7 +21,7 @@ class ReplicationMonitor:
         self.stop_event = threading.Event()
 
     def run(self) -> bool:
-        receive_resume_tokens = deque([], self.fail_on_repeat_count)
+        receive_resume_tokens: deque[str | None] = deque([], self.fail_on_repeat_count)
         while not self.stop_event.wait(self.poll_interval):
             receive_resume_tokens.append(get_receive_resume_token(self.shell, self.dataset))
             token_count = len(receive_resume_tokens)

@@ -1,10 +1,13 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import enum
 import logging
 import os
 import subprocess
 import tempfile
 import typing
+from typing import Any
 
 from zettarepl.replication.error import RecoverableReplicationError
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -54,13 +57,15 @@ class SshClientCapabilities:
 
 
 class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
-    def __init__(self, *args, **kwargs) -> None:
+    transport: SshTransport
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.private_key_file: typing.IO[str] | None = None
-        self.host_key_file: typing.IO[str] | None = None
+        self.private_key_file: typing.IO[str] = None  # type: ignore[assignment]
+        self.host_key_file: typing.IO[str] = None  # type: ignore[assignment]
 
-        self.async_exec: AsyncExecTee | None = None
+        self.async_exec: AsyncExecTee = None  # type: ignore[assignment]
         self.encryption_context: EncryptionContext | None = None
 
     def run(self) -> None:
@@ -188,7 +193,7 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
             self._stop_progress_observer()
 
     def stop(self) -> None:
-        return self.async_exec.stop()
+        self.async_exec.stop()
 
     def _get_send_shell(self) -> Shell:
         if self.direction == ReplicationDirection.PUSH:
@@ -227,17 +232,17 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
 class SshTransport(BaseSshTransport):
     system_client_capabilities: SshClientCapabilities | None = None
 
-    def __init__(self, client_capabilities: SshClientCapabilities, cipher: SshTransportCipher, **kwargs) -> None:
+    def __init__(self, client_capabilities: SshClientCapabilities, cipher: SshTransportCipher, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.client_capabilities = client_capabilities
         self.cipher = cipher
 
     @classmethod
-    def from_data(cls, data: dict) -> "SshTransport":
+    def from_data(cls, data: dict[str, Any]) -> SshTransport:
         if cls.system_client_capabilities is None:
             cls.system_client_capabilities = SshClientCapabilities.discover()
 
-        data = super().from_data(data)
+        data = super()._prepare_data(data)
 
         data.setdefault("cipher", "standard")
         data["cipher"] = SshTransportCipher(data["cipher"])

@@ -92,12 +92,12 @@ def zfs_recv(target_dataset: str, mount: bool, properties_exclude: list[str],
     return result
 
 
-def get_receive_resume_token(shell: "Shell", dataset: str) -> str | None:
-    return get_property(shell, dataset, "receive_resume_token")
+def get_receive_resume_token(shell: Shell, dataset: str) -> str | None:
+    return get_property(shell, dataset, "receive_resume_token")  # type: ignore[no-any-return]
 
 
-def get_properties_recursive(shell: "Shell", datasets: list[str],
-                             properties: dict[str, Callable],
+def get_properties_recursive(shell: Shell, datasets: list[str],
+                             properties: dict[str, Callable[[str], Any]],
                              include_source: bool = False,
                              recursive: bool = False) -> dict[str, dict[str, object]]:
     with ZfsCliExceptionHandler():
@@ -108,7 +108,7 @@ def get_properties_recursive(shell: "Shell", datasets: list[str],
         cmd.extend(datasets)
         output = shell.exec(cmd)
 
-    result = {}
+    result: dict[str, Any] = {}
     for line in output.strip().split("\n"):
         name, property, value, source = line.split("\t", 3)
         result.setdefault(name, {})
@@ -119,16 +119,22 @@ def get_properties_recursive(shell: "Shell", datasets: list[str],
     return result
 
 
-def get_properties(shell: Shell, dataset: str, properties: dict[str, Callable],
+def get_properties(shell: Shell, dataset: str, properties: dict[str, Callable[[str], Any]],
                    include_source: bool = False) -> dict[str, Any]:
     return get_properties_recursive(shell, [dataset], properties, include_source)[dataset]
 
 
-def get_property(shell: Shell, dataset: str, property: str, type: Callable = str, include_source: bool = False) -> Any:
+def get_property(
+    shell: Shell,
+    dataset: str,
+    property: str,
+    type: Callable[[str], Any] = str,
+    include_source: bool = False,
+) -> Any:
     return get_properties(shell, dataset, {property: type}, include_source)[property]
 
 
-def parse_property(value: str, type: Callable) -> Any:
+def parse_property(value: str, type: Callable[[str], Any]) -> Any:
     if type == bool:
         type = zfs_bool
 

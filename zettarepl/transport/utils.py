@@ -1,11 +1,14 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import hashlib
 import logging
 import os
 import typing
 
-from .encryption_context import EncryptionContext
-from .interface import ReplicationProcess, Shell
+if typing.TYPE_CHECKING:
+    from .encryption_context import EncryptionContext
+    from .interface import ReplicationProcess, Shell
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +18,8 @@ __all__ = ["get_properties_exclude_override", "put_file"]
 def get_properties_exclude_override(
     process: ReplicationProcess, encryption_context: EncryptionContext | None,
 ) -> tuple[list[str], dict[str, str]]:
-    properties_exclude = []
-    properties_override = {}
+    properties_exclude: list[str] = []
+    properties_override: dict[str, str] = {}
 
     if encryption_context:
         context_properties_exclude, context_properties_override = encryption_context.enter()

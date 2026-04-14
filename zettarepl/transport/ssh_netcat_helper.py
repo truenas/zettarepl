@@ -1,9 +1,12 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import argparse
 import ipaddress
 import json
 import random
 import string
+import errno
 import socket
 import sys
 
@@ -56,18 +59,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.listen:
-        e = None
+        listen_error: socket.error | None = None
         for port in range(args.listen_min_port, args.listen_max_port + 1):
             try:
                 s = socket.create_server((args.listen, port), family=address_family(args.listen), dualstack_ipv6=True)
                 break
             except socket.error as e:
-                if e.errno == socket.errno.EADDRINUSE:
-                    pass
+                if e.errno == errno.EADDRINUSE:
+                    listen_error = e
                 else:
                     raise
         else:
-            sys.stderr.write(f"Failed to listen specified port range: {e!r}\n")
+            sys.stderr.write(f"Failed to listen specified port range: {listen_error!r}\n")
             sys.exit(1)
         s.listen()
         token = "".join([random.choice(string.ascii_letters + string.digits) for _ in range(128)])

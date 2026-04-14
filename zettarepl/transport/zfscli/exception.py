@@ -1,4 +1,6 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import logging
 import re
 import textwrap
@@ -21,8 +23,8 @@ class DatasetDoesNotExistException(ExecException):
 
 
 class ZfsCliExceptionHandler:
-    def __enter__(self) -> None:
-        pass
+    def __enter__(self) -> ZfsCliExceptionHandler:
+        return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
                  exc_tb: TracebackType | None) -> None:
@@ -37,14 +39,14 @@ class ZfsSendRecvExceptionHandler:
         self.replication_process = replication_process
         self.sudo_handler = sudo_handler
 
-    def __enter__(self) -> None:
-        pass
+    def __enter__(self) -> ZfsSendRecvExceptionHandler:
+        return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
-                 exc_tb: TracebackType | None) -> bool | None:
+                 exc_tb: TracebackType | None) -> None:
         from zettarepl.snapshot.list import list_snapshots
 
-        m = {}
+        mdict: dict[int | str, str] = {}
         valid_errors = ("failed to create mountpoint.*", "mountpoint or dataset is busy")
         valid_pylibzfs_errors = ("failed to create mountpoint.*",)
         if (
@@ -53,26 +55,26 @@ class ZfsSendRecvExceptionHandler:
                 # Regular zfs CLI
                 (
                     re_search_to(
-                        m,
+                        mdict,
                         f"cannot mount '(?P<dataset>.+)': (?P<error>({'|'.join(valid_errors)}))\n",
                         exc_val.stdout,
                     ) and (
-                        m["dataset"] == self.replication_process.target_dataset or
+                        mdict["dataset"] == self.replication_process.target_dataset or
                         (
-                            m["error"].startswith("failed to create mountpoint") and
-                            m["dataset"].endswith(f"/{self.replication_process.target_dataset}")
+                            mdict["error"].startswith("failed to create mountpoint") and
+                            mdict["dataset"].endswith(f"/{self.replication_process.target_dataset}")
                         )
                     )
                 # py-libzfs
                 ) or (
                     re_search_to(
-                        m,
+                        mdict,
                         f"(?P<error>({'|'.join(valid_pylibzfs_errors)}))\n",
                         exc_val.stdout,
                     )
                 )
             ) and (
-                self.replication_process.properties if m["error"] == "mountpoint or dataset is busy" else True
+                self.replication_process.properties if mdict["error"] == "mountpoint or dataset is busy" else True
             )
         ):
             if self.replication_process.direction == ReplicationDirection.PUSH:
@@ -86,7 +88,7 @@ class ZfsSendRecvExceptionHandler:
                 logger.warning(
                     "Caught %r and was not able to list snapshots on destination side: %r. Assuming replication "
                     "failure.",
-                    m["error"],
+                    mdict["error"],
                     e
                 )
                 return
@@ -95,7 +97,7 @@ class ZfsSendRecvExceptionHandler:
             if snapshot not in snapshots:
                 logger.warning(
                     "Caught %r and %r does not exist on destination side. Assuming replication failure.",
-                    m["error"],
+                    mdict["error"],
                     snapshot,
                 )
                 return
@@ -104,10 +106,10 @@ class ZfsSendRecvExceptionHandler:
             # mountpoint
             logger.info(
                 "Caught %r but %r is present on remote side. Assuming replication success.",
-                m["error"],
+                mdict["error"],
                 snapshot,
             )
-            return True
+            return
 
         if (
             self.replication_process.replicate and
@@ -123,9 +125,9 @@ class ZfsSendRecvExceptionHandler:
             self.replication_process.incremental_base and
             isinstance(exc_val, ExecException)
         ):
-            match = None
-            snapshot = None
-            incremental_base = None
+            match: str | None = None
+            snapshot_name: str | None = None
+            incremental_base: str | None = None
 
             # OpenZFS
             m = re.search(r"could not send (?P<snapshot>.+):\s*"
@@ -133,7 +135,7 @@ class ZfsSendRecvExceptionHandler:
                           exc_val.stdout)
             if m:
                 match = m.group(0)
-                snapshot = m.group("snapshot")
+                snapshot_name = m.group("snapshot")
                 incremental_base = m.group("incremental_base")
 
             # ZoL
@@ -141,18 +143,18 @@ class ZfsSendRecvExceptionHandler:
                           exc_val.stdout)
             if m:
                 match = m.group(0)
-                snapshot = m.group("snapshot").strip("'")
+                snapshot_name = m.group("snapshot").strip("'")
                 incremental_base = self.replication_process.incremental_base
 
             if match is not None:
                 text = textwrap.dedent(f"""\
                     Replication cannot continue because existing snapshot
                     {incremental_base} is newer than
-                    {snapshot}, but has an older date
+                    {snapshot_name}, but has an older date
                     in the snapshot name. To resolve the error, rename
-                    {snapshot} with a date that is older than
+                    {snapshot_name} with a date that is older than
                     {incremental_base} or delete snapshot
-                    {snapshot} from both the source and destination.
+                    {snapshot_name} from both the source and destination.
                 """)
                 exc_val.stdout = exc_val.stdout.replace(match, match + f"\n{text.rstrip()}")
                 return
@@ -218,3 +220,5 @@ class ZfsSendRecvExceptionHandler:
                 "The error reported was:\n" +
                 exc_val.stdout.rstrip("\n")
             ) from None
+
+        return

@@ -95,18 +95,19 @@ class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
 
 
 def pending_push_replication_task_snapshot_owners(
-    src_snapshots: dict[str, list[str]], shell: Shell,
+    src_snapshots: dict[str, list[str]],
+        shell: Shell,
     replication_tasks: list[ReplicationTask],
 ) -> list[PendingPushReplicationTaskSnapshotOwner]:
     if replication_tasks:
         dst_snapshots_queries = replication_tasks_target_datasets_queries(replication_tasks)
         try:
-            dst_snapshots = multilist_snapshots(shell, dst_snapshots_queries)
+            dst_snapshots_list = multilist_snapshots(shell, dst_snapshots_queries)
         except Exception as e:
             logger.error("Failed to list snapshots with %r: %r. Assuming remote has no snapshots", shell, e)
-            dst_snapshots = {}
+            dst_snapshots: dict[str, list[str]] = {}
         else:
-            dst_snapshots = group_snapshots_by_datasets(dst_snapshots)
+            dst_snapshots = group_snapshots_by_datasets(dst_snapshots_list)
 
         return [PendingPushReplicationTaskSnapshotOwner(replication_task, src_snapshots, dst_snapshots)
                 for replication_task in replication_tasks]
