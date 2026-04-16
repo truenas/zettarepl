@@ -102,6 +102,6 @@ def get_snapshots_to_send_with_naming_schemas(src_snapshots, dst_snapshots, repl
         snapshots_to_send, snapshots_to_send)
     snapshots_to_send = [parsed_snapshot.name
                          for parsed_snapshot in snapshots_to_send
-                         if parsed_snapshot not in will_be_removed]
+                         if parsed_snapshot.name not in will_be_removed]
 
     return SnapshotsToSend(incremental_base, snapshots_to_send, False, False)

@@ -22,17 +22,6 @@ class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapsho
         self.target_dataset = target_dataset
         super().__init__(*args, **kwargs)
 
-        for dst_dataset, snapshots in self.delete_snapshots.items():
-            incremental_base = get_parsed_incremental_base(
-                self.parsed_src_snapshots_names.get(get_source_dataset(self.replication_task, dst_dataset), []),
-                self.parsed_dst_snapshots_names[dst_dataset]
-            )
-            if incremental_base:
-                try:
-                    snapshots.remove(incremental_base)
-                except ValueError:
-                    pass
-
     def owns_dataset(self, dataset: str):
         # FIXME: Replication tasks that have multiple source datasets are executed as independent parts.
         # Retention has to be executed as independent parts too. Part 2 retention will not be executed until part 1
