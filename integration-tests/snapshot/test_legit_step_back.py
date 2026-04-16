@@ -45,7 +45,7 @@ def test_snapshot_exclude():
         None,
     ]
     tz_clock = TzClock(definition.timezone, datetime(2010, 10, 30, 21, 59, 59))
-    zettarepl = create_zettarepl(definition, Scheduler(clock, tz_clock))
+    zettarepl = create_zettarepl(definition, scheduler=Scheduler(clock, tz_clock))
     zettarepl.run()
 
     assert isinstance(zettarepl.observer.call_args_list[0][0][0], PeriodicSnapshotTaskStart)
