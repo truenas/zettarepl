@@ -262,7 +262,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         try:
             return SshNetcatReplicationListen(parsed["port"], parsed["token"])
-        except Exception as e:
+        except Exception:
             raise ReplicationError(f"Failed to parse listen side response: {parsed!r}")
 
     def _wait_listen_exec(self) -> None:

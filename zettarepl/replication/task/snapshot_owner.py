@@ -96,7 +96,7 @@ class PendingPushReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
 
 def pending_push_replication_task_snapshot_owners(
     src_snapshots: dict[str, list[str]],
-        shell: Shell,
+    shell: Shell,
     replication_tasks: list[ReplicationTask],
 ) -> list[PendingPushReplicationTaskSnapshotOwner]:
     if replication_tasks:

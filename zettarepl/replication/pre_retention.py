@@ -9,8 +9,6 @@ from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import Shell
 
-from .snapshots_to_send import get_parsed_incremental_base
-from .task.dataset import get_source_dataset
 from .task.snapshot_owner import ExecutedReplicationTaskSnapshotOwner
 from .task.task import ReplicationTask
 

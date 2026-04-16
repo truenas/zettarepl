@@ -9,7 +9,7 @@ import shutil
 import signal
 import subprocess
 import typing
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from zettarepl.replication.error import ReplicationConfigurationError
 from zettarepl.utils.shlex import pipe

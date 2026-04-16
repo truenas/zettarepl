@@ -1,6 +1,5 @@
 # -*- coding=utf-8 -*-
 from collections import defaultdict, OrderedDict
-from collections.abc import Callable
 from datetime import datetime
 import logging
 import os
