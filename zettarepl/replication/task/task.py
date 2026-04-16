@@ -25,7 +25,7 @@ __all__ = ["ReplicationTask"]
 
 class ReplicationTask(Task):
     def __init__(self,
-                 id: str,
+                 id_: str,
                  direction: ReplicationDirection,
                  transport: Transport,
                  source_datasets: list[str],
@@ -58,7 +58,7 @@ class ReplicationTask(Task):
                  compressed: bool,
                  retries: int,
                  logging_level: int) -> None:
-        self.id = id
+        self.id = id_
         self.direction = direction
         self.transport = transport
         self.source_datasets = source_datasets
@@ -98,7 +98,7 @@ class ReplicationTask(Task):
     @classmethod
     def from_data(
         cls,
-        id: str,
+        id_: str,
         data: dict[str, Any],
         periodic_snapshot_tasks: list[PeriodicSnapshotTask],
     ) -> "ReplicationTask":
@@ -251,7 +251,7 @@ class ReplicationTask(Task):
 
         compression = replication_compressions[data["compression"]] if data["compression"] else None
 
-        return cls(id,
+        return cls(id_,
                    data["direction"],
                    create_transport(data["transport"]),
                    data["source-dataset"],

@@ -18,9 +18,9 @@ __all__ = ["PeriodicSnapshotTask"]
 class PeriodicSnapshotTask(Task):
     schedule: CronSchedule
 
-    def __init__(self, id: str, dataset: str, recursive: bool, exclude: list[str], lifetime: timedelta,
+    def __init__(self, id_: str, dataset: str, recursive: bool, exclude: list[str], lifetime: timedelta,
                  naming_schema: str, schedule: CronSchedule, allow_empty: bool) -> None:
-        self.id = id
+        self.id = id_
         self.dataset = dataset
         self.recursive = recursive
         self.exclude = exclude
@@ -35,7 +35,7 @@ class PeriodicSnapshotTask(Task):
         return f"<Periodic Snapshot Task {self.id!r}>"
 
     @classmethod
-    def from_data(cls, id: str, data: dict[str, Any]) -> Self:
+    def from_data(cls, id_: str, data: dict[str, Any]) -> Self:
         periodic_snapshot_task_validator.validate(data)
 
         data.setdefault("exclude", [])
@@ -49,5 +49,5 @@ class PeriodicSnapshotTask(Task):
             lifetime = timedelta(days=36500)
 
         return cls(
-            id, data["dataset"], data["recursive"], data["exclude"], lifetime,
+            id_, data["dataset"], data["recursive"], data["exclude"], lifetime,
             data["naming-schema"], CronSchedule.from_data(data["schedule"]), data["allow-empty"])

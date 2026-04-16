@@ -443,7 +443,7 @@ def calculate_replication_step_templates(
             set(replication_task.properties_override.keys())
         )
         if referenced_properties:
-            for property, (value, source) in get_properties(
+            for property_name, (value, source) in get_properties(
                 src_context.shell, source_dataset, {p: str for p in referenced_properties}, True
             ).items():
                 if source == "-":
@@ -452,7 +452,7 @@ def calculate_replication_step_templates(
                     # `referenced_properties` because no one excludes or overrides them.
                     continue
 
-                valid_properties.add(property)
+                valid_properties.add(property_name)
 
         try:
             datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,

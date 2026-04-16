@@ -26,9 +26,9 @@ def get_properties_exclude_override(
         properties_exclude += context_properties_exclude
         properties_override.update(**context_properties_override)
 
-    for property in process.properties_exclude:
-        if property not in properties_exclude:
-            properties_exclude.append(property)
+    for name in process.properties_exclude:
+        if name not in properties_exclude:
+            properties_exclude.append(name)
     properties_override.update(process.properties_override)
 
     return properties_exclude, properties_override
