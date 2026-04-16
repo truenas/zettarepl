@@ -35,11 +35,16 @@ def create_dataset(name: str, encrypted: bool = False) -> None:
         subprocess.check_call(f"zfs create {name}", shell=True)
 
 
-def create_zettarepl(definition: Definition, scheduler: Mock | None = None) -> Zettarepl:
+def create_zettarepl(
+    definition: Definition,
+    *,
+    scheduler: Mock | None = None,
+    observer: Mock | None = None,
+) -> Zettarepl:
     local_shell = LocalShell()
     zettarepl = Zettarepl(scheduler or Mock(), local_shell, definition.max_parallel_replication_tasks)
     zettarepl._spawn_retention = Mock()
-    observer = Mock(return_value=None)
+    observer = observer or Mock(return_value=None)
     zettarepl.set_observer(observer)
     zettarepl.set_tasks(definition.tasks)
     return zettarepl
@@ -68,13 +73,13 @@ def run_periodic_snapshot_test(definition: dict, now: datetime,
 
 
 def run_replication_test(
-    definition: dict, *, success: bool = True, now: Mock | None = None,
+    definition: dict, *, success: bool = True, now: Mock | None = None, observer: Mock | None = None,
 ) -> ReplicationTaskSuccess | ReplicationTaskError:
     if now is None:
         now = Mock()
 
     definition = Definition.from_data(definition)
-    zettarepl = create_zettarepl(definition)
+    zettarepl = create_zettarepl(definition, observer=observer)
     zettarepl._spawn_replication_tasks(now, select_by_class(ReplicationTask, definition.tasks))
     wait_replication_tasks_to_complete(zettarepl)
 
