@@ -84,20 +84,20 @@ def zfs_recv(target_dataset: str, mount: bool, properties_exclude: list[str],
     if not mount:
         result.append("-u")
 
-    result.extend(sum([["-x", property] for property in properties_exclude], []))
-    result.extend(sum([["-o", f"{property}={value}"] for property, value in properties_override.items()], []))
+    result.extend(sum([["-x", name] for name in properties_exclude], []))
+    result.extend(sum([["-o", f"{name}={value}"] for name, value in properties_override.items()], []))
 
     result.append(target_dataset)
 
     return result
 
 
-def get_receive_resume_token(shell: "Shell", dataset: str) -> str | None:
-    return get_property(shell, dataset, "receive_resume_token")
+def get_receive_resume_token(shell: Shell, dataset: str) -> str | None:
+    return get_property(shell, dataset, "receive_resume_token")  # type: ignore[no-any-return]
 
 
-def get_properties_recursive(shell: "Shell", datasets: list[str],
-                             properties: dict[str, Callable],
+def get_properties_recursive(shell: Shell, datasets: list[str],
+                             properties: dict[str, Callable[[str], Any]],
                              include_source: bool = False,
                              recursive: bool = False) -> dict[str, dict[str, object]]:
     with ZfsCliExceptionHandler():
@@ -108,31 +108,37 @@ def get_properties_recursive(shell: "Shell", datasets: list[str],
         cmd.extend(datasets)
         output = shell.exec(cmd)
 
-    result = {}
+    result: dict[str, Any] = {}
     for line in output.strip().split("\n"):
-        name, property, value, source = line.split("\t", 3)
-        result.setdefault(name, {})
-        result[name][property] = parse_property(value, properties[property])
+        dataset_name, property_name, value, source = line.split("\t", 3)
+        result.setdefault(dataset_name, {})
+        result[dataset_name][property_name] = parse_property(value, properties[property_name])
         if include_source:
-            result[name][property] = result[name][property], source
+            result[dataset_name][property_name] = result[dataset_name][property_name], source
 
     return result
 
 
-def get_properties(shell: Shell, dataset: str, properties: dict[str, Callable],
+def get_properties(shell: Shell, dataset: str, properties: dict[str, Callable[[str], Any]],
                    include_source: bool = False) -> dict[str, Any]:
     return get_properties_recursive(shell, [dataset], properties, include_source)[dataset]
 
 
-def get_property(shell: Shell, dataset: str, property: str, type: Callable = str, include_source: bool = False) -> Any:
-    return get_properties(shell, dataset, {property: type}, include_source)[property]
+def get_property(
+    shell: Shell,
+    dataset: str,
+    name: str,
+    type_: Callable[[str], Any] = str,
+    include_source: bool = False,
+) -> Any:
+    return get_properties(shell, dataset, {name: type_}, include_source)[name]
 
 
-def parse_property(value: str, type: Callable) -> Any:
-    if type == bool:
-        type = zfs_bool
+def parse_property(value: str, type_: Callable[[str], Any]) -> Any:
+    if type_ == bool:
+        type_ = zfs_bool
 
     if value == "-":
         return None
 
-    return type(value)
+    return type_(value)

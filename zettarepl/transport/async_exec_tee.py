@@ -23,7 +23,7 @@ class PrematureExit(Exception):
 
 
 class AsyncExecTee(AsyncExec):
-    def __init__(self, shell: "Shell", args: list[str], encoding: str = "utf8", stdout: None = None) -> None:
+    def __init__(self, shell: Shell, args: list[str], encoding: str = "utf8", stdout: None = None) -> None:
         assert stdout is None
         super().__init__(shell, args, encoding, stdout)
 
@@ -32,10 +32,10 @@ class AsyncExecTee(AsyncExec):
         self.output: str = ""
         self.complete_event: threading.Event = threading.Event()
 
-        self.async_exec: AsyncExec | None = None
+        self.async_exec: AsyncExec = None  # type: ignore[assignment]
 
     def run(self) -> None:
-        q = queue.Queue()
+        q: queue.Queue[str | None] = queue.Queue()
 
         self.async_exec = self.shell.exec_async(self.args, self.encoding, q)
 
@@ -44,7 +44,7 @@ class AsyncExecTee(AsyncExec):
         threading.Thread(daemon=True, name=f"{threading.current_thread().name}.async_exec_tee.wait",
                          target=self._wait).start()
 
-    def head(self, callback: Callable[[str], object], timeout: float) -> object:
+    def head[T](self, callback: Callable[[str], T], timeout: float) -> T:
         while True:
             try:
                 event = self.queue.get(timeout=timeout)
@@ -79,7 +79,7 @@ class AsyncExecTee(AsyncExec):
             raise NotImplementedError("AsyncExecTee.wait with timeout is not implemented yet")
 
         data_drained = False
-        exit_event = None
+        exit_event: ExitEvent | None = None
 
         while not (data_drained and exit_event is not None):
             event = self.queue.get()

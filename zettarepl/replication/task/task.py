@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 import logging
 import re
+from typing import Any
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.definition.schema import replication_task_validator
@@ -24,7 +25,7 @@ __all__ = ["ReplicationTask"]
 
 class ReplicationTask(Task):
     def __init__(self,
-                 id: str,
+                 id_: str,
                  direction: ReplicationDirection,
                  transport: Transport,
                  source_datasets: list[str],
@@ -57,7 +58,7 @@ class ReplicationTask(Task):
                  compressed: bool,
                  retries: int,
                  logging_level: int) -> None:
-        self.id = id
+        self.id = id_
         self.direction = direction
         self.transport = transport
         self.source_datasets = source_datasets
@@ -95,7 +96,12 @@ class ReplicationTask(Task):
         return f"<Replication Task {self.id!r}>"
 
     @classmethod
-    def from_data(cls, id: str, data: dict, periodic_snapshot_tasks: list[PeriodicSnapshotTask]) -> "ReplicationTask":
+    def from_data(
+        cls,
+        id_: str,
+        data: dict[str, Any],
+        periodic_snapshot_tasks: list[PeriodicSnapshotTask],
+    ) -> "ReplicationTask":
         replication_task_validator.validate(data)
 
         for k in ["source-dataset", "naming-schema", "also-include-naming-schema"]:
@@ -245,7 +251,7 @@ class ReplicationTask(Task):
 
         compression = replication_compressions[data["compression"]] if data["compression"] else None
 
-        return cls(id,
+        return cls(id_,
                    data["direction"],
                    create_transport(data["transport"]),
                    data["source-dataset"],
@@ -280,7 +286,11 @@ class ReplicationTask(Task):
                    logging._nameToLevel[data["logging-level"].upper()])
 
     @classmethod
-    def _validate_exclude(cls, data: dict, resolved_periodic_snapshot_tasks: list[PeriodicSnapshotTask]) -> None:
+    def _validate_exclude(
+        cls,
+        data: dict[str, Any],
+        resolved_periodic_snapshot_tasks: list[PeriodicSnapshotTask],
+    ) -> None:
         for source_dataset in data["source-dataset"]:
             for periodic_snapshot_task in resolved_periodic_snapshot_tasks:
                 if is_child(source_dataset, periodic_snapshot_task.dataset):
@@ -292,7 +302,7 @@ class ReplicationTask(Task):
                                 f"{periodic_snapshot_task.id!r})")
 
     @classmethod
-    def _parse_schedules(cls, data: dict) -> tuple[CronSchedule | None, CronSchedule | None]:
+    def _parse_schedules(cls, data: dict[str, Any]) -> tuple[CronSchedule | None, CronSchedule | None]:
         if "schedule" in data:
             schedule = CronSchedule.from_data(data["schedule"])
         else:

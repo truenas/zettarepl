@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
 import logging
+from typing import Any
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.retention.calculate import calculate_snapshots_to_remove
@@ -8,8 +9,6 @@ from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import Shell
 
-from .snapshots_to_send import get_parsed_incremental_base
-from .task.dataset import get_source_dataset
 from .task.snapshot_owner import ExecutedReplicationTaskSnapshotOwner
 from .task.task import ReplicationTask
 
@@ -19,20 +18,9 @@ __all__ = ["pre_retention"]
 
 
 class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapshotOwner):
-    def __init__(self, target_dataset: str, *args, **kwargs) -> None:
+    def __init__(self, target_dataset: str, *args: Any, **kwargs: Any) -> None:
         self.target_dataset = target_dataset
         super().__init__(*args, **kwargs)
-
-        for dst_dataset, snapshots in self.delete_snapshots.items():
-            incremental_base = get_parsed_incremental_base(
-                self.parsed_src_snapshots_names.get(get_source_dataset(self.replication_task, dst_dataset), []),
-                self.parsed_dst_snapshots_names[dst_dataset]
-            )
-            if incremental_base:
-                try:
-                    snapshots.remove(incremental_base)
-                except ValueError:
-                    pass
 
     def owns_dataset(self, dataset: str) -> bool:
         # FIXME: Replication tasks that have multiple source datasets are executed as independent parts.

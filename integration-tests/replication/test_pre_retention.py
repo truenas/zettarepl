@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 from datetime import datetime
+import logging
 import subprocess
 import textwrap
 
@@ -115,3 +116,50 @@ def test_pre_retention_multiple_source_datasets():
 
     local_shell = LocalShell()
     assert len(list_snapshots(local_shell, "tank/dst/Family_Media", False)) == 3
+
+
+def test_pre_retention_keeps_incremental_base(caplog):
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
+
+    create_dataset("tank/src")
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-02_01-00", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2018-10-03_01-00", shell=True)
+    subprocess.check_call("zfs send -R tank/src@2018-10-03_01-00 | zfs recv -s -F tank/dst", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2020-10-01_01-00", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent(f"""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: tank/src
+            target-dataset: tank/dst
+            also-include-naming-schema: "%Y-%m-%d_%H-%M"
+            recursive: false
+            auto: false
+            retention-policy: custom
+            lifetime: P1Y
+            retries: 1
+    """))
+
+    caplog.set_level(logging.DEBUG)
+    run_replication_test(definition, now=datetime(2020, 10, 1))
+
+    assert any(
+        record.message == (
+            "Not destroying '2018-10-03_01-00' as it is the only snapshot left for naming schema '%Y-%m-%d_%H-%M'"
+        )
+        for record in caplog.get_records("call")
+    )
+    assert any(
+        record.message == (
+            "Pre-retention destroying snapshots: [Snapshot(dataset='tank/dst', name='2018-10-01_01-00'), "
+            "Snapshot(dataset='tank/dst', name='2018-10-02_01-00')]"
+        )
+        for record in caplog.get_records("call")
+    )

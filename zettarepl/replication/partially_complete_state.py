@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["retry_contains_partially_complete_state"]
 
 
-def retry_contains_partially_complete_state(func: Callable):
+def retry_contains_partially_complete_state[T](func: Callable[[], T]) -> T:
     for i in itertools.count(1):
         try:
             return func()
@@ -24,3 +24,5 @@ def retry_contains_partially_complete_state(func: Callable):
                 raise
 
             time.sleep(60)
+
+    return None  # type: ignore[return-value]  # Will never reach here

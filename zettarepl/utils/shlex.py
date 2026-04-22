@@ -12,9 +12,10 @@ def implode(args: list[str]) -> str:
     return " ".join([shlex.quote(arg) for arg in args])
 
 
-class pipe:
+class pipe(list[str]):
     def __init__(self, *cmds: list[str]) -> None:
         self.cmds = cmds
+        super().__init__([])
 
     def __iter__(self) -> Iterator[str]:
         # We need to enable pipefail because sometimes `zfs recv` can exit with successful exit code while it has done

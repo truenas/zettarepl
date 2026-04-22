@@ -4,4 +4,4 @@ __all__ = ["Task"]
 
 
 class Task:
-    schedule: CronSchedule
+    schedule: CronSchedule | None

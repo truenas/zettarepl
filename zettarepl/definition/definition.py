@@ -90,28 +90,28 @@ class Definition:
                 errors.append(DefinitionError(f"Unknown timezone: {data['timezone']!r}"))
 
         periodic_snapshot_tasks = []
-        for id, task in data.get("periodic-snapshot-tasks", {}).items():
+        for task_id, task in data.get("periodic-snapshot-tasks", {}).items():
             try:
-                periodic_snapshot_tasks.append(PeriodicSnapshotTask.from_data(id, task))
+                periodic_snapshot_tasks.append(PeriodicSnapshotTask.from_data(task_id, task))
             except ValueError as e:
-                errors.append(PeriodicSnapshotTaskDefinitionError(id, e))
+                errors.append(PeriodicSnapshotTaskDefinitionError(task_id, e))
 
         transports = data.get("transports", {})
 
         replication_tasks = []
-        for id, task in data.get("replication-tasks", {}).items():
+        for task_id, task in data.get("replication-tasks", {}).items():
             if not isinstance(task["transport"], dict):
                 try:
                     task["transport"] = transports[task["transport"]]
                 except KeyError:
                     error = ValueError(f"Invalid transport {task['transport']!r}")
-                    errors.append(ReplicationTaskDefinitionError(id, error))
+                    errors.append(ReplicationTaskDefinitionError(task_id, error))
                     continue
 
             try:
-                replication_tasks.append(ReplicationTask.from_data(id, task, periodic_snapshot_tasks))
+                replication_tasks.append(ReplicationTask.from_data(task_id, task, periodic_snapshot_tasks))
             except ValueError as e:
-                errors.append(ReplicationTaskDefinitionError(id, e))
+                errors.append(ReplicationTaskDefinitionError(task_id, e))
 
         if errors and raise_on_error:
             raise DefinitionErrors(errors)

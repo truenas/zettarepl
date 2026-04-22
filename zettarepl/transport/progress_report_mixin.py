@@ -1,11 +1,17 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 import logging
 import re
 import threading
+import typing
 
 from zettarepl.utils.shlex import implode
 
 from .interface import *
+
+if typing.TYPE_CHECKING:
+    from .async_exec_tee import AsyncExecTee
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,7 @@ def parse_zfs_progress(s: str) -> tuple[int, int] | None:
         current = parse_zfs_progress_value(m.group("current"))
         total = parse_zfs_progress_value(m.group("total"))
         return current, total
+    return None
 
 
 def parse_zfs_progress_value(s: str) -> int:
@@ -42,7 +49,9 @@ def parse_zfs_progress_value(s: str) -> int:
 
 
 class ProgressReportMixin:
-    stop_progress_observer: threading.Event | None = None
+    async_exec: AsyncExecTee
+
+    stop_progress_observer: threading.Event = None  # type: ignore[assignment]
 
     def _get_send_shell(self) -> Shell:
         raise NotImplementedError
@@ -88,6 +97,7 @@ class ProgressReportMixin:
         m = re.match("zettarepl: zfs send PID is ([0-9]+)", line.strip())
         if m:
             return int(m.group(1))
+        return None
 
     def _progress_observer(self, pid: int) -> None:
         try:
@@ -110,7 +120,7 @@ class ProgressReportMixin:
                     current, total = progress
                     if total == 0:
                         total = current + 1
-                    self.notify_progress_observer(current, total)
+                    self.notify_progress_observer(current, total)  # type: ignore[attr-defined]
                 else:
                     logger.debug("Unable to find ZFS send progress in %r", s)
         except Exception:

@@ -38,8 +38,8 @@ def list_datasets_with_properties(
 
     return [
         {
-            property: parse_property(value, properties[property])
-            for property, value in zip(properties, line.split("\t"))
+            property_name: parse_property(value, properties[property_name])
+            for property_name, value in zip(properties, line.split("\t"))
         }
         for line in filter(None, output.split("\n"))
     ]

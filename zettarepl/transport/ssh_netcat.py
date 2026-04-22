@@ -1,9 +1,13 @@
 # -*- coding=utf-8 -*-
+from __future__ import annotations
+
 from collections import namedtuple
+from dataclasses import dataclass
 import enum
 import json
 import logging
 import threading
+from typing import Any
 
 from zettarepl.replication.error import ReplicationError, ReplicationConfigurationError
 from zettarepl.replication.task.direction import ReplicationDirection
@@ -48,12 +52,20 @@ class SshNetcatExecException(ExecException):
         return "SshNetcatExecException(%r, %r)" % (self.connect_exc, self.listen_exc)
 
 
+@dataclass
+class SshNetcatReplicationListen:
+    port: int
+    token: str
+
+
 class SshNetcatReplicationProcess(ReplicationProcess):
-    def __init__(self, *args, **kwargs) -> None:
+    transport: SshNetcatTransport
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.listen_exec: AsyncExecTee | None = None
-        self.connect_exec: AsyncExec | None = None
+        self.listen_exec: AsyncExecTee = None  # type: ignore[assignment]
+        self.connect_exec: AsyncExec = None  # type: ignore[assignment]
 
         self.listen_exec_error: ExecException | ReplicationError | None = None
         self.listen_exec_terminated: threading.Event = threading.Event()
@@ -122,6 +134,7 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
         receive_args.append(self.target_dataset)
 
+        listen_shell: Shell
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             listen_shell = self.local_shell
             listen_args = ["python3", "-u", local_helper] + listen_args
@@ -170,8 +183,8 @@ class SshNetcatReplicationProcess(ReplicationProcess):
             logger.info("Automatically chose connect address %r", connect_address)
 
         connect_args = ["--connect", connect_address,
-                        "--connect-port", str(listen["port"]),
-                        "--connect-token", listen["token"]]
+                        "--connect-port", str(listen.port),
+                        "--connect-token", listen.token]
 
         if self.transport.active_side == SshNetcatTransportActiveSide.LOCAL:
             connect_shell = self.remote_shell
@@ -234,17 +247,23 @@ class SshNetcatReplicationProcess(ReplicationProcess):
         self.listen_exec.stop()
         self.connect_exec.stop()
 
-    def _parse_listen_exec(self, data: str) -> dict[str, str | int] | None:
+    def _parse_listen_exec(self, data: str) -> SshNetcatReplicationListen:
         logger.debug("Read from listen side: %r", data)
         try:
-            return json.loads(data)
+            parsed = json.loads(data)
         except ValueError:
             if "python3: not found" in data:
                 error = ("Please install Python 3 to the remote system in order to use SSH+NETCAT transport "
                          f"({data!r})")
             else:
                 error = f"Unknown SSH+NETCAT transport error: {data!r}"
+
             raise ReplicationError(error)
+
+        try:
+            return SshNetcatReplicationListen(parsed["port"], parsed["token"])
+        except Exception:
+            raise ReplicationError(f"Failed to parse listen side response: {parsed!r}")
 
     def _wait_listen_exec(self) -> None:
         try:
@@ -273,9 +292,15 @@ class SshNetcatReplicationProcess(ReplicationProcess):
 
 
 class SshNetcatTransport(BaseSshTransport):
-    def __init__(self, active_side: SshNetcatTransportActiveSide, active_side_listen_address: str,
-                 active_side_min_port: int, active_side_max_port: int,
-                 passive_side_connect_address: str | None, **kwargs) -> None:
+    def __init__(
+        self,
+        active_side: SshNetcatTransportActiveSide,
+        active_side_listen_address: str,
+        active_side_min_port: int,
+        active_side_max_port: int,
+        passive_side_connect_address: str | None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self.active_side = active_side
         self.active_side_listen_address = active_side_listen_address
@@ -284,8 +309,8 @@ class SshNetcatTransport(BaseSshTransport):
         self.passive_side_connect_address = passive_side_connect_address
 
     @classmethod
-    def from_data(cls, data: dict) -> "SshNetcatTransport":
-        data = super().from_data(data)
+    def from_data(cls, data: dict[str, Any]) -> SshNetcatTransport:
+        data = super()._prepare_data(data)
 
         data["active_side"] = SshNetcatTransportActiveSide(data.pop("active-side"))
         # `ssh_netcat_helper.py` listens with `dualstack_ipv6=True` so connections to IPv4 addresses will work too

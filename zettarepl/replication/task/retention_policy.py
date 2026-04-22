@@ -1,7 +1,7 @@
 # -*- coding=utf-8 -*-
-from collections import namedtuple
 from datetime import datetime, timedelta
 import logging
+from typing import Any, NamedTuple
 
 import isodate
 
@@ -16,7 +16,7 @@ __all__ = ["TargetSnapshotRetentionPolicy", "SameAsSourceSnapshotRetentionPolicy
 
 class TargetSnapshotRetentionPolicy:
     @classmethod
-    def from_data(cls, data: dict) -> "TargetSnapshotRetentionPolicy":
+    def from_data(cls, data: dict[str, Any]) -> "TargetSnapshotRetentionPolicy":
         if data["retention-policy"] == "source":
             return SameAsSourceSnapshotRetentionPolicy()
 
@@ -60,7 +60,9 @@ class SameAsSourceSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
                 if parsed_dst_snapshot not in parsed_src_snapshots_names]
 
 
-CustomSnapshotRetentionPolicyLifetime = namedtuple("CustomSnapshotRetentionPolicy", ["schedule", "lifetime"])
+class CustomSnapshotRetentionPolicyLifetime(NamedTuple):
+    schedule: CronSchedule
+    lifetime: timedelta
 
 
 class CustomSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
@@ -74,14 +76,17 @@ class CustomSnapshotRetentionPolicy(TargetSnapshotRetentionPolicy):
                                    parsed_dst_snapshots_names: list[ParsedSnapshotName]) -> list[str]:
         result = []
         for parsed_dst_snapshot in parsed_dst_snapshots_names:
+            if parsed_dst_snapshot.datetime is None:
+                raise ValueError("Parsed destination snapshot %r must have datetime set")
+
             for lifetime in self.lifetimes:
                 if lifetime.schedule.should_run(parsed_dst_snapshot.datetime):
-                    lifetime = lifetime.lifetime
+                    snapshot_lifetime = lifetime.lifetime
                     break
             else:
-                lifetime = self.lifetime
+                snapshot_lifetime = self.lifetime
 
-            if parsed_dst_snapshot.datetime < now - lifetime:
+            if parsed_dst_snapshot.datetime < now - snapshot_lifetime:
                 result.append(parsed_dst_snapshot.name)
 
         return result

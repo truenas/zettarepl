@@ -35,9 +35,14 @@ def get_snapshots_to_send(src_snapshots: list[str], dst_snapshots: list[str],
 
 
 def get_snapshots_to_send_with_name_pattern(
-    src_snapshots: list[str], dst_snapshots: list[str],
-    replication_task: ReplicationTask, src_shell: Shell, src_dataset: str,
+    src_snapshots: list[str],
+    dst_snapshots: list[str],
+    replication_task: ReplicationTask,
+    src_shell: Shell,
+    src_dataset: str,
 ) -> SnapshotsToSend:
+    assert replication_task.name_pattern
+
     src_snapshots = [
         snapshot.name
         for snapshot in list_snapshots(src_shell, src_dataset, False, "createtxg")
@@ -111,11 +116,20 @@ def get_snapshots_to_send_with_naming_schemas(
 
     # Do not send something that will immediately be removed by retention policy
     will_be_removed = replication_task.retention_policy.calculate_delete_snapshots(
-        # We don't know what time it is, our best guess is newest snapshot datetime
-        max([parsed_src_snapshot.datetime for parsed_src_snapshot in parsed_src_snapshots] or [datetime.max]),
-        snapshots_to_send, snapshots_to_send)
-    snapshots_to_send = [parsed_snapshot.name
-                         for parsed_snapshot in snapshots_to_send
-                         if parsed_snapshot not in will_be_removed]
+        # We don't know what time it is, our best guess is the newest snapshot datetime
+        max([
+            parsed_src_snapshot.datetime
+            for parsed_src_snapshot in parsed_src_snapshots
+            if parsed_src_snapshot.datetime is not None
+        ] or [datetime.max]),
+        snapshots_to_send,
+        snapshots_to_send,
+    )
 
-    return SnapshotsToSend(incremental_base, snapshots_to_send, False, False)
+    snapshot_names_to_send = [
+        parsed_snapshot.name
+        for parsed_snapshot in snapshots_to_send
+        if parsed_snapshot.name not in will_be_removed
+    ]
+
+    return SnapshotsToSend(incremental_base, snapshot_names_to_send, False, False)
