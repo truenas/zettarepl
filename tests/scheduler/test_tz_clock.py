@@ -1,12 +1,12 @@
 # -*- coding=utf-8 -*-
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from zettarepl.scheduler.tz_clock import *
 
 
 def _local(utc: datetime, tz: ZoneInfo) -> datetime:
-    return utc.replace(tzinfo=dt_timezone.utc).astimezone(tz)
+    return utc.replace(tzinfo=timezone.utc).astimezone(tz)
 
 
 def test__legit_time_backward():

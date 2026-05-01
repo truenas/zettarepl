@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, timezone
 import subprocess
 import textwrap
 import time
@@ -74,7 +74,7 @@ def test_long_running_replication_task_does_not_affect_unrelated_local_retention
     zettarepl.set_tasks(definition.tasks)
     zettarepl.scheduler.schedule.return_value = [
         Mock(datetime=Mock(datetime=datetime(2023, 5, 1, 0, 0),
-                           offset_aware_datetime=datetime(2023, 5, 1, 0, 0, tzinfo=dt_timezone.utc),
+                           offset_aware_datetime=datetime(2023, 5, 1, 0, 0, tzinfo=timezone.utc),
                            legit_step_back=None),
              tasks=[zettarepl.tasks[0]]),
     ]
@@ -184,7 +184,7 @@ def test_remote_retention_only_after_long_running_replication_task():
         zettarepl.set_tasks(definition.tasks)
         zettarepl.scheduler.schedule.return_value = [
             Mock(datetime=Mock(datetime=datetime(2023, 5, 1, 0, 0),
-                               offset_aware_datetime=datetime(2023, 5, 1, 0, 0, tzinfo=dt_timezone.utc),
+                               offset_aware_datetime=datetime(2023, 5, 1, 0, 0, tzinfo=timezone.utc),
                                legit_step_back=None),
                  tasks=[zettarepl.tasks[0]]),
         ]
