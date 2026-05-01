@@ -1,9 +1,7 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
-from datetime import datetime, tzinfo
+from datetime import datetime, timezone, tzinfo
 import logging
-
-import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +12,8 @@ TzClockDateTime = namedtuple("TzClockDateTime", ["datetime", "offset_aware_datet
 
 
 class TzClock:
-    def __init__(self, timezone: tzinfo, utcnow: datetime) -> None:
-        self.timezone: tzinfo = timezone
+    def __init__(self, tz: tzinfo, utcnow: datetime) -> None:
+        self.timezone: tzinfo = tz
 
         self.utcnow: datetime = utcnow
         self.now: datetime = self._calculate_now(self.utcnow)
@@ -40,4 +38,4 @@ class TzClock:
             self.now_naive = now_naive
 
     def _calculate_now(self, utcnow: datetime) -> datetime:
-        return utcnow.replace(tzinfo=pytz.UTC).astimezone(self.timezone)
+        return utcnow.replace(tzinfo=timezone.utc).astimezone(self.timezone)

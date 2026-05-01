@@ -8,7 +8,6 @@ install_requires = [
     "jsonschema",
     "paramiko",
     "python-dateutil",
-    "pytz",
     "pyyaml",
 ]
 

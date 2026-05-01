@@ -6,9 +6,9 @@ from datetime import tzinfo
 import logging
 from typing import Any, Sequence
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from dateutil.tz import tzlocal
-import pytz
-import pytz.exceptions
 
 from zettarepl.replication.task.task import ReplicationTask
 from zettarepl.snapshot.task.task import PeriodicSnapshotTask
@@ -85,8 +85,8 @@ class Definition:
         timezone: tzinfo = tzlocal()
         if "timezone" in data:
             try:
-                timezone = pytz.timezone(data["timezone"])
-            except pytz.exceptions.UnknownTimeZoneError:
+                timezone = ZoneInfo(data["timezone"])
+            except (ZoneInfoNotFoundError, ValueError):
                 errors.append(DefinitionError(f"Unknown timezone: {data['timezone']!r}"))
 
         periodic_snapshot_tasks = []
