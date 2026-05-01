@@ -3,8 +3,7 @@ from datetime import datetime, tzinfo
 import logging
 import re
 from typing import Any, Iterable, NamedTuple
-
-import pytz
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -138,8 +137,8 @@ def validate_snapshot_naming_schema(schema: str) -> None:
                          "ZFS snapshot names can't contain `+` so we use `--` instead.")
 
     for d in [
-        datetime(2000, 2, 29, 19, 40, tzinfo=pytz.timezone("Etc/GMT-10")),
-        datetime(2000, 2, 29, 19, 40, tzinfo=pytz.timezone("Etc/GMT+10")),
+        datetime(2000, 2, 29, 19, 40, tzinfo=ZoneInfo("Etc/GMT-10")),
+        datetime(2000, 2, 29, 19, 40, tzinfo=ZoneInfo("Etc/GMT+10")),
     ]:
         formatted = get_snapshot_name(d, schema)
         parsed = parse_snapshot_name(formatted, schema)

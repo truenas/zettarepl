@@ -1,11 +1,11 @@
 # -*- coding=utf-8 -*-
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from itertools import permutations
 import subprocess
 import textwrap
+from zoneinfo import ZoneInfo
 
 import pytest
-import pytz
 import yaml
 
 from zettarepl.snapshot.list import list_snapshots
@@ -53,7 +53,7 @@ def test_dst(naming_schemas):
 
     run_periodic_snapshot_test(
         definition,
-        datetime(2010, 10, 30, 22, 0, 0, tzinfo=pytz.UTC).astimezone(pytz.timezone("Europe/Moscow"))
+        datetime(2010, 10, 30, 22, 0, 0, tzinfo=dt_timezone.utc).astimezone(ZoneInfo("Europe/Moscow"))
     )
 
     local_shell = LocalShell()
@@ -64,7 +64,7 @@ def test_dst(naming_schemas):
 
     run_periodic_snapshot_test(
         definition,
-        datetime(2010, 10, 30, 23, 0, 0, tzinfo=pytz.UTC).astimezone(pytz.timezone("Europe/Moscow")),
+        datetime(2010, 10, 30, 23, 0, 0, tzinfo=dt_timezone.utc).astimezone(ZoneInfo("Europe/Moscow")),
         None,
     )
 

@@ -1,9 +1,7 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
-from datetime import datetime, tzinfo
+from datetime import datetime, timezone as dt_timezone, tzinfo
 import logging
-
-import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -40,4 +38,4 @@ class TzClock:
             self.now_naive = now_naive
 
     def _calculate_now(self, utcnow: datetime) -> datetime:
-        return utcnow.replace(tzinfo=pytz.UTC).astimezone(self.timezone)
+        return utcnow.replace(tzinfo=dt_timezone.utc).astimezone(self.timezone)
