@@ -3,7 +3,6 @@ from datetime import datetime, time, timedelta
 import logging
 from typing import Any, Self
 
-import isodate
 from croniter import croniter
 
 from zettarepl.definition.schema import schedule_validator
@@ -34,7 +33,7 @@ class CronSchedule:
         data.setdefault("end", "23:59")
 
         return cls(data["minute"], data["hour"], data["day-of-month"], data["month"], data["day-of-week"],
-                   isodate.parse_time(data["begin"]), isodate.parse_time(data["end"]))
+                   time.fromisoformat(data["begin"]), time.fromisoformat(data["end"]))
 
     def should_run(self, d: datetime) -> bool:
         idealized = idealized_datetime(d)

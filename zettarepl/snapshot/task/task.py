@@ -3,12 +3,11 @@ from datetime import timedelta
 import logging
 from typing import Any, Self
 
-import isodate
-
 from zettarepl.definition.schema import periodic_snapshot_task_validator
 from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.name import validate_snapshot_naming_schema
 from zettarepl.task import Task
+from zettarepl.utils.datetime import parse_duration
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class PeriodicSnapshotTask(Task):
         data.setdefault("allow-empty", True)
 
         if "lifetime" in data:
-            lifetime = isodate.parse_duration(data["lifetime"])
+            lifetime = parse_duration(data["lifetime"])
         else:
             # timedelta.max is not good here because operations with it would result in
             # OverflowError: date value out of range

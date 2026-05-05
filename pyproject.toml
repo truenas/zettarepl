@@ -6,6 +6,6 @@ exclude = [
 
 [[tool.mypy.overrides]]
 module = [
-    "isodate.*", "libzfs.*",
+    "libzfs.*",
 ]
 ignore_missing_imports = true
