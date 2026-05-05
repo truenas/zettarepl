@@ -25,6 +25,12 @@ _DURATION_RE = re.compile(
 
 
 def parse_duration(s: str) -> timedelta:
+    """Parse an ISO 8601 duration into a timedelta.
+
+    Accepts weeks, days, hours, minutes, and seconds (e.g. P7W, P1DT12H30M).
+    Year and month components are not supported since they cannot be
+    represented as a fixed timedelta.
+    """
     m = _DURATION_RE.fullmatch(s)
     if m is None:
         raise ValueError(f"Invalid ISO 8601 duration: {s!r}")
