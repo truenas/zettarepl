@@ -2,7 +2,6 @@ from setuptools import find_packages, setup
 
 
 install_requires = [
-    "coloredlogs",
     "croniter",
     "isodate",
     "jsonschema",
