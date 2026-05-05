@@ -3,10 +3,9 @@ from datetime import datetime, timedelta
 import logging
 from typing import Any, NamedTuple
 
-import isodate
-
 from zettarepl.scheduler.cron import CronSchedule
 from zettarepl.snapshot.name import ParsedSnapshotName
+from zettarepl.utils.datetime import parse_duration
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +24,12 @@ class TargetSnapshotRetentionPolicy:
                 raise ValueError("lifetime is required for custom retention policy")
 
             return CustomSnapshotRetentionPolicy(
-                isodate.parse_duration(data["lifetime"]),
+                parse_duration(data["lifetime"]),
                 sorted(
                     [
                         CustomSnapshotRetentionPolicyLifetime(
                             CronSchedule.from_data(lifetime["schedule"]),
-                            isodate.parse_duration(lifetime["lifetime"]),
+                            parse_duration(lifetime["lifetime"]),
                         )
                         for lifetime in data.get("lifetimes", {}).values()
                     ],
