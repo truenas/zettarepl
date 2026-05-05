@@ -1,9 +1,6 @@
 # -*- coding=utf-8 -*-
 import argparse
 import logging
-import sys
-
-import coloredlogs
 
 from .commands.create_dataset import create_dataset
 from .commands.list_datasets import list_datasets
@@ -68,8 +65,6 @@ def main():
 
     logging_format = "[%(asctime)s] %(levelname)-8s [%(threadName)s] [%(name)s] %(message)s"
     logging.basicConfig(level=logging.DEBUG, format=logging_format)
-    if sys.stdout.isatty():
-        coloredlogs.install(level=logging.DEBUG, fmt=logging_format)
     for name, level in args.logging.loggers:
         logging.getLogger(name).setLevel(level)
     for handler in logging.getLogger().handlers:
