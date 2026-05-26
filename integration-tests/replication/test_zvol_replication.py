@@ -1,7 +1,6 @@
 # -*- coding=utf-8 -*-
 import subprocess
 import textwrap
-import time
 
 import pytest
 import yaml

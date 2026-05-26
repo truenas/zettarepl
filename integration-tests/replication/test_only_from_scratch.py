@@ -25,7 +25,7 @@ def test_only_from_scratch(has_dst):
         if has_dst == 2:
             subprocess.check_call("zfs snapshot tank/dst@2018-10-01_01-00", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "Europe/Moscow"
 
         replication-tasks:

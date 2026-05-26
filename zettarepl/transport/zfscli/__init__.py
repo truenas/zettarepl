@@ -135,7 +135,7 @@ def get_property(
 
 
 def parse_property(value: str, type_: Callable[[str], Any]) -> Any:
-    if type_ == bool:
+    if type_ is bool:
         type_ = zfs_bool
 
     if value == "-":

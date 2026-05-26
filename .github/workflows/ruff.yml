@@ -1,0 +1,17 @@
+name: ruff
+
+on:
+  pull_request:
+    types:
+      - 'synchronize'
+      - 'opened'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/ruff-action@v3
+      with:
+        src: .

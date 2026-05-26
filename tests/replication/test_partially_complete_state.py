@@ -41,6 +41,6 @@ def test__contains_partially_complete__contains_partially_complete_state():
 def test__contains_partially_complete__contains_partially_complete_state__forever():
     run = Mock(side_effect=[ERROR] * 60)
 
-    with pytest.raises(ContainsPartiallyCompleteState) as e:
+    with pytest.raises(ContainsPartiallyCompleteState):
         with patch("zettarepl.replication.partially_complete_state.time.sleep"):
             retry_contains_partially_complete_state(run)

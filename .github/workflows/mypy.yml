@@ -17,10 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: flake8
-        run: |
-          flake8 --config=setup.cfg zettarepl/
-
       - name: mypy
         run: |
           mypy zettarepl/

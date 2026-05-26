@@ -3,7 +3,6 @@ import subprocess
 import textwrap
 from unittest.mock import Mock
 
-import pytest
 import yaml
 
 from zettarepl.observer import ReplicationTaskSnapshotSuccess
@@ -19,7 +18,7 @@ def test_only_from_scratch():
     subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
     subprocess.check_call("zfs snapshot tank/src@2100-10-01_01-00", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "Europe/Moscow"
 
         replication-tasks:

@@ -908,7 +908,7 @@ def mount_dst_datasets(dst_context: ReplicationContext, dst_dataset: str, recurs
         try:
             dst_context.shell.exec(["zfs", "mount", properties["name"]])
         except ExecException as e:
-            if not ("encryption key not loaded" in e.stdout):
+            if "encryption key not loaded" not in e.stdout:
                 for warning in e.stdout.splitlines():
                     dst_context.context.add_warning(warning)
 

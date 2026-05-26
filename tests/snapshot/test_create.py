@@ -30,7 +30,10 @@ def test__create_snapshot__zcp_ok():
 
     create_snapshot(shell, Snapshot("data/src", "snap-1"), True, ["data/src/garbage", "data/src/temp"], {})
 
-    shell.exec.assert_has_calls([call(["zfs", "list", "-t", "filesystem,volume", "-H", "-o", "name", "-s", "name", "-r", "data/src"]), call(["zfs", "program", "data", ANY])])
+    shell.exec.assert_has_calls([
+        call(["zfs", "list", "-t", "filesystem,volume", "-H", "-o", "name", "-s", "name", "-r", "data/src"]),
+        call(["zfs", "program", "data", ANY]),
+    ])
 
 
 def test__create_snapshot__zcp_errors():

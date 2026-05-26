@@ -1,6 +1,5 @@
 # -*- coding=utf-8 -*-
 import logging
-import os
 import subprocess
 import textwrap
 
@@ -29,8 +28,11 @@ def test_replication_resume(caplog, transport, dedup, encrypted):
     subprocess.check_call("zfs snapshot tank/src@2018-10-01_01-00", shell=True)
 
     if encrypted:
-        subprocess.check_call(f"(zfs send -p -w tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
-                              "sleep 1; killall zfs", shell=True)
+        subprocess.check_call(
+            f"(zfs send -p -w tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
+            "sleep 1; killall zfs",
+            shell=True,
+        )
     else:
         subprocess.check_call("zfs create tank/dst", shell=True)
         subprocess.check_call(f"(zfs send tank/src@2018-10-01_01-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
@@ -99,8 +101,11 @@ def test_replication_resume__recursive_mount(canmount):
     subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot tank/src@2018-10-01_02-00", shell=True)
 
-    subprocess.check_call(f"(zfs send -i tank/src@2018-10-01_01-00 tank/src@2018-10-01_02-00 | {throttle(102400)} | zfs recv -s -F tank/dst) & "
-                          "sleep 1; killall zfs", shell=True)
+    subprocess.check_call(
+        f"(zfs send -i tank/src@2018-10-01_01-00 tank/src@2018-10-01_02-00 | {throttle(102400)} | "
+        "zfs recv -s -F tank/dst) & sleep 1; killall zfs",
+        shell=True,
+    )
 
     assert "receive_resume_token\t1-" in subprocess.check_output("zfs get -H receive_resume_token tank/dst",
                                                                  shell=True, encoding="utf-8")

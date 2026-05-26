@@ -9,3 +9,33 @@ module = [
     "libzfs.*",
 ]
 ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+exclude = ["middlewared/alembic/*"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # flake8-async
+    "ASYNC",
+    # flake8-tidy-imports
+    "TID",
+]
+ignore = [
+    # Async function definition with a `timeout` parameter
+    "ASYNC109",
+    # star imports are used; unable to detect undefined names
+    "F403",
+    # may be undefined, or defined from star imports
+    "F405",
+    # Prefer absolute imports over relative imports from parent modules
+    "TID252",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true

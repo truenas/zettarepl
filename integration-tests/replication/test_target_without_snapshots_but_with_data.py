@@ -102,7 +102,7 @@ def test_replicate_to_existing_dataset_structure(recursive, exclude, src_has_chi
     if not dst_child_mounted:
         subprocess.check_call(f"zfs umount {dst}/child", shell=True)
         if dst_child_has_own_contents:
-            with open(f"/mnt/{dst}/child/file", "w") as f:
+            with open(f"/mnt/{dst}/child/file", "w"):
                 pass
 
     definition = yaml.safe_load(textwrap.dedent("""\
