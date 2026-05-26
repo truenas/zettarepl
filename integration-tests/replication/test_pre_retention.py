@@ -143,7 +143,7 @@ def test_pre_retention_keeps_incremental_base(caplog):
             recursive: false
             auto: false
             retention-policy: custom
-            lifetime: P1Y
+            lifetime: P365D
             retries: 1
     """))
 
