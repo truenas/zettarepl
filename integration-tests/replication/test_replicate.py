@@ -37,7 +37,7 @@ def test_retry(snapshot_match_options):
     subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/child1/blob bs=1M count=1", shell=True)
     subprocess.check_call("zfs snapshot -r tank/src@2021-08-23_19-30", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:
@@ -86,7 +86,7 @@ def test_retry(snapshot_match_options):
     (
         "tank/dst/child2@2021-08-23_19-30",
         (
-            f"Last full ZFS replication failed to transfer all the children of the snapshot tank/src@2021-08-23_19-30. "
+            "Last full ZFS replication failed to transfer all the children of the snapshot tank/src@2021-08-23_19-30. "
             "The snapshot tank/dst/child2@2021-08-23_19-30 was not transferred. Please run "
             "`zfs destroy -r tank/dst@2021-08-23_19-30` on the target system and run replication again."
         ),
@@ -115,7 +115,7 @@ def test_replicate(snapshot_to_destroy, error_text, snapshot_match_options, take
     subprocess.check_call(f"zfs destroy {snapshot_to_destroy}", shell=True)
 
     if take_new_snapshot:
-        subprocess.check_call(f"zfs snapshot -r tank/src@2021-08-23_19-35", shell=True)
+        subprocess.check_call("zfs snapshot -r tank/src@2021-08-23_19-35", shell=True)
 
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"

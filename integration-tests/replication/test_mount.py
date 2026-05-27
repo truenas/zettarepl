@@ -32,7 +32,10 @@ def test_replication_mount__skip_parent():
         create_dataset("tank/dst/server/UNIX/var")
         subprocess.check_call("zfs set mountpoint=none tank/dst/server/UNIX/var", shell=True)
         create_dataset("tank/dst/server/UNIX/var/audit")
-        subprocess.check_call("zfs set mountpoint=/tank/dst/server/var/audit tank/dst/server/UNIX/var/audit", shell=True)
+        subprocess.check_call(
+            "zfs set mountpoint=/tank/dst/server/var/audit tank/dst/server/UNIX/var/audit",
+            shell=True,
+        )
         subprocess.check_call("zfs set readonly=on tank/dst/server", shell=True)
 
         definition = yaml.safe_load(textwrap.dedent("""\

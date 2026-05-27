@@ -16,7 +16,7 @@ def test_keeps_mount_structure():
     subprocess.check_call("zfs create tank/src", shell=True)
     subprocess.check_call("zfs create tank/src/child", shell=True)
     subprocess.check_call("zfs create tank/src/child/grandchild", shell=True)
-    with open("/mnt/tank/src/child/grandchild/file", "w") as f:
+    with open("/mnt/tank/src/child/grandchild/file", "w"):
         pass
     subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_01-00", shell=True)
 

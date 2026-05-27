@@ -35,7 +35,7 @@ def test_pre_retention(direction, recursive, retention_policy):
     subprocess.check_call("dd if=/dev/urandom of=/mnt/tank/src/a/blob bs=1K count=90000", shell=True)
     subprocess.check_call("zfs snapshot -r tank/src@2018-10-01_03-00", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         periodic-snapshot-tasks:
@@ -93,7 +93,7 @@ def test_pre_retention_multiple_source_datasets():
 
     subprocess.check_call("zfs snapshot -r tank/src@2022-05-18_00-00", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:
@@ -129,7 +129,7 @@ def test_pre_retention_keeps_incremental_base(caplog):
     subprocess.check_call("zfs send -R tank/src@2018-10-03_01-00 | zfs recv -s -F tank/dst", shell=True)
     subprocess.check_call("zfs snapshot -r tank/src@2020-10-01_01-00", shell=True)
 
-    definition = yaml.safe_load(textwrap.dedent(f"""\
+    definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
         replication-tasks:

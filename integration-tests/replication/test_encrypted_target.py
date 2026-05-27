@@ -120,8 +120,9 @@ def test_create_encrypted_target(encryption, key_location, transport):
     if key_location == "$TrueNAS":
         if encryption["key-format"] != "passphrase":
             assert (
-                subprocess.check_output(["midclt", "call", "--job", "pool.dataset.export_key", "tank/dst"]).decode().strip() ==
-                encryption["key"]
+                subprocess.check_output(
+                    ["midclt", "call", "--job", "pool.dataset.export_key", "tank/dst"]
+                ).decode().strip() == encryption["key"]
             )
     else:
         assert (

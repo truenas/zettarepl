@@ -5,7 +5,6 @@ import textwrap
 import pytest
 import yaml
 
-from zettarepl.observer import PeriodicSnapshotTaskError
 from zettarepl.snapshot.create import create_snapshot, CreateSnapshotError
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.local import LocalShell
