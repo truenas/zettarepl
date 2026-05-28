@@ -15,6 +15,7 @@ setup(
     description="zettarepl is a cross-platform ZFS replication solution",
     packages=find_packages(),
     package_data={
+        "zettarepl": ["py.typed"],
         "zettarepl.definition.schema": ["*.yaml"],
         "zettarepl.zcp": ["*.lua"],
     },
