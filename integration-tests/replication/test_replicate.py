@@ -138,3 +138,42 @@ def test_replicate(snapshot_to_destroy, error_text, snapshot_match_options, take
     error = run_replication_test(definition, success=error_text is None)
     if error_text is not None:
         assert error.error == error_text
+
+
+def test_replicate_dataset_rename():
+    subprocess.call("zfs destroy -r tank/src", shell=True)
+    subprocess.call("zfs receive -A tank/dst", shell=True)
+    subprocess.call("zfs destroy -r tank/dst", shell=True)
+
+    subprocess.check_call("zfs create tank/src", shell=True)
+    subprocess.check_call("zfs create tank/src/child1", shell=True)
+    subprocess.check_call("zfs create tank/src/child2", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2026-01-01_00-00", shell=True)
+    subprocess.check_call("zfs snapshot -r tank/src@2026-01-02_00-00", shell=True)
+    subprocess.check_call("zfs send -R tank/src@2026-01-02_00-00 | zfs recv tank/dst", shell=True)
+    subprocess.check_call("zfs rename tank/src/child2 tank/src/child3", shell=True)
+
+    definition = yaml.safe_load(textwrap.dedent("""\
+        timezone: "UTC"
+
+        replication-tasks:
+          src:
+            direction: push
+            transport:
+              type: local
+            source-dataset: tank/src
+            target-dataset: tank/dst
+            recursive: true
+            replicate: true
+            also-include-naming-schema:
+              - "%Y-%m-%d_%H-%M"
+            auto: false
+            retention-policy: source
+            retries: 1
+    """))
+    error = run_replication_test(definition, success=False)
+    assert " by running `zpool history tank | egrep 'rename.+tank/src/child3'`." in error.error
+
+    subprocess.call("zfs rename tank/dst/child2 tank/dst/child3", shell=True)
+
+    run_replication_test(definition)

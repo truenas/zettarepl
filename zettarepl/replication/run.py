@@ -737,7 +737,11 @@ def check_base_consistency_for_full_replication(
             text += (
                 f"The snapshot {dst_dataset}@{snapshots_to_send.incremental_base} was not transferred. Please run "
                 f"`zfs destroy -r {step_template.dst_dataset}@{snapshots_to_send.incremental_base}` on the target "
-                "system and run replication again."
+                "system and run replication again. "
+                "Note that this error might also occur due to ZFS datasets being renamed on the source system. You can "
+                f"check this by running `zpool history {src_dataset.split('/')[0]} | egrep 'rename.+{src_dataset}'`."
+                f"If there are any relevant renames, repeat them on the destination system by running "
+                f"the corresponding `zfs rename` commands and try again."
             )
 
             raise ReplicationError(text)
