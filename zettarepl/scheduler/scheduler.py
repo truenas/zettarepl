@@ -57,6 +57,6 @@ class Scheduler:
 
     def interrupt(self, tasks: list[Task]) -> None:
         with self.interrupt_lock:
-            self.interrupt_tasks = tasks
+            self.interrupt_tasks += [task for task in tasks if task not in self.interrupt_tasks]
 
         self.clock.interrupt()
