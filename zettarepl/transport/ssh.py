@@ -138,14 +138,21 @@ class SshReplicationProcess(ReplicationProcess, ProgressReportMixin):
                 recv = pipe(self.compression.decompress, recv)
 
             if self.speed_limit is not None:
-                send = pipe(send, [
+                mbuffer = [
                     "mbuffer",
                     "-q",  # quiet - do not display the status on the standard error output
                     "-Q",  # quiet - do not log the status in the log file
                     "-m", f"{self.speed_limit}b",  # Use a total of size bytes for buffer
                     "-r", str(self.speed_limit),   # the transfer limit for the reader
                     "-R", str(self.speed_limit),   # the transfer limit for the writer
-                ])
+                ]
+                if self.direction == ReplicationDirection.PUSH:
+                    # We run `mbuffer` ourselves here, and our own `$HOME` can be unset. mbuffer then warns on
+                    # stderr, which pollutes the replication output. An empty value silences the warning without
+                    # inventing a home directory. A `PULL` sends through the remote login shell, which sets `$HOME`.
+                    mbuffer = ["env", "HOME="] + mbuffer
+
+                send = pipe(send, mbuffer)
 
             if self.direction == ReplicationDirection.PUSH:
                 commands = [send, cmd + [implode(["sh", "-c", f"{PATH} " + implode(recv)])]]
