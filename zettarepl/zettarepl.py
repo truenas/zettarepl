@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, tzinfo
 import functools
 import logging
 import threading
@@ -85,6 +85,12 @@ class Zettarepl:
 
     def set_observer(self, observer: Callable[[ObserverMessage], Any] | None) -> None:
         self.observer = observer
+
+    def set_config(self, max_parallel_replication_tasks: int | None, timezone: tzinfo,
+                   use_removal_dates: bool) -> None:
+        self.max_parallel_replication_tasks = max_parallel_replication_tasks
+        self.use_removal_dates = use_removal_dates
+        self.scheduler.tz_clock.timezone = timezone
 
     def set_tasks(self, tasks: Sequence[Task]) -> None:
         self.tasks = tasks

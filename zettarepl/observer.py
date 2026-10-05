@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import dataclasses
 import logging
-from typing import Any, overload
+from typing import Any, ClassVar, overload
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["notify", "Observer", "ObserverMessage",
            "PeriodicSnapshotTaskStart", "PeriodicSnapshotTaskSuccess", "PeriodicSnapshotTaskError",
-           "ReplicationTaskScheduled", "ReplicationTaskStart", "ReplicationTaskSnapshotStart",
-           "ReplicationTaskSnapshotProgress", "ReplicationTaskSnapshotSuccess", "ReplicationTaskDataProgress",
-           "ReplicationTaskSuccess", "ReplicationTaskError"]
+           "ReplicationTaskScheduled", "ReplicationTaskStart", "ReplicationTaskLog",
+           "ReplicationTaskSnapshotStart", "ReplicationTaskSnapshotProgress", "ReplicationTaskSnapshotSuccess",
+           "ReplicationTaskDataProgress", "ReplicationTaskSuccess", "ReplicationTaskError"]
 
 
 @overload
@@ -37,99 +38,126 @@ def notify(observer: Callable[..., Any] | None, message: ObserverMessage) -> Any
     return result
 
 
+@dataclasses.dataclass
 class ObserverMessage:
-    response: type | None = None
+    response: ClassVar[type | None] = None
+
+    registry: ClassVar[dict[str, type[ObserverMessage]]] = {}
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        ObserverMessage.registry[cls.__name__] = cls
+
+    def dump(self) -> dict[str, Any]:
+        return {"type": type(self).__name__, **dataclasses.asdict(self)}
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> ObserverMessage:
+        fields = dict(data)
+        name = fields.pop("type")
+        try:
+            subclass = ObserverMessage.registry[name]
+        except KeyError:
+            raise ValueError(f"Unknown observer message: {name!r}") from None
+
+        return subclass(**fields)
 
 
+@dataclasses.dataclass
 class ObserverMessageWithResponse[T](ObserverMessage):
-    response: type[T]
+    response: ClassVar[type] = type(None)
 
 
 Observer = Callable[[ObserverMessage], None] | None
 
 
+@dataclasses.dataclass
 class PeriodicSnapshotTaskStartResponse:
-    def __init__(self, properties: dict[str, str] | None = None) -> None:
-        self.properties = properties or {}
+    properties: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
+@dataclasses.dataclass
 class PeriodicSnapshotTaskStart(ObserverMessageWithResponse[PeriodicSnapshotTaskStartResponse]):
-    response = PeriodicSnapshotTaskStartResponse
+    response: ClassVar[type] = PeriodicSnapshotTaskStartResponse
 
-    def __init__(self, task_id: str) -> None:
-        self.task_id = task_id
+    task_id: str
 
 
+@dataclasses.dataclass
 class PeriodicSnapshotTaskSuccess(ObserverMessage):
-    def __init__(self, task_id: str, dataset: str, snapshot: str, already_existed: bool) -> None:
-        self.task_id = task_id
-        self.dataset = dataset
-        self.snapshot = snapshot
-        self.already_existed = already_existed
+    task_id: str
+    dataset: str
+    snapshot: str
+    already_existed: bool
 
 
+@dataclasses.dataclass
 class PeriodicSnapshotTaskError(ObserverMessage):
-    def __init__(self, task_id: str, error: str) -> None:
-        self.task_id = task_id
-        self.error = error
+    task_id: str
+    error: str
 
 
+@dataclasses.dataclass
 class ReplicationTaskScheduled(ObserverMessage):
-    def __init__(self, task_id: str, waiting_reason: str) -> None:
-        self.task_id = task_id
-        self.waiting_reason = waiting_reason
+    task_id: str
+    waiting_reason: str
 
 
+@dataclasses.dataclass
 class ReplicationTaskStart(ObserverMessage):
-    def __init__(self, task_id: str) -> None:
-        self.task_id = task_id
+    task_id: str
 
 
+@dataclasses.dataclass
+class ReplicationTaskLog(ObserverMessage):
+    task_id: str
+    log: str
+
+
+@dataclasses.dataclass
 class ReplicationTaskSnapshotStart(ObserverMessage):
-    def __init__(self, task_id: str, dataset: str, snapshot: str, snapshots_sent: int, snapshots_total: int) -> None:
-        self.task_id = task_id
-        self.dataset = dataset
-        self.snapshot = snapshot
-        self.snapshots_sent = snapshots_sent
-        self.snapshots_total = snapshots_total
+    task_id: str
+    dataset: str
+    snapshot: str
+    snapshots_sent: int
+    snapshots_total: int
 
 
+@dataclasses.dataclass
 class ReplicationTaskSnapshotProgress(ObserverMessage):
-    def __init__(self, task_id: str, dataset: str, snapshot: str, snapshots_sent: int,
-                 snapshots_total: int, bytes_sent: int, bytes_total: int) -> None:
-        self.task_id = task_id
-        self.dataset = dataset
-        self.snapshot = snapshot
-        self.snapshots_sent = snapshots_sent
-        self.snapshots_total = snapshots_total
-        self.bytes_sent = bytes_sent
-        self.bytes_total = bytes_total
+    task_id: str
+    dataset: str
+    snapshot: str
+    snapshots_sent: int
+    snapshots_total: int
+    bytes_sent: int
+    bytes_total: int
 
 
+@dataclasses.dataclass
 class ReplicationTaskSnapshotSuccess(ObserverMessage):
-    def __init__(self, task_id: str, dataset: str, snapshot: str, snapshots_sent: int, snapshots_total: int) -> None:
-        self.task_id = task_id
-        self.dataset = dataset
-        self.snapshot = snapshot
-        self.snapshots_sent = snapshots_sent
-        self.snapshots_total = snapshots_total
+    task_id: str
+    dataset: str
+    snapshot: str
+    snapshots_sent: int
+    snapshots_total: int
 
 
+@dataclasses.dataclass
 class ReplicationTaskDataProgress(ObserverMessage):
-    def __init__(self, task_id: str, dataset: str, src_size: int, dst_size: int) -> None:
-        self.task_id = task_id
-        self.dataset = dataset
-        self.src_size = src_size
-        self.dst_size = dst_size
+    task_id: str
+    dataset: str
+    src_size: int
+    dst_size: int
 
 
+@dataclasses.dataclass
 class ReplicationTaskSuccess(ObserverMessage):
-    def __init__(self, task_id: str, warnings: list[str]) -> None:
-        self.task_id = task_id
-        self.warnings = warnings
+    task_id: str
+    warnings: list[str]
 
 
+@dataclasses.dataclass
 class ReplicationTaskError(ObserverMessage):
-    def __init__(self, task_id: str, error: str) -> None:
-        self.task_id = task_id
-        self.error = error
+    task_id: str
+    error: str

@@ -1,11 +1,13 @@
 # -*- coding=utf-8 -*-
 import argparse
 import logging
+import logging.handlers
 
 from .commands.create_dataset import create_dataset
+from .commands.daemon import run_daemon
 from .commands.list_datasets import list_datasets
 from .commands.run import run
-from .utils.logging import LongStringsFilter, ReplicationTaskLoggingLevelFilter
+from .utils.logging import LOG_FORMAT, LOG_TIME_FORMAT, LongStringsFilter, ReplicationTaskLoggingLevelFilter
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ def main() -> None:
 
     parser.add_argument("-l", "--logging", type=LoggingConfiguration, default="info",
                         help='Per-logger logging level configuration. E.g.: "info", "warning" or "debug,paramiko:info"')
+    parser.add_argument("--logfile", help="Log file path. Default is stderr")
 
     subparsers = parser.add_subparsers()
     subparsers.required = True
@@ -61,10 +64,16 @@ def main() -> None:
                             help="Run replication tasks scheduled for current moment of time and exit")
     run_parser.set_defaults(func=run)
 
+    daemon_parser = subparsers.add_parser("daemon")
+    daemon_parser.set_defaults(func=run_daemon)
+
     args = parser.parse_args()
 
-    logging_format = "[%(asctime)s] %(levelname)-8s [%(threadName)s] [%(name)s] %(message)s"
-    logging.basicConfig(level=logging.DEBUG, format=logging_format)
+    handlers = None
+    if args.logfile:
+        handlers = [logging.handlers.RotatingFileHandler(args.logfile, "a", 10485760, 5, "utf-8")]
+
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, datefmt=LOG_TIME_FORMAT, handlers=handlers)
     for name, level in args.logging.loggers:
         logging.getLogger(name).setLevel(level)
     for handler in logging.getLogger().handlers:
