@@ -26,7 +26,7 @@ class MiddlewareClient:
 
         self.notifications: queue.Queue[ObserverMessage] = queue.Queue()
 
-        self.client = Client(private_methods=True)
+        self.client = Client("ws+unix:///run/middleware/middlewared-internal.sock", private_methods=True)
         self.client.subscribe("zettarepl.command", self._event_callback)
 
         threading.Thread(name="zr_notifier", target=self._notifier, daemon=True).start()
