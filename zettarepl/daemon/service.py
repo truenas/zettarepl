@@ -67,7 +67,7 @@ class Daemon:
 
         self.clock = Clock()
         tz_clock = TzClock(tzlocal(), self.clock.now)
-        self.zettarepl = Zettarepl(Scheduler(self.clock, tz_clock), LocalShell())
+        self.zettarepl = Zettarepl(Scheduler(self.clock, tz_clock), LocalShell(), middleware_client=self.client)
         self.zettarepl.set_observer(self._observer)
 
     def run(self) -> None:
@@ -129,8 +129,7 @@ class Daemon:
         data = self.client.call("zettarepl.get_definition")
 
         definition = Definition.from_data(data["definition"], raise_on_error=False)
-        self.zettarepl.set_config(definition.max_parallel_replication_tasks, definition.timezone,
-                                  definition.use_removal_dates)
+        self.zettarepl.set_config(definition.max_parallel_replication_tasks, definition.timezone)
         self.zettarepl.set_tasks(definition.tasks)
 
         self.client.call("zettarepl.notify_definition_read", {
