@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from collections import namedtuple
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, tzinfo
 import functools
 import logging
 import threading
-from typing import Any, Sequence
+from typing import Any, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from zettarepl.daemon.client import MiddlewareClient
 
 from zettarepl.dataset.relationship import is_child
 from zettarepl.definition.definition import Definition
@@ -59,17 +62,17 @@ def create_zettarepl(definition: Definition, clock_args: tuple[Any, ...] | None 
     scheduler = Scheduler(clock, tz_clock)
     local_shell = LocalShell()
 
-    return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks, definition.use_removal_dates)
+    return Zettarepl(scheduler, local_shell, definition.max_parallel_replication_tasks)
 
 
 class Zettarepl:
     def __init__(self, scheduler: Scheduler, local_shell: LocalShell,
                  max_parallel_replication_tasks: int | None = None,
-                 use_removal_dates: bool = False) -> None:
+                 middleware_client: MiddlewareClient | None = None) -> None:
         self.scheduler = scheduler
         self.local_shell = local_shell
         self.max_parallel_replication_tasks = max_parallel_replication_tasks
-        self.use_removal_dates = use_removal_dates
+        self.middleware_client = middleware_client
 
         self.observer: Callable[[ObserverMessage], Any] | None = None
 
@@ -85,6 +88,10 @@ class Zettarepl:
 
     def set_observer(self, observer: Callable[[ObserverMessage], Any] | None) -> None:
         self.observer = observer
+
+    def set_config(self, max_parallel_replication_tasks: int | None, timezone: tzinfo) -> None:
+        self.max_parallel_replication_tasks = max_parallel_replication_tasks
+        self.scheduler.tz_clock.timezone = timezone
 
     def set_tasks(self, tasks: Sequence[Task]) -> None:
         self.tasks = tasks
@@ -394,9 +401,9 @@ class Zettarepl:
         pull_replications_tasks = list(filter(self._is_pull_replication_task, replication_tasks))
 
         snapshot_removal_date_owner = None
-        if self.use_removal_dates:
+        if self.middleware_client is not None:
             try:
-                removal_dates = get_removal_dates()
+                removal_dates = get_removal_dates(self.middleware_client)
             except Exception:
                 logger.warning("Skipping local retention: unhandled exception getting snapshot removal dates",
                                exc_info=True)

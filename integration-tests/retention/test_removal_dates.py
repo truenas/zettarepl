@@ -2,7 +2,7 @@
 from datetime import datetime
 import subprocess
 import textwrap
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -96,10 +96,11 @@ def test_does_not_remove_the_last_snapshot_left(snapshots__removal_dates__result
     definition = Definition.from_data(data)
 
     local_shell = LocalShell()
-    zettarepl = Zettarepl(Mock(), local_shell, use_removal_dates=True)
+    middleware_client = Mock()
+    middleware_client.call.return_value = removal_dates
+    zettarepl = Zettarepl(Mock(), local_shell, middleware_client=middleware_client)
     zettarepl.set_tasks(definition.tasks)
-    with patch("zettarepl.zettarepl.get_removal_dates", Mock(return_value=removal_dates)):
-        zettarepl._run_local_retention(datetime(2021, 4, 19, 17, 0), [])
+    zettarepl._run_local_retention(datetime(2021, 4, 19, 17, 0), [])
 
     assert list_snapshots(local_shell, "tank/src", False) + list_snapshots(local_shell, "tank/src2", False) == [
         snapshots[i] for i in result

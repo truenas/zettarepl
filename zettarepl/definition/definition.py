@@ -58,13 +58,11 @@ class Definition:
         tasks: Sequence[Task],
         max_parallel_replication_tasks: int | None,
         timezone: tzinfo,
-        use_removal_dates: bool,
         errors: list[DefinitionError],
     ) -> None:
         self.tasks = tasks
         self.max_parallel_replication_tasks = max_parallel_replication_tasks
         self.timezone = timezone
-        self.use_removal_dates = use_removal_dates
 
         self.errors = errors
 
@@ -120,6 +118,5 @@ class Definition:
             periodic_snapshot_tasks + replication_tasks,  # type: ignore
             max_parallel_replication_tasks,
             timezone,
-            data.get("use-removal-dates", False),
             errors,
         )

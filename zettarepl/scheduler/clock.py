@@ -13,6 +13,7 @@ class Clock:
         self.once = once
 
         self.ticked: bool = False
+        self.stopped: bool = False
         self.now: datetime = datetime.utcnow()
 
         self.interrupt_event: threading.Event = threading.Event()
@@ -25,12 +26,18 @@ class Clock:
                 self.ticked = True
                 return self.now
 
-        while True:
+        while not self.stopped:
             now = self._tick()
             if now is not None:
                 return now
 
+        return None
+
     def interrupt(self) -> None:
+        self.interrupt_event.set()
+
+    def stop(self) -> None:
+        self.stopped = True
         self.interrupt_event.set()
 
     def _tick(self) -> datetime | None:
@@ -44,6 +51,9 @@ class Clock:
             if self._minutetuple(self.now) == self._minutetuple(now):
                 next_minute_begin = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
                 if self.interrupt_event.wait(min(10, (next_minute_begin - now).total_seconds())):
+                    if self.stopped:
+                        return None
+
                     logger.info("Interrupted")
                     self.interrupt_event.clear()
                     try:

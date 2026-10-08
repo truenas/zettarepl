@@ -6,8 +6,11 @@ from typing import Any, MutableMapping
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LongStringsFilter", "ReplicationTaskLoggingLevelFilter", "logging_record_replication_task",
-           "PrefixLoggerAdapter"]
+__all__ = ["LOG_FORMAT", "LOG_TIME_FORMAT", "LongStringsFilter", "ReplicationTaskLoggingLevelFilter",
+           "logging_record_replication_task", "PrefixLoggerAdapter"]
+
+LOG_FORMAT = "[%(asctime)s] %(levelname)-8s [%(threadName)s] [%(name)s] %(message)s"
+LOG_TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 
 class LongStringsFilter(logging.Filter):
