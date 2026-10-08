@@ -44,7 +44,7 @@ __all__ = ["Daemon"]
 
 
 def encode_definition_errors(errors: list[DefinitionError]) -> list[dict[str, Any]]:
-    result = []
+    result: list[dict[str, Any]] = []
     for error in errors:
         if isinstance(error, PeriodicSnapshotTaskDefinitionError):
             result.append({"type": "periodic_snapshot_task", "task_id": error.task_id, "error": str(error)})
