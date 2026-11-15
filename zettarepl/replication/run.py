@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from datetime import datetime
+from itertools import dropwhile
 import logging
 import os
 import signal
@@ -16,7 +17,9 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
                                 ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess,
                                 ReplicationTaskDataProgress, ReplicationTaskError)
+from zettarepl.snapshot.destroy import destroy_snapshots
 from zettarepl.snapshot.list import *
+from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
 from zettarepl.transport.local import LocalShell
 from zettarepl.transport.base_ssh import BaseSshTransport
@@ -465,15 +468,19 @@ def calculate_replication_step_templates(replication_task: ReplicationTask, sour
     return templates
 
 
-def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> {str: [str]}:
+def list_datasets_with_snapshots(shell: Shell, dataset: str, recursive: bool) -> dict[str, dict[str, str]]:
     datasets = list_datasets(shell, dataset, recursive)
     return list_snapshots_for_datasets(shell, dataset, recursive, datasets)
 
 
-def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool, datasets: [str]) -> {str: [str]}:
-    datasets_from_snapshots = group_snapshots_by_datasets(list_snapshots(shell, dataset, recursive))
-    datasets = dict({dataset: [] for dataset in datasets}, **datasets_from_snapshots)
-    return OrderedDict(sorted(datasets.items(), key=lambda t: t[0]))
+def list_snapshots_for_datasets(shell: Shell, dataset: str, recursive: bool,
+                                datasets: [str]) -> dict[str, dict[str, str]]:
+    snapshots_guids = {dataset: {} for dataset in datasets}
+    for snapshot in list_snapshots_with_properties(shell, dataset, recursive, properties={"guid": str}):
+        snapshot_dataset, snapshot_name = snapshot["name"].split("@")
+        snapshots_guids.setdefault(snapshot_dataset, {})[snapshot_name] = snapshot["guid"]
+
+    return dict(sorted(snapshots_guids.items(), key=lambda t: t[0]))
 
 
 def get_datasets_encrypted(shell: Shell, dataset: str, recursive: bool):
@@ -551,6 +558,15 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
     return resumed
 
 
+def snapshot_guids_match(step_template: ReplicationStepTemplate, snapshot: str) -> bool:
+    src_guid = step_template.src_context.datasets[step_template.src_dataset].get(snapshot)
+    dst_guid = step_template.dst_context.datasets.get(step_template.dst_dataset, {}).get(snapshot)
+    if src_guid is None or dst_guid is None:
+        return True
+
+    return src_guid == dst_guid
+
+
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
     for step_template in step_templates:
         if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
@@ -587,12 +603,17 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
             continue
 
         src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
-        dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, [])
+        dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, {})
 
         snapshots_to_send = get_snapshots_to_send(
             src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
             step_template.src_dataset,
         )
+
+        if snapshots_to_send.incremental_base is not None:
+            snapshots_to_send = check_incremental_base_guid(step_template, src_snapshots, dst_snapshots,
+                                                            snapshots_to_send)
+
         if snapshots_to_send.incremental_base is None and snapshots_to_send.snapshots:
             if dst_snapshots:
                 if step_template.replication_task.allow_from_scratch:
@@ -675,6 +696,42 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         handle_readonly(step_template)
 
 
+def check_incremental_base_guid(step_template: ReplicationStepTemplate, src_snapshots: dict[str, str],
+                                dst_snapshots: dict[str, str],
+                                snapshots_to_send: SnapshotsToSend) -> SnapshotsToSend:
+    incremental_base = snapshots_to_send.incremental_base
+    if snapshot_guids_match(step_template, incremental_base):
+        return snapshots_to_send
+
+    guid_mismatch = (
+        f"Snapshot {step_template.dst_dataset}@{incremental_base} has a different GUID than source snapshot "
+        f"{step_template.src_dataset}@{incremental_base}."
+    )
+
+    if not step_template.replication_task.allow_from_scratch:
+        raise ReplicationError(
+            f"{guid_mismatch} Replication cannot continue. Please reconfigure the replication task or destroy the "
+            "non-matching snapshots on the destination side. Allow replication from scratch to do it automatically."
+        )
+
+    # The target history diverges at the first snapshot with a different GUID, so everything from there on belongs
+    # to another history. Destroy it: `zfs recv` refuses to overwrite an existing snapshot.
+    diverged_snapshots = list(dropwhile(lambda snapshot: snapshot_guids_match(step_template, snapshot),
+                                        dst_snapshots))
+    logger.warning("%s Destroying diverged target dataset snapshots %r.", guid_mismatch, diverged_snapshots)
+    destroy_snapshots(
+        step_template.dst_context.shell,
+        [Snapshot(step_template.dst_dataset, snapshot) for snapshot in diverged_snapshots],
+    )
+    for snapshot in diverged_snapshots:
+        del dst_snapshots[snapshot]
+
+    return get_snapshots_to_send(
+        src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
+        step_template.src_dataset,
+    )
+
+
 def check_base_consistency_for_full_replication(
     step_template: ReplicationStepTemplate,
     snapshots_to_send: SnapshotsToSend,
@@ -687,7 +744,7 @@ def check_base_consistency_for_full_replication(
             continue
 
         dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
-        if snapshots_to_send.incremental_base not in step_template.dst_context.datasets.get(dst_dataset, []):
+        if snapshots_to_send.incremental_base not in step_template.dst_context.datasets.get(dst_dataset, {}):
             if step_template.dst_context.context.last_recoverable_error is not None:
                 partial_snapshot = f"{step_template.dst_dataset}@{snapshots_to_send.incremental_base}"
                 logger.warning(
@@ -702,7 +759,7 @@ def check_base_consistency_for_full_replication(
                 else:
                     src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
                     dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
-                    dst_snapshots.remove(snapshots_to_send.incremental_base)
+                    del dst_snapshots[snapshots_to_send.incremental_base]
 
                     return get_snapshots_to_send(
                         src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,

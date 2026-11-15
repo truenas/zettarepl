@@ -104,10 +104,6 @@ def test_already_replicated():
     subprocess.check_call("zfs snapshot -r tank/src@snap-1", shell=True)
     subprocess.check_call("zfs snapshot -r tank/src@snap-2", shell=True)
 
-    create_dataset("tank/dst")
-    subprocess.check_call("zfs snapshot -r tank/dst@snap-1", shell=True)
-    subprocess.check_call("zfs snapshot -r tank/dst@snap-2", shell=True)
-
     definition = yaml.safe_load(textwrap.dedent("""\
         timezone: "UTC"
 
@@ -126,3 +122,6 @@ def test_already_replicated():
     definition["replication-tasks"]["src"]["name-regex"] = "snap-.*"
 
     run_replication_test(definition)
+    run_replication_test(definition)
+
+    assert len(list_snapshots(LocalShell(), "tank/dst", False)) == 2
