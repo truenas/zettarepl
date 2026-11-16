@@ -86,9 +86,13 @@ def test_retry(snapshot_match_options):
     (
         "tank/dst/child2@2021-08-23_19-30",
         (
-            f"Last full ZFS replication failed to transfer all the children of the snapshot tank/src@2021-08-23_19-30. "
+            "Last full ZFS replication failed to transfer all the children of the snapshot tank/src@2021-08-23_19-30. "
             "The snapshot tank/dst/child2@2021-08-23_19-30 was not transferred. Please run "
-            "`zfs destroy -r tank/dst@2021-08-23_19-30` on the target system and run replication again."
+            "`zfs destroy -r tank/dst@2021-08-23_19-30` on the target system and run replication again. "
+            "Note that this error might also occur due to ZFS datasets being renamed on the source system. You can "
+            "check this by running `zpool history tank | egrep 'rename.+tank/src/child2'`. If there are any relevant "
+            "renames, repeat them on the destination system by running the corresponding `zfs rename` commands and "
+            "try again."
         ),
     ),
     # Older child snapshots might have been removed by retention or manually, we should not care about them.
