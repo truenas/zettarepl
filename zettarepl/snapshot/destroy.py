@@ -9,13 +9,23 @@ from .snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["destroy_snapshots"]
+__all__ = ["destroy_snapshots", "SnapshotsNotDestroyedError"]
 
 ARG_MAX = 262000  # FreeBSD, on Linux it is even higher
 MAX_BATCH_SIZE = 100  # Deleting too many snapshots at once can cause performance issues
 
 
-def destroy_snapshots(shell: Shell, snapshots: list[Snapshot]) -> None:
+class SnapshotsNotDestroyedError(Exception):
+    def __init__(self, reasons: dict[Snapshot, str]) -> None:
+        self.reasons = reasons
+        super().__init__(", ".join(
+            f"{snapshot.dataset}@{snapshot.name} is {reason}"
+            for snapshot, reason in sorted(reasons.items())
+        ))
+
+
+def destroy_snapshots(shell: Shell, snapshots: list[Snapshot], raise_error: bool = False) -> None:
+    not_destroyed: dict[Snapshot, str] = {}
     for dataset, snapshots in sortedgroupby(snapshots, lambda snapshot: snapshot.dataset):
         names = {snapshot.name for snapshot in snapshots}
 
@@ -61,3 +71,7 @@ def destroy_snapshots(shell: Shell, snapshots: list[Snapshot]) -> None:
 
                 logger.info("Snapshots %r on dataset %r are %s, skipping", discard_names, dataset, reason)
                 names -= set(discard_names)
+                not_destroyed.update({Snapshot(dataset, name): reason for name in discard_names})
+
+    if raise_error and not_destroyed:
+        raise SnapshotsNotDestroyedError(not_destroyed)

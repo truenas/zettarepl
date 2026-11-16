@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+from collections.abc import Collection, Mapping
 from datetime import datetime
 import enum
 import logging
@@ -116,8 +117,8 @@ def pending_push_replication_task_snapshot_owners(
 
 
 class ExecutedReplicationTaskSnapshotOwner(BaseReplicationTaskSnapshotOwner):
-    def __init__(self, now: datetime, replication_task: ReplicationTask, src_snapshots: dict[str, list[str]],
-                 dst_snapshots: dict[str, list[str]]) -> None:
+    def __init__(self, now: datetime, replication_task: ReplicationTask,
+                 src_snapshots: Mapping[str, Collection[str]], dst_snapshots: Mapping[str, Collection[str]]) -> None:
         self.now = now
         super().__init__(replication_task, BaseReplicationTaskSnapshotOwner.Side.TARGET)
         self.src_snapshots = src_snapshots

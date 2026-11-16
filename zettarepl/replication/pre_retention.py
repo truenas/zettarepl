@@ -30,8 +30,8 @@ class RetentionBeforePushReplicationSnapshotOwner(ExecutedReplicationTaskSnapsho
         return is_child(dataset, self.target_dataset) and super().owns_dataset(dataset)
 
 
-def pre_retention(now: datetime, replication_task: ReplicationTask, source_snapshots: dict[str, list[str]],
-                  target_snapshots: dict[str, list[str]], target_dataset: str, target_shell: Shell) -> None:
+def pre_retention(now: datetime, replication_task: ReplicationTask, source_snapshots: dict[str, dict[str, str]],
+                  target_snapshots: dict[str, dict[str, str]], target_dataset: str, target_shell: Shell) -> None:
     owners = [
         RetentionBeforePushReplicationSnapshotOwner(target_dataset, now, replication_task, source_snapshots,
                                                     target_snapshots)

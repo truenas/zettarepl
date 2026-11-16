@@ -226,7 +226,9 @@ There are also a few additional options that you can use:
     # By default, if there are snapshots on target dataset but none of them
     # matches any of source snapshot, replication is aborted. This is done
     # to prevent misconfigured replication from destroying snapshots on
-    # target dataset. Enabling allow-from-scratch overrides this, so if no
+    # target dataset. Snapshots that have equal names but different GUIDs
+    # do not match: they belong to unrelated datasets.
+    # Enabling allow-from-scratch overrides this, so if no
     # snapshots are related, remote dataset is recreated from scratch without
     # using incremental replication (because it is not possible in that case)
     allow-from-scratch: true
