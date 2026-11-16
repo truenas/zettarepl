@@ -17,7 +17,7 @@ from zettarepl.dataset.relationship import is_child
 from zettarepl.observer import (notify, ReplicationTaskStart, ReplicationTaskSuccess, ReplicationTaskSnapshotStart,
                                 ReplicationTaskSnapshotProgress, ReplicationTaskSnapshotSuccess,
                                 ReplicationTaskDataProgress, ReplicationTaskError)
-from zettarepl.snapshot.destroy import destroy_snapshots
+from zettarepl.snapshot.destroy import destroy_snapshots, SnapshotsNotDestroyedError
 from zettarepl.snapshot.list import *
 from zettarepl.snapshot.snapshot import Snapshot
 from zettarepl.transport.interface import ExecException, Shell, Transport
@@ -558,13 +558,35 @@ def resume_replications(step_templates: [ReplicationStepTemplate], observer=None
     return resumed
 
 
-def snapshot_guids_match(step_template: ReplicationStepTemplate, snapshot: str) -> bool:
-    src_guid = step_template.src_context.datasets[step_template.src_dataset].get(snapshot)
-    dst_guid = step_template.dst_context.datasets.get(step_template.dst_dataset, {}).get(snapshot)
+def snapshot_guids_match(src_snapshots: dict[str, str], dst_snapshots: dict[str, str], snapshot: str) -> bool:
+    src_guid = src_snapshots.get(snapshot)
+    dst_guid = dst_snapshots.get(snapshot)
     if src_guid is None or dst_guid is None:
         return True
 
     return src_guid == dst_guid
+
+
+def diverged_datasets(step_template: ReplicationStepTemplate, snapshot: str) -> list[tuple[str, str]]:
+    # A full filesystem replication stream carries the whole tree in a single step, so every dataset of that tree
+    # has to be checked, not only the one this step template names.
+    if step_template.replication_task.replicate:
+        src_datasets = [
+            src_dataset
+            for src_dataset in step_template.src_context.datasets
+            if is_child(src_dataset, step_template.src_dataset)
+        ]
+    else:
+        src_datasets = [step_template.src_dataset]
+
+    result = []
+    for src_dataset in src_datasets:
+        dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
+        if not snapshot_guids_match(step_template.src_context.datasets[src_dataset],
+                                    step_template.dst_context.datasets.get(dst_dataset, {}), snapshot):
+            result.append((src_dataset, dst_dataset))
+
+    return result
 
 
 def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=None):
@@ -696,16 +718,31 @@ def run_replication_steps(step_templates: [ReplicationStepTemplate], observer=No
         handle_readonly(step_template)
 
 
+def replicate_from_scratch(step_template: ReplicationStepTemplate, src_snapshots: dict[str, str],
+                           guid_mismatch: str) -> SnapshotsToSend:
+    # Reporting no incremental base makes the caller destroy the target dataset. Destroying only its snapshots would
+    # leave a dataset we cannot receive into: an encrypted one fails with "cannot be used to destroy an encrypted
+    # filesystem" on every run.
+    logger.warning("%s Destroying target dataset %r with all of its snapshots and children, and replicating from "
+                   "scratch.", guid_mismatch, step_template.dst_dataset)
+    return get_snapshots_to_send(
+        src_snapshots, {}, step_template.replication_task, step_template.src_context.shell,
+        step_template.src_dataset,
+    )
+
+
 def check_incremental_base_guid(step_template: ReplicationStepTemplate, src_snapshots: dict[str, str],
                                 dst_snapshots: dict[str, str],
                                 snapshots_to_send: SnapshotsToSend) -> SnapshotsToSend:
     incremental_base = snapshots_to_send.incremental_base
-    if snapshot_guids_match(step_template, incremental_base):
+    diverged = diverged_datasets(step_template, incremental_base)
+    if not diverged:
         return snapshots_to_send
 
+    src_dataset, dst_dataset = diverged[0]
     guid_mismatch = (
-        f"Snapshot {step_template.dst_dataset}@{incremental_base} has a different GUID than source snapshot "
-        f"{step_template.src_dataset}@{incremental_base}."
+        f"Snapshot {dst_dataset}@{incremental_base} has a different GUID than source snapshot "
+        f"{src_dataset}@{incremental_base}."
     )
 
     if not step_template.replication_task.allow_from_scratch:
@@ -714,17 +751,38 @@ def check_incremental_base_guid(step_template: ReplicationStepTemplate, src_snap
             "non-matching snapshots on the destination side. Allow replication from scratch to do it automatically."
         )
 
-    # The target history diverges at the first snapshot with a different GUID, so everything from there on belongs
-    # to another history. Destroy it: `zfs recv` refuses to overwrite an existing snapshot.
-    diverged_snapshots = list(dropwhile(lambda snapshot: snapshot_guids_match(step_template, snapshot),
-                                        dst_snapshots))
+    if step_template.replication_task.replicate:
+        # A full filesystem replication stream is all or nothing, so single datasets of the tree cannot be fixed.
+        return replicate_from_scratch(step_template, src_snapshots, guid_mismatch)
+
+    # The target history diverges at the first snapshot with a different GUID, so everything created after it belongs
+    # to another history. Snapshot names can be sorted differently than snapshot creation order, so ask for the
+    # creation order explicitly.
+    dst_snapshots_by_creation = [
+        snapshot.name
+        for snapshot in list_snapshots(step_template.dst_context.shell, step_template.dst_dataset, False, "createtxg")
+    ]
+    diverged_snapshots = list(dropwhile(lambda snapshot: snapshot_guids_match(src_snapshots, dst_snapshots, snapshot),
+                                        dst_snapshots_by_creation))
+
+    if len(diverged_snapshots) == len(dst_snapshots_by_creation):
+        return replicate_from_scratch(step_template, src_snapshots, guid_mismatch)
+
     logger.warning("%s Destroying diverged target dataset snapshots %r.", guid_mismatch, diverged_snapshots)
-    destroy_snapshots(
-        step_template.dst_context.shell,
-        [Snapshot(step_template.dst_dataset, snapshot) for snapshot in diverged_snapshots],
-    )
+    try:
+        destroy_snapshots(
+            step_template.dst_context.shell,
+            [Snapshot(step_template.dst_dataset, snapshot) for snapshot in diverged_snapshots],
+            raise_error=True,
+        )
+    except SnapshotsNotDestroyedError as e:
+        raise ReplicationError(
+            f"{guid_mismatch} Replication cannot destroy these diverged target dataset snapshots: {e}. Please release "
+            "the holds, destroy the dependent clones, or destroy the target dataset. Then run the replication again."
+        ) from None
+
     for snapshot in diverged_snapshots:
-        del dst_snapshots[snapshot]
+        dst_snapshots.pop(snapshot, None)
 
     return get_snapshots_to_send(
         src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
@@ -781,9 +839,9 @@ def check_base_consistency_for_full_replication(
                 f"`zfs destroy -r {step_template.dst_dataset}@{snapshots_to_send.incremental_base}` on the target "
                 "system and run replication again. "
                 "Note that this error might also occur due to ZFS datasets being renamed on the source system. You can "
-                f"check this by running `zpool history {src_dataset.split('/')[0]} | egrep 'rename.+{src_dataset}'`."
-                f"If there are any relevant renames, repeat them on the destination system by running "
-                f"the corresponding `zfs rename` commands and try again."
+                f"check this by running `zpool history {src_dataset.split('/')[0]} | egrep 'rename.+{src_dataset}'`. "
+                "If there are any relevant renames, repeat them on the destination system by running "
+                "the corresponding `zfs rename` commands and try again."
             )
 
             raise ReplicationError(text)
