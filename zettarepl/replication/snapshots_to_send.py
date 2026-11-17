@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 from collections import namedtuple
+from collections.abc import Collection
 from datetime import datetime
 import logging
 
@@ -21,7 +22,7 @@ SnapshotsToSend = namedtuple("SnapshotsToSend", ["incremental_base", "snapshots"
                                                  "empty_is_successful"])
 
 
-def get_snapshots_to_send(src_snapshots: list[str], dst_snapshots: list[str],
+def get_snapshots_to_send(src_snapshots: Collection[str], dst_snapshots: Collection[str],
                           replication_task: ReplicationTask, src_shell: Shell,
                           src_dataset: str) -> SnapshotsToSend:
     if replication_task.name_pattern:
@@ -35,8 +36,8 @@ def get_snapshots_to_send(src_snapshots: list[str], dst_snapshots: list[str],
 
 
 def get_snapshots_to_send_with_name_pattern(
-    src_snapshots: list[str],
-    dst_snapshots: list[str],
+    src_snapshots: Collection[str],
+    dst_snapshots: Collection[str],
     replication_task: ReplicationTask,
     src_shell: Shell,
     src_dataset: str,
@@ -85,7 +86,7 @@ def get_parsed_incremental_base(
 
 
 def get_snapshots_to_send_with_naming_schemas(
-    src_snapshots: list[str], dst_snapshots: list[str], replication_task: ReplicationTask,
+    src_snapshots: Collection[str], dst_snapshots: Collection[str], replication_task: ReplicationTask,
 ) -> SnapshotsToSend:
     naming_schemas = replication_task_naming_schemas(replication_task)
 

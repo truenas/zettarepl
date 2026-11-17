@@ -47,5 +47,6 @@ def test_bad_incremental_base(transport):
     definition["replication-tasks"]["src"]["transport"] = transport
 
     assert (
-        "does not match incremental source" in run_replication_test(definition, success=False).error.replace("\n", " ")
+        "Snapshot tank/dst@2018-10-01_01-00 has a different GUID than source snapshot tank/src@2018-10-01_01-00" in
+        run_replication_test(definition, success=False).error
     )
