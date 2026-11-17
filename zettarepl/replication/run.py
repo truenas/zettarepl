@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import dropwhile
 import logging
@@ -27,7 +28,6 @@ from zettarepl.transport.local import LocalShell
 from zettarepl.transport.base_ssh import BaseSshTransport
 from zettarepl.transport.zfscli import get_properties, get_property
 from zettarepl.transport.zfscli.exception import DatasetDoesNotExistException
-from zettarepl.transport.zfscli.parse import zfs_bool
 from zettarepl.transport.zfscli.warning import warnings_from_zfs_success
 
 from .dataset_size_observer import DatasetSizeObserver
@@ -74,26 +74,28 @@ class GlobalReplicationContext:
             self.warnings.append(warning)
 
 
+@dataclass
+class ReplicationContextDataset:
+    snapshots: dict[str, str] = field(default_factory=dict)  # name -> guid
+    encrypted: bool = False
+    readonly: bool | None = None
+    receive_resume_token: str | None = None
+
+
 class ReplicationContext:
     def __init__(self, context: GlobalReplicationContext, transport: Transport | None, shell: Shell) -> None:
         self.context = context
         self.transport = transport
         self.shell = shell
-        self.datasets: dict[str, dict[str, str]] = {}
-        self.datasets_encrypted: dict[str, bool] = {}
-        self.datasets_readonly: dict[str, bool] = {}
-        self.datasets_receive_resume_tokens: dict[str, str | None] = {}
+        self.datasets: dict[str, ReplicationContextDataset] = {}
 
     def remove_dataset(self, dataset: str) -> None:
-        for dictionary in (
-            self.datasets,
-            self.datasets_encrypted,
-            self.datasets_readonly,
-            self.datasets_receive_resume_tokens,
-        ):
-            for k in list(dictionary.keys()):
-                if k == dataset or k.startswith(f"{dataset}/"):
-                    dictionary.pop(k)
+        for name in list(self.datasets):
+            if name == dataset or name.startswith(f"{dataset}/"):
+                del self.datasets[name]
+
+    def snapshots_by_dataset(self) -> dict[str, dict[str, str]]:
+        return {name: dataset.snapshots for name, dataset in self.datasets.items()}
 
 
 class ReplicationStepTemplate:
@@ -274,8 +276,8 @@ def run_replication_task_part(replication_task: ReplicationTask, source_dataset:
     check_encrypted_target(replication_task, source_dataset, src_context, dst_context)
 
     # Remote retention has to be executed prior to running actual replication in order to free disk space or quotas
-    pre_retention(src_context.context.now.replace(tzinfo=None), replication_task, src_context.datasets,
-                  dst_context.datasets, target_dataset, dst_context.shell)
+    pre_retention(src_context.context.now.replace(tzinfo=None), replication_task, src_context.snapshots_by_dataset(),
+                  dst_context.snapshots_by_dataset(), target_dataset, dst_context.shell)
 
     with DatasetSizeObserver(
         src_context.shell, dst_context.shell,
@@ -329,7 +331,7 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
         else:
             if new_dataset_should_be_encrypted(dst_context.shell, dst_dataset):
                 if replication_task.properties:
-                    if not src_context.datasets_encrypted[source_dataset]:
+                    if not src_context.datasets[source_dataset].encrypted:
                         raise ReplicationError(
                             f"Destination dataset {dst_dataset!r} must be encrypted (as one of its ancestors is "
                             f"encrypted). Refusing to transfer unencrypted source dataset {source_dataset!r}. "
@@ -355,10 +357,10 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
         raise ReplicationError(f"Encryption requested for destination dataset {dst_dataset!r}, but it already exists "
                                "and is not encrypted.")
 
-    if dst_context.datasets[dst_dataset]:
+    if dst_context.datasets[dst_dataset].snapshots:
         return
 
-    if dst_context.datasets_receive_resume_tokens.get(dst_dataset) is not None:
+    if dst_context.datasets[dst_dataset].receive_resume_token is not None:
         return
 
     if properties["encryption"] == "off":
@@ -379,7 +381,6 @@ def check_encrypted_target(replication_task: ReplicationTask, source_dataset: st
                         dst_dataset)
             dst_context.shell.exec(["zfs", "destroy", dst_dataset])
             dst_context.datasets.pop(dst_dataset, None)
-            dst_context.datasets_readonly.pop(dst_dataset, None)
 
 
 def new_dataset_should_be_encrypted(shell: Shell, dataset: str) -> bool:
@@ -408,31 +409,34 @@ def calculate_replication_step_templates(
     replication_task: ReplicationTask, source_dataset: str,
     src_context: ReplicationContext, dst_context: ReplicationContext,
 ) -> list[ReplicationStepTemplate]:
-    src_context.datasets = list_datasets_with_snapshots(src_context.shell, source_dataset,
-                                                        replication_task.recursive)
+    src_context.datasets = {
+        name: ReplicationContextDataset(snapshots=snapshots)
+        for name, snapshots in list_datasets_with_snapshots(src_context.shell, source_dataset,
+                                                            replication_task.recursive).items()
+    }
     if replication_task.properties:
-        src_context.datasets_encrypted = get_datasets_encrypted(src_context.shell, source_dataset,
-                                                                replication_task.recursive)
+        for name, encrypted in get_datasets_encrypted(src_context.shell, source_dataset,
+                                                      replication_task.recursive).items():
+            if name in src_context.datasets:
+                src_context.datasets[name].encrypted = encrypted
 
         if replication_task.encryption:
-            for dataset, encrypted in src_context.datasets_encrypted.items():
-                if encrypted:
-                    if replication_task_should_replicate_dataset(replication_task, dataset):
+            for name, dataset in src_context.datasets.items():
+                if dataset.encrypted:
+                    if replication_task_should_replicate_dataset(replication_task, name):
                         raise ReplicationError(
-                            f"Re-encrypting already encrypted source dataset {dataset!r} while preserving its "
+                            f"Re-encrypting already encrypted source dataset {name!r} while preserving its "
                             "properties is not supported"
                         )
 
     # It's not fail-safe to send recursive streams because recursive snapshots can have excludes in the past
     # or deleted empty snapshots
-    source_datasets = list(src_context.datasets.keys())  # Order is right because it's OrderedDict
+    source_datasets = list(src_context.datasets.keys())  # Sorted by name, so parents go before children
     if replication_task.replicate:
         # But when replicate is on, we have no choice
         source_datasets = [source_dataset]
 
     dst_context.datasets = {}
-    dst_context.datasets_readonly = {}
-    dst_context.datasets_receive_resume_tokens = {}
     templates = []
     for source_dataset in source_datasets:
         if not replication_task_should_replicate_dataset(replication_task, source_dataset):
@@ -458,21 +462,24 @@ def calculate_replication_step_templates(
                 valid_properties.add(property_name)
 
         try:
-            datasets = list_datasets_with_properties(dst_context.shell, target_dataset, replication_task.recursive,
-                                                     {"readonly": str, "receive_resume_token": str})
+            target_datasets = {
+                dataset["name"]: dataset
+                for dataset in list_datasets_with_properties(dst_context.shell, target_dataset,
+                                                             replication_task.recursive,
+                                                             {"readonly": bool, "receive_resume_token": str})
+            }
         except DatasetDoesNotExistException:
             pass
         else:
-            dst_context.datasets.update(
-                list_snapshots_for_datasets(dst_context.shell, target_dataset, replication_task.recursive,
-                                            [dataset["name"] for dataset in datasets])
-            )
-            dst_context.datasets_readonly.update(**{dataset["name"]: zfs_bool(dataset["readonly"])
-                                                    for dataset in datasets})
-            dst_context.datasets_receive_resume_tokens.update(**{
-                dataset["name"]: dataset["receive_resume_token"] if dataset["receive_resume_token"] != "-" else None
-                for dataset in datasets
-            })
+            for name, snapshots in list_snapshots_for_datasets(dst_context.shell, target_dataset,
+                                                               replication_task.recursive,
+                                                               list(target_datasets)).items():
+                properties = target_datasets.get(name, {})
+                dst_context.datasets[name] = ReplicationContextDataset(
+                    snapshots=snapshots,
+                    readonly=properties.get("readonly"),
+                    receive_resume_token=properties.get("receive_resume_token"),
+                )
 
         templates.append(
             ReplicationStepTemplate(replication_task, src_context, dst_context, source_dataset, target_dataset,
@@ -515,8 +522,8 @@ def resume_replications(step_templates: list[ReplicationStepTemplate], observer:
         context = step_template.src_context.context
 
         if step_template.replication_task.replicate:
-            for dst_dataset, token in step_template.dst_context.datasets_receive_resume_tokens.items():
-                if token is not None:
+            for dst_dataset, dataset in step_template.dst_context.datasets.items():
+                if dataset.receive_resume_token is not None:
                     logger.warning(
                         "Discarding receive_resume_token for destination dataset %r as it is not supported in "
                         "`replicate` mode",
@@ -526,15 +533,13 @@ def resume_replications(step_templates: list[ReplicationStepTemplate], observer:
                     return False
 
         if step_template.dst_dataset in step_template.dst_context.datasets:
-            receive_resume_token = step_template.dst_context.datasets_receive_resume_tokens.get(
-                step_template.dst_dataset
-            )
+            receive_resume_token = step_template.dst_context.datasets[step_template.dst_dataset].receive_resume_token
 
             if receive_resume_token is not None:
                 logger.info("Resuming replication for destination dataset %r", step_template.dst_dataset)
 
-                src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
-                dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
+                src_snapshots = step_template.src_context.datasets[step_template.src_dataset].snapshots
+                dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset].snapshots
 
                 incremental_base, snapshots = get_snapshots_to_send(
                     src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
@@ -596,8 +601,9 @@ def diverged_datasets(step_template: ReplicationStepTemplate, snapshot: str) -> 
     result = []
     for src_dataset in src_datasets:
         dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
-        if not snapshot_guids_match(step_template.src_context.datasets[src_dataset],
-                                    step_template.dst_context.datasets.get(dst_dataset, {}), snapshot):
+        src_snapshots = step_template.src_context.datasets[src_dataset].snapshots
+        dst_snapshots = step_template.dst_context.datasets.get(dst_dataset, ReplicationContextDataset()).snapshots
+        if not snapshot_guids_match(src_snapshots, dst_snapshots, snapshot):
             result.append((src_dataset, dst_dataset))
 
     return result
@@ -606,7 +612,8 @@ def diverged_datasets(step_template: ReplicationStepTemplate, snapshot: str) -> 
 def run_replication_steps(step_templates: list[ReplicationStepTemplate], observer: Observer = None) -> None:
     for step_template in step_templates:
         if step_template.replication_task.readonly == ReadOnlyBehavior.REQUIRE:
-            if not step_template.dst_context.datasets_readonly.get(step_template.dst_dataset, True):
+            target = step_template.dst_context.datasets.get(step_template.dst_dataset)
+            if target is not None and target.readonly is False:
                 message = (
                     f"Target dataset {step_template.dst_dataset!r} exists and does not have readonly=on property, "
                     "but replication task is set up to require this property. Refusing to replicate."
@@ -638,8 +645,9 @@ def run_replication_steps(step_templates: list[ReplicationStepTemplate], observe
         if ignore:
             continue
 
-        src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
-        dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset, {})
+        src_snapshots = step_template.src_context.datasets[step_template.src_dataset].snapshots
+        dst_snapshots = step_template.dst_context.datasets.get(step_template.dst_dataset,
+                                                               ReplicationContextDataset()).snapshots
 
         snapshots_to_send = get_snapshots_to_send(
             src_snapshots, dst_snapshots, step_template.replication_task, step_template.src_context.shell,
@@ -808,15 +816,17 @@ def check_base_consistency_for_full_replication(
     step_template: ReplicationStepTemplate,
     snapshots_to_send: SnapshotsToSend,
 ) -> SnapshotsToSend:
-    for src_dataset, src_dataset_snapshots in step_template.src_context.datasets.items():
+    for src_dataset, dataset in step_template.src_context.datasets.items():
         if not is_child(src_dataset, step_template.src_dataset):
             continue
 
-        if snapshots_to_send.incremental_base not in src_dataset_snapshots:
+        if snapshots_to_send.incremental_base not in dataset.snapshots:
             continue
 
         dst_dataset = get_target_dataset(step_template.replication_task, src_dataset)
-        if snapshots_to_send.incremental_base not in step_template.dst_context.datasets.get(dst_dataset, {}):
+        dst_dataset_snapshots = step_template.dst_context.datasets.get(dst_dataset,
+                                                                       ReplicationContextDataset()).snapshots
+        if snapshots_to_send.incremental_base not in dst_dataset_snapshots:
             if step_template.dst_context.context.last_recoverable_error is not None:
                 partial_snapshot = f"{step_template.dst_dataset}@{snapshots_to_send.incremental_base}"
                 logger.warning(
@@ -829,8 +839,8 @@ def check_base_consistency_for_full_replication(
                     logger.warning(f"Destroying partial snapshot failed: {e!r}")
                     text = "Full "
                 else:
-                    src_snapshots = step_template.src_context.datasets[step_template.src_dataset]
-                    dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset]
+                    src_snapshots = step_template.src_context.datasets[step_template.src_dataset].snapshots
+                    dst_snapshots = step_template.dst_context.datasets[step_template.dst_dataset].snapshots
                     del dst_snapshots[snapshots_to_send.incremental_base]
 
                     return get_snapshots_to_send(
@@ -909,9 +919,9 @@ def run_replication_step(step: ReplicationStep, observer: Observer = None,
         raise ValueError(f"Invalid replication direction: {step.replication_task.direction!r}")
 
     if step.replication_task.replicate:
-        raw = any(step.src_context.datasets_encrypted.values())
+        raw = any(dataset.encrypted for dataset in step.src_context.datasets.values())
     else:
-        raw = step.replication_task.properties and step.src_context.datasets_encrypted[step.src_dataset]
+        raw = step.replication_task.properties and step.src_context.datasets[step.src_dataset].encrypted
 
     transport = remote_context.transport
     assert transport
@@ -974,21 +984,22 @@ def run_replication_step(step: ReplicationStep, observer: Observer = None,
 def handle_readonly(step_template: ReplicationStepTemplate) -> None:
     if step_template.replication_task.readonly in (ReadOnlyBehavior.SET, ReadOnlyBehavior.REQUIRE):
         try:
+            datasets = step_template.dst_context.datasets
             # We only want to inherit if dataset is a child of some replicated dataset
             parent = os.path.dirname(step_template.dst_dataset)
             if (
-                parent in step_template.dst_context.datasets_readonly and
-                step_template.dst_context.datasets_readonly.get(step_template.dst_dataset) is False
+                parent in datasets and
+                datasets.get(step_template.dst_dataset, ReplicationContextDataset()).readonly is False
             ):
                 # Parent should be `readonly=on` by now which means for this dataset `readonly=off` was set explicitly
                 # Let's reset it
                 action = "inherit"
                 step_template.dst_context.shell.exec(["zfs", "inherit", "readonly", step_template.dst_dataset])
 
-            step_template.dst_context.datasets_readonly[step_template.dst_dataset] = True
+            datasets.setdefault(step_template.dst_dataset, ReplicationContextDataset()).readonly = True
 
             # We only set value is there is no parent that already has this value set
-            if not step_template.dst_context.datasets_readonly.get(parent, False):
+            if not datasets.get(parent, ReplicationContextDataset()).readonly:
                 action = "set"
                 step_template.dst_context.shell.exec(["zfs", "set", "readonly=on", step_template.dst_dataset])
         except ExecException as e:
