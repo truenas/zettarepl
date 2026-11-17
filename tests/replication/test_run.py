@@ -7,16 +7,20 @@ import pytest
 
 from zettarepl.observer import ReplicationTaskStart, ReplicationTaskSuccess
 from zettarepl.replication.run import (
+    ReplicationContextDataset,
+    ReplicationContext,
     run_replication_tasks,
     calculate_replication_step_templates,
     get_target_dataset,
     get_snapshots_to_send,
+    handle_readonly,
     replicate_snapshots,
     broken_pipe_error,
 )
 from zettarepl.replication.error import ReplicationError
 from zettarepl.replication.snapshots_to_send import SnapshotsToSend
 from zettarepl.replication.task.direction import ReplicationDirection
+from zettarepl.replication.task.readonly_behavior import ReadOnlyBehavior
 from zettarepl.scheduler.cron import CronSchedule
 
 
@@ -145,6 +149,113 @@ def test__calculate_replication_step_templates(replication_task, src_datasets, r
                         call(replication_task, ANY, ANY, *replication_step_template, set())
                         for replication_step_template in replication_step_templates
                     ]
+
+
+def test__replication_context__remove_dataset():
+    context = ReplicationContext(Mock(), None, Mock())
+    context.datasets = {
+        "data/dst": ReplicationContextDataset(),
+        "data/dst/child": ReplicationContextDataset(),
+        "data/dst2": ReplicationContextDataset(),
+    }
+
+    context.remove_dataset("data/dst")
+
+    assert list(context.datasets) == ["data/dst2"]
+
+
+def test__calculate_replication_step_templates__src_context():
+    replication_task = Mock(source_datasets=["data/src"], target_dataset="data/dst", recursive=True, replicate=False,
+                            exclude=[], properties=True, properties_exclude=[], properties_override={},
+                            encryption=None)
+    src_context = Mock()
+
+    with patch("zettarepl.replication.run.list_datasets_with_snapshots",
+               Mock(return_value={"data/src": {"snap-1": "1"}, "data/src/child": {}})):
+        with patch("zettarepl.replication.run.get_datasets_encrypted",
+                   Mock(return_value={"data/src": False, "data/src/child": True, "data/src/gone": True})):
+            with patch("zettarepl.replication.run.list_datasets_with_properties", Mock(return_value=[])):
+                with patch("zettarepl.replication.run.list_snapshots_for_datasets", Mock(return_value={})):
+                    calculate_replication_step_templates(replication_task, "data/src", src_context, Mock())
+
+    assert src_context.datasets == {
+        "data/src": ReplicationContextDataset({"snap-1": "1"}, False),
+        "data/src/child": ReplicationContextDataset({}, True),
+    }
+
+
+def test__calculate_replication_step_templates__dst_context():
+    replication_task = Mock(source_datasets=["data/src"], target_dataset="data/dst", recursive=True, replicate=False,
+                            exclude=[], properties=False, properties_exclude=[], properties_override={})
+    dst_context = Mock()
+
+    with patch("zettarepl.replication.run.list_datasets_with_snapshots", Mock(return_value={"data/src": {}})):
+        with patch("zettarepl.replication.run.list_datasets_with_properties", Mock(return_value=[
+            {"name": "data/dst", "readonly": True, "receive_resume_token": None},
+            {"name": "data/dst/child", "readonly": False, "receive_resume_token": "token"},
+        ])):
+            with patch("zettarepl.replication.run.list_snapshots_for_datasets", Mock(return_value={
+                "data/dst": {"snap-1": "1"},
+                "data/dst/child": {},
+                "data/dst/new": {"snap-1": "2"},
+            })):
+                calculate_replication_step_templates(replication_task, "data/src", Mock(), dst_context)
+
+    assert dst_context.datasets == {
+        "data/dst": ReplicationContextDataset({"snap-1": "1"}, False, True, None),
+        "data/dst/child": ReplicationContextDataset({}, False, False, "token"),
+        "data/dst/new": ReplicationContextDataset({"snap-1": "2"}, False, None, None),
+    }
+
+
+@pytest.mark.parametrize("datasets,exec_calls", [
+    # Parent is readonly and the dataset has an explicit readonly=off: inherit
+    (
+        {
+            "data/dst": ReplicationContextDataset(readonly=True),
+            "data/dst/child": ReplicationContextDataset(readonly=False),
+        },
+        [call(["zfs", "inherit", "readonly", "data/dst/child"])],
+    ),
+    # Parent is readonly and the dataset is readonly: nothing to do
+    (
+        {
+            "data/dst": ReplicationContextDataset(readonly=True),
+            "data/dst/child": ReplicationContextDataset(readonly=True),
+        },
+        [],
+    ),
+    # Parent is readonly and the dataset readonly state is unknown: nothing to do
+    (
+        {
+            "data/dst": ReplicationContextDataset(readonly=True),
+            "data/dst/child": ReplicationContextDataset(),
+        },
+        [],
+    ),
+    # Parent is not readonly: set
+    (
+        {
+            "data/dst": ReplicationContextDataset(readonly=False),
+            "data/dst/child": ReplicationContextDataset(readonly=True),
+        },
+        [call(["zfs", "set", "readonly=on", "data/dst/child"])],
+    ),
+    # Replication has just created the dataset and its parent: set
+    (
+        {},
+        [call(["zfs", "set", "readonly=on", "data/dst/child"])],
+    ),
+])
+def test__handle_readonly(datasets, exec_calls):
+    step_template = Mock(dst_dataset="data/dst/child")
+    step_template.replication_task.readonly = ReadOnlyBehavior.SET
+    step_template.dst_context.datasets = datasets
+
+    handle_readonly(step_template)
+
+    assert step_template.dst_context.shell.exec.call_args_list == exec_calls
+    assert datasets["data/dst/child"].readonly is True
 
 
 def test__get_target_dataset__1():
